@@ -4,6 +4,7 @@ import com.xtra.kick.model.kick.KickCategoriesData
 import com.xtra.kick.model.kick.KickCategoriesResponse
 import com.xtra.kick.model.kick.KickChannelLivestream
 import com.xtra.kick.model.kick.KickChannelResponse
+import com.xtra.kick.model.kick.KickChannelVideo
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
 import com.xtra.kick.model.kick.KickClip
 import com.xtra.kick.model.kick.KickFollowedChannel

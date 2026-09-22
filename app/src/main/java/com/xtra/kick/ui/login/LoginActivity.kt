@@ -154,7 +154,7 @@ class LoginActivity : AppCompatActivity() {
     private fun startKickLogin() {
         binding.progressBar.visibility = View.VISIBLE
         verifier = KickOAuth.generateVerifier()
-        val challenge = verifier?.let { KickOAuth.generateCodeChallenge(it) }
+        val challenge = verifier?.let { KickOAuth.generateCodeChallenge(it) } ?: ""
         val state = KickOAuth.generateState()
         tokenPrefs().edit {
             putString(C.KICK_OAUTH_STATE, state)
