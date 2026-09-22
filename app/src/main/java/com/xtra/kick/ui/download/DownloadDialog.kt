@@ -755,6 +755,8 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                     },
                     supportedCodecs = requireContext().prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
+                    kickChannelLogin = requireArguments().getString(KEY_CHANNEL_LOGIN),
                 )
             }
             "clip" -> {

@@ -37,6 +37,7 @@ class DownloadViewModel(
     private val cronetExecutor: Lazy<ExecutorService>,
     private val okHttpClient: Lazy<OkHttpClient>,
     private val playerRepository: PlayerRepository,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val integrity = MutableSharedFlow<String?>()
@@ -158,8 +159,21 @@ class DownloadViewModel(
         }
     }
 
-    fun setVideo(networkLibrary: String?, gqlHeaders: Map<String, String>, videoId: String?, animatedPreviewUrl: String?, videoType: String?, qualities: List<VideoQuality>?, supportedCodecs: String?, enableIntegrity: Boolean) {
+    fun setVideo(networkLibrary: String?, gqlHeaders: Map<String, String>, videoId: String?, animatedPreviewUrl: String?, videoType: String?, qualities: List<VideoQuality>?, supportedCodecs: String?, enableIntegrity: Boolean, kickChannelId: String? = null, kickChannelLogin: String? = null) {
         if (_qualities.value == null) {
+            if (kickChannelId?.startsWith("user_") == true) {
+                viewModelScope.launch {
+                    try {
+                        val source = kickRepository.getVideo(videoId)?.source
+                        if (!source.isNullOrBlank()) {
+                            _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                        }
+                    } catch (e: Exception) {
+                        // fall through to Twitch flow
+                    }
+                }
+            }
+            if (_qualities.value == null) {
             if (!qualities.isNullOrEmpty()) {
                 _qualities.value = qualities
             } else {
@@ -378,8 +392,23 @@ class DownloadViewModel(
         }
     }
 
-    fun setClip(networkLibrary: String?, gqlHeaders: Map<String, String>, clipId: String?, qualities: List<VideoQuality>?, enableIntegrity: Boolean) {
+    fun setClip(networkLibrary: String?, gqlHeaders: Map<String, String>, clipId: String?, qualities: List<VideoQuality>?, enableIntegrity: Boolean, kickChannelId: String? = null) {
         if (_qualities.value == null) {
+            if (kickChannelId?.startsWith("user_") == true) {
+                viewModelScope.launch {
+                    try {
+                        val url = kickRepository.getClip(clipId)?.clipUrl
+                        if (!url.isNullOrBlank()) {
+                            _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
+                        } else {
+                            _qualities.value = qualities
+                        }
+                    } catch (e: Exception) {
+                        _qualities.value = qualities
+                    }
+                }
+                return
+            }
             if (!qualities.isNullOrEmpty()) {
                 _qualities.value = qualities
             } else {
@@ -409,7 +438,7 @@ class DownloadViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                DownloadViewModel(application.applicationContext, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.playerRepository)
+                DownloadViewModel(application.applicationContext, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.playerRepository, xtraModule.kickRepository)
             }
         }
     }
