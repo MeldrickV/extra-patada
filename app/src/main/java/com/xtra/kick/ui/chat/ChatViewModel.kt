@@ -34,6 +34,7 @@ import com.xtra.kick.model.chat.VideoChatMessage
 import com.xtra.kick.model.ui.TranslatedChannel
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
@@ -45,6 +46,7 @@ import com.xtra.kick.util.chat.ChatWriteWebSocket
 import com.xtra.kick.util.chat.EventSubUtils
 import com.xtra.kick.util.chat.EventSubWebSocket
 import com.xtra.kick.util.chat.HermesWebSocket
+import com.xtra.kick.util.chat.KickChatWebSocket
 import com.xtra.kick.util.chat.PubSubUtils
 import com.xtra.kick.util.chat.STVEventApiUtils
 import com.xtra.kick.util.chat.STVEventApiWebSocket
@@ -70,6 +72,7 @@ import java.util.zip.DeflaterOutputStream
 import java.util.zip.InflaterOutputStream
 import javax.net.ssl.X509TrustManager
 import kotlin.concurrent.scheduleAtFixedRate
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -78,6 +81,7 @@ class ChatViewModel(
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
     private val playerRepository: PlayerRepository,
+    private val kickRepository: KickRepository,
     private val trustManager: Lazy<X509TrustManager>,
     private val json: Json,
 ) : ViewModel() {
@@ -88,6 +92,7 @@ class ChatViewModel(
     private var chatWriteIRCSocket: ChatWriteIRCSocket? = null
     private var chatReadWebSocket: ChatReadWebSocket? = null
     private var chatWriteWebSocket: ChatWriteWebSocket? = null
+    private var kickChatWebSocket: KickChatWebSocket? = null
     private var chatReadJob: Job? = null
     private var chatWriteJob: Job? = null
     private var eventSub: EventSubWebSocket? = null
@@ -163,6 +168,13 @@ class ChatViewModel(
     private val chatters = ConcurrentHashMap<String, Chatter>()
 
     fun startLive(networkLibrary: String?, recentMessagesUrl: String?, channelId: String?, channelLogin: String?, channelName: String?, streamId: String?) {
+        if (channelId?.startsWith("user_") == true && channelLogin != null) {
+            messageLimit = applicationContext.prefs().getInt(C.CHAT_LIMIT, 600)
+            this.streamId = streamId
+            startKickLiveChat(channelLogin)
+            addChatter(channelName)
+            return
+        }
         if (chatReadIRCSocket == null && chatReadWebSocket == null && eventSub == null && channelLogin != null) {
             messageLimit = applicationContext.prefs().getInt(C.CHAT_LIMIT, 600)
             this.streamId = streamId
@@ -192,6 +204,12 @@ class ChatViewModel(
     }
 
     fun resumeLive(channelId: String?, channelLogin: String?) {
+        if (channelId?.startsWith("user_") == true) {
+            if (chatReadJob?.isActive == false && channelLogin != null && autoReconnect) {
+                startKickLiveChat(channelLogin)
+            }
+            return
+        }
         if ((chatReadJob?.isActive == false) && channelLogin != null && autoReconnect) {
             startLiveChat(channelId, channelLogin)
         }
@@ -1012,6 +1030,55 @@ class ChatViewModel(
         }
     }
 
+    fun startKickLiveChat(channelLogin: String) {
+        stopLiveChat()
+        started = true
+        viewModelScope.launch {
+            try {
+                val channel = kickRepository.getChannel(channelLogin)
+                val chatroomId = channel.chatroom?.id
+                if (chatroomId != null && chatroomId > 0) {
+                    kickChatWebSocket = KickChatWebSocket(
+                        chatroomId = chatroomId,
+                        kickRepository = kickRepository,
+                        trustManager = trustManager,
+                        listener = KickChatListener(),
+                    )
+                    chatReadJob = kickChatWebSocket?.connect(viewModelScope)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                onMessage(ChatMessage(systemMsg = "Kick chat offline"))
+            }
+        }
+    }
+
+    private inner class KickChatListener : KickChatWebSocket.Listener {
+        override suspend fun onChatMessage(event: JSONObject) {
+            val sender = event.optJSONObject("sender")
+            val identity = sender?.optJSONObject("identity")
+            val content = event.optString("content").takeIf { it.isNotBlank() } ?: return
+            val message = ChatMessage(
+                type = ChatMessage.USER_MESSAGE,
+                id = event.optString("id").takeIf { it.isNotBlank() },
+                userId = sender?.opt("id")?.toString(),
+                userLogin = sender?.optString("slug")?.takeIf { it.isNotBlank() } ?: sender?.optString("username"),
+                userName = sender?.optString("username")?.takeIf { it.isNotBlank() } ?: sender?.optString("slug"),
+                message = content,
+                color = identity?.optString("color")?.takeIf { it.isNotBlank() },
+                timestamp = event.optString("created_at").takeIf { it.isNotBlank() }?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+            )
+            onMessage(message)
+        }
+
+        override suspend fun onDisconnect(message: String, fullMsg: String?) {
+            if (started) {
+                onMessage(ChatMessage(systemMsg = "Kick chat disconnected"))
+            }
+        }
+    }
+
     fun startLiveChat(channelId: String?, channelLogin: String) {
         stopLiveChat()
         started = true
@@ -1164,6 +1231,11 @@ class ChatViewModel(
             if (stvEventApi != null) {
                 MainScope().launch(Dispatchers.IO) {
                     stvEventApi?.disconnect(stvEventApiJob)
+                }
+            }
+            if (kickChatWebSocket != null) {
+                MainScope().launch(Dispatchers.IO) {
+                    kickChatWebSocket?.disconnect(chatReadJob)
                 }
             }
         }
@@ -3193,7 +3265,7 @@ class ChatViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                ChatViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.trustManager, xtraModule.json)
+                ChatViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.kickRepository, xtraModule.trustManager, xtraModule.json)
             }
         }
     }

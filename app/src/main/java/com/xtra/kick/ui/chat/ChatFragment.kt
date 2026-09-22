@@ -876,7 +876,12 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
     fun reconnect() {
         val channelLogin = requireArguments().getString(KEY_CHANNEL_LOGIN)
         if (channelLogin != null) {
-            viewModel.startLiveChat(requireArguments().getString(KEY_CHANNEL_ID), channelLogin)
+            val channelId = requireArguments().getString(KEY_CHANNEL_ID)
+            if (channelId?.startsWith("user_") == true) {
+                viewModel.startKickLiveChat(channelLogin)
+            } else {
+                viewModel.startLiveChat(channelId, channelLogin)
+            }
             if (requireContext().prefs().getBoolean(C.CHAT_RECENT, true)) {
                 viewModel.loadRecentMessages(
                     requireContext().prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),

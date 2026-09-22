@@ -117,3 +117,8 @@ data class KickChannelLivestream(
     @SerialName("viewer_count") val viewerCount: Int = 0,
     @SerialName("started_at") val startedAt: String? = null,
 )
+
+data class KickRealtimeConnectionInfo(
+    val url: String,
+    val token: String,
+)
