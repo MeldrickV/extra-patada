@@ -4,14 +4,23 @@ import com.xtra.kick.model.kick.KickCategoriesData
 import com.xtra.kick.model.kick.KickCategoriesResponse
 import com.xtra.kick.model.kick.KickChannelLivestream
 import com.xtra.kick.model.kick.KickChannelResponse
+import com.xtra.kick.model.kick.KickChannelsClipsResponse
+import com.xtra.kick.model.kick.KickClip
+import com.xtra.kick.model.kick.KickFollowedChannel
 import com.xtra.kick.model.kick.KickLivestreamsData
 import com.xtra.kick.model.kick.KickLivestreamsResponse
+import com.xtra.kick.model.kick.KickOAuthIntrospection
+import com.xtra.kick.model.kick.KickOAuthTokenResponse
 import com.xtra.kick.model.kick.KickRealtimeConnectionInfo
+import com.xtra.kick.model.kick.KickSelfUserResponse
+import com.xtra.kick.model.kick.KickSingleClipResponse
+import com.xtra.kick.model.kick.KickVideoResponse
 import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -124,5 +133,206 @@ class KickRepository(
                     ?: throw IllegalStateException("Kick realtime response missing token or connection url")
             }
         }
+    }
+
+    suspend fun getOAuthToken(clientId: String?, clientSecret: String?, redirectUri: String?, code: String, codeVerifier: String): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
+        val form = FormBody.Builder()
+            .add("client_id", clientId ?: "")
+            .add("code", code)
+            .add("code_verifier", codeVerifier)
+            .add("grant_type", "authorization_code")
+            .add("redirect_uri", redirectUri ?: "")
+            .apply { clientSecret?.takeIf { it.isNotBlank() }?.let { add("client_secret", it) } }
+            .build()
+        postOAuthForm("/oauth/token", form)
+    }
+
+    suspend fun refreshOAuthToken(clientId: String?, clientSecret: String?, refreshToken: String): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
+        val form = FormBody.Builder()
+            .add("client_id", clientId ?: "")
+            .add("refresh_token", refreshToken)
+            .add("grant_type", "refresh_token")
+            .apply { clientSecret?.takeIf { it.isNotBlank() }?.let { add("client_secret", it) } }
+            .build()
+        postOAuthForm("/oauth/token", form)
+    }
+
+    suspend fun introspectOAuthToken(clientId: String?, clientSecret: String?, token: String): KickOAuthIntrospection = withContext(Dispatchers.IO) {
+        val form = FormBody.Builder()
+            .apply { clientId?.takeIf { it.isNotBlank() }?.let { add("client_id", it) } }
+            .apply { clientSecret?.takeIf { it.isNotBlank() }?.let { add("client_secret", it) } }
+            .add("token", token)
+            .build()
+        val response = okHttpClient.value.newCall(
+            Request.Builder()
+                .url("${KickApiHelper.OAUTH_BASE_URL}/oauth/token/introspect")
+                .post(form)
+                .build()
+        ).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick token introspection failed: ${it.code}")
+            }
+            json.decodeFromString<KickOAuthIntrospection>(it.body.string())
+        }
+    }
+
+    suspend fun getCurrentUser(token: String): KickSelfUserResponse = withContext(Dispatchers.IO) {
+        val response = okHttpClient.value.newCall(Request.Builder().url("${KickApiHelper.PUBLIC_API_BASE_URL}/users").apply {
+            KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick current user request failed: ${it.code}")
+            }
+            json.decodeFromString<KickSelfUserResponse>(it.body.string())
+        }
+    }
+
+    suspend fun getFollowedChannels(token: String, limit: Int, cursor: String?): List<KickFollowedChannel> = withContext(Dispatchers.IO) {
+        val url = KickApiHelper.followedChannelsUrl().toHttpUrl().newBuilder()
+            .addQueryParameter("page_size", limit.toString())
+            .apply { cursor?.let { addQueryParameter("cursor", it) } }
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
+            KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick followed channels request failed: ${it.code}")
+            }
+            val root = JSONObject(it.body.string())
+            val array = root.optJSONArray("data") ?: root.optJSONArray("channels")
+            val list = mutableListOf<KickFollowedChannel>()
+            if (array != null) {
+                for (i in 0 until array.length()) {
+                    array.optJSONObject(i)?.let { item -> list.add(parseFollowedChannel(item)) }
+                }
+            }
+            list
+        }
+    }
+
+    suspend fun followChannel(token: String, channelId: Long): Boolean = withContext(Dispatchers.IO) {
+        postFollow(token, channelId, "POST")
+    }
+
+    suspend fun unfollowChannel(token: String, channelId: Long): Boolean = withContext(Dispatchers.IO) {
+        postFollow(token, channelId, "DELETE")
+    }
+
+    suspend fun getChannelVideos(slug: String): List<KickChannelVideo>? = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelVideosUrl(slug)).apply {
+                headers.forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick channel videos request failed: ${it.code}")
+                }
+                val array = JSONArray(it.body.string())
+                (0 until array.length()).mapNotNull { index ->
+                    array.optJSONObject(index)?.toString()?.let { json.decodeFromString<KickChannelVideo>(it) }
+                }
+            }
+        }.getOrNull()
+    }
+
+    suspend fun getVideo(uuid: String): KickVideoResponse? = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.videoUrl(uuid)).apply {
+                headers.forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick video request failed: ${it.code}")
+                }
+                json.decodeFromString<KickVideoResponse>(it.body.string())
+            }
+        }.getOrNull()
+    }
+
+    suspend fun getChannelClips(slug: String): List<KickClip> = withContext(Dispatchers.IO) {
+        val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelClipsUrl(slug)).apply {
+            headers.forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick channel clips request failed: ${it.code}")
+            }
+            json.decodeFromString<KickChannelsClipsResponse>(it.body.string()).clips
+        }
+    }
+
+    suspend fun getGlobalClips(): List<KickClip> = withContext(Dispatchers.IO) {
+        val response = okHttpClient.value.newCall(Request.Builder().url("${KickApiHelper.WEBSITE_BASE_URL}/api/v2/clips").apply {
+            headers.forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick clips request failed: ${it.code}")
+            }
+            json.decodeFromString<KickChannelsClipsResponse>(it.body.string()).clips
+        }
+    }
+
+    suspend fun getClip(id: String): KickClip? = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.clipUrl(id)).apply {
+                headers.forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick clip request failed: ${it.code}")
+                }
+                json.decodeFromString<KickSingleClipResponse>(it.body.string()).clip
+            }
+        }.getOrNull()
+    }
+
+    private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
+        val response = okHttpClient.value.newCall(
+            Request.Builder()
+                .url(KickApiHelper.OAUTH_BASE_URL + path)
+                .apply {
+                    header("Accept", "application/json")
+                    header("Content-Type", "application/x-www-form-urlencoded")
+                }
+                .post(form)
+                .build()
+        ).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick OAuth request failed: ${it.code}")
+            }
+            json.decodeFromString<KickOAuthTokenResponse>(it.body.string())
+        }
+    }
+
+    private suspend fun postFollow(token: String, channelId: Long, method: String): Boolean = withContext(Dispatchers.IO) {
+        val builder = Request.Builder()
+            .url(KickApiHelper.followChannelUrl(channelId))
+            .apply {
+                KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+            }
+        val request = when (method) {
+            "DELETE" -> builder.delete().build()
+            else -> builder.post("".toRequestBody()).build()
+        }
+        val response = okHttpClient.value.newCall(request).executeAsync()
+        response.use {
+            it.isSuccessful
+        }
+    }
+
+    private fun parseFollowedChannel(obj: JSONObject): KickFollowedChannel {
+        val channel = obj.optJSONObject("channel") ?: obj
+        val user = obj.optJSONObject("user") ?: channel.optJSONObject("user")
+        return KickFollowedChannel(
+            id = channel.optLong("id", 0),
+            username = user?.optString("username")?.takeIf { it.isNotBlank() } ?: channel.optString("username").takeIf { it.isNotBlank() },
+            slug = (user ?: channel).optString("slug").takeIf { it.isNotBlank() },
+            profilePicture = (user ?: channel).optString("profile_picture").takeIf { it.isNotBlank() },
+        )
     }
 }
