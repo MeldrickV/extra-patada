@@ -166,15 +166,17 @@ class DownloadViewModel(
                 viewModelScope.launch {
                     try {
                         val source = videoId?.let { kickRepository.getVideo(it)?.source }
-                        if (!source.isNullOrBlank()) {
-                            _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                        _qualities.value = if (!source.isNullOrBlank()) {
+                            listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                        } else {
+                            qualities
                         }
                     } catch (e: Exception) {
-                        // fall through to Twitch flow
+                        _qualities.value = qualities
                     }
                 }
+                return
             }
-            if (_qualities.value == null) {
             if (!qualities.isNullOrEmpty()) {
                 _qualities.value = qualities
             } else {
