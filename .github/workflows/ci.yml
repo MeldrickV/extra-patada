@@ -35,15 +35,6 @@ jobs:
       - name: Compile debug sources
         run: ./gradlew assembleDebug compileDebugKotlin --stacktrace
 
-      - name: Generate lint baseline
-        run: ./gradlew updateLintBaseline
-
-      - name: Upload lint baseline artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: lint-baseline
-          path: app/lint-baseline.xml
-
       - name: Run lint
         run: ./gradlew lintDebug
 

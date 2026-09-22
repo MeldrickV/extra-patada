@@ -1,0 +1,1283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<issues format="6" by="lint 9.4.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.4.0)" variant="all" version="9.4.0">
+
+    <issue
+        id="EmptySuperCall"
+        message="No need to call `super.onCleared`; the super method is defined to be empty"
+        errorLine1="        super.onCleared()"
+        errorLine2="              ~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/chat/ChatViewModel.kt"
+            line="213"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="AppBundleLocaleChanges"
+        message="Found dynamic locale changes, but did not find corresponding Play Core library calls for downloading languages and splitting by language is not disabled in the `bundle` configuration"
+        errorLine1="        resources.configuration.setLocale("
+        errorLine2="        ^">
+        <location
+            file="src/main/java/com/xtra/kick/util/ContextExtensions.kt"
+            line="28"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AppLinkWarning"
+        message="This intent filter has the format of an Android App Link but is missing the `autoVerify` attribute; add `android:autoVerify=&quot;true&quot;` to ensure your domain will be validated and enable App Link-related Lint warnings. If you do not want clicked URLs to bring the user to your app, remove the `android.intent.category.BROWSABLE` category, or set `android:autoVerify=&quot;false&quot;` to make it clear this is not intended to be an Android App Link."
+        errorLine1="            &lt;intent-filter>"
+        errorLine2="             ~~~~~~~~~~~~~">
+        <location
+            file="src/main/AndroidManifest.xml"
+            line="45"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="FragmentBackPressedCallback"
+        message="Use viewLifecycleOwner as the LifecycleOwner."
+        errorLine1="            requireActivity().onBackPressedDispatcher.addCallback(this, backPressedCallback)"
+        errorLine2="                                                                  ~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/chat/ChatFragment.kt"
+            line="941"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="FragmentBackPressedCallback"
+        message="Use viewLifecycleOwner as the LifecycleOwner."
+        errorLine1="            requireActivity().onBackPressedDispatcher.addCallback(this@PlayerFragment, backPressedCallback)"
+        errorLine2="                                                                  ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="2089"
+            column="67"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="635"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="635"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                        repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="829"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                        repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="829"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                        repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="863"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                        repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                        ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="863"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="927"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="927"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="939"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="939"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="1053"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="1053"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from ExoPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="1066"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="RepeatOnLifecycleWrongUsage"
+        message="Wrong usage of repeatOnLifecycle from MediaPlayerFragment.onStart."
+        errorLine1="                            repeatOnLifecycle(Lifecycle.State.STARTED) {"
+        errorLine2="                            ^">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="1066"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of Gradle than 9.7.0 is available: 9.7.1"
+        errorLine1="distributionUrl=https\://services.gradle.org/distributions/gradle-9.7.0-bin.zip"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/wrapper/gradle-wrapper.properties"
+            line="3"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="AndroidGradlePluginVersion"
+        message="A newer version of com.android.application than 9.4.0 is available: 9.4.1"
+        errorLine1="android-gradle-plugin = &quot;9.4.0&quot;"
+        errorLine2="                        ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="3"
+            column="25"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of com.google.android.gms:play-services-cronet than 18.1.0 is available: 18.1.1"
+        errorLine1="    implementation(&quot;com.google.android.gms:play-services-cronet:18.1.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="70"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of org.chromium.net:cronet-api than 143.7445.0 is available: 500.0.2"
+        errorLine1="cronet = &quot;143.7445.0&quot;"
+        errorLine2="         ~~~~~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="12"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-exoplayer than 1.11.0 is available: 1.11.1"
+        errorLine1="media3 = &quot;1.11.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-exoplayer-hls than 1.11.0 is available: 1.11.1"
+        errorLine1="media3 = &quot;1.11.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-session than 1.11.0 is available: 1.11.1"
+        errorLine1="media3 = &quot;1.11.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.media3:media3-ui than 1.11.0 is available: 1.11.1"
+        errorLine1="media3 = &quot;1.11.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="21"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation.safeargs.kotlin than 2.9.8 is available: 2.10.1"
+        errorLine1="navigation = &quot;2.9.8&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="22"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-fragment than 2.9.8 is available: 2.10.1"
+        errorLine1="navigation = &quot;2.9.8&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="22"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.navigation:navigation-ui than 2.9.8 is available: 2.10.1"
+        errorLine1="navigation = &quot;2.9.8&quot;"
+        errorLine2="             ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="22"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-compiler than 2.8.4 is available: 2.8.5"
+        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="27"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-paging than 2.8.4 is available: 2.8.5"
+        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="27"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.room:room-runtime than 2.8.4 is available: 2.8.5"
+        errorLine1="room = &quot;2.8.4&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="27"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="GradleDependency"
+        message="A newer version of androidx.webkit:webkit than 1.15.0 is available: 1.17.0"
+        errorLine1="webkit = &quot;1.15.0&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="31"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.google.j2objc:j2objc-annotations than 3.0.0 is available: 3.1"
+        errorLine1="    compileOnly(&quot;com.google.j2objc:j2objc-annotations:3.0.0&quot;) // OkHttpDataSource SettableFuture"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="69"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.apollographql.apollo than 5.1.0 is available: 5.2.0"
+        errorLine1="apollo = &quot;5.1.0&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="4"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.apollographql.apollo:apollo-api than 5.1.0 is available: 5.2.0"
+        errorLine1="apollo = &quot;5.1.0&quot;"
+        errorLine2="         ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="4"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil than 3.6.1 is available: 3.6.3"
+        errorLine1="coil = &quot;3.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="6"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-gif than 3.6.1 is available: 3.6.3"
+        errorLine1="coil = &quot;3.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="6"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of io.coil-kt.coil3:coil-network-okhttp than 3.6.1 is available: 3.6.3"
+        errorLine1="coil = &quot;3.6.1&quot;"
+        errorLine2="       ~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="6"
+            column="8"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.github.bumptech.glide:glide than 4.16.0 is available: 5.0.9"
+        errorLine1="glide = &quot;4.16.0&quot;"
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.github.bumptech.glide:ksp than 4.16.0 is available: 5.0.9"
+        errorLine1="glide = &quot;4.16.0&quot;"
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of com.github.bumptech.glide:okhttp3-integration than 4.16.0 is available: 5.0.9"
+        errorLine1="glide = &quot;4.16.0&quot;"
+        errorLine2="        ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="14"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.parcelize than 2.4.10 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="16"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="NewerVersionAvailable"
+        message="A newer version of org.jetbrains.kotlin.plugin.serialization than 2.4.10 is available: 2.4.20"
+        errorLine1="kotlin = &quot;2.4.10&quot;"
+        errorLine2="         ~~~~~~~~">
+        <location
+            file="$HOME/work/extra-patada/extra-patada/gradle/libs.versions.toml"
+            line="16"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="SourceLockedOrientationActivity"
+        message="You should not lock orientation of your activities, so that you can support a good user experience for any device or orientation"
+        errorLine1="                            requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="1250"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_subtitle_on` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="                    subtitles.setImageResource(androidx.media3.ui.R.drawable.exo_ic_subtitle_on)"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/ExoPlayerFragment.kt"
+            line="401"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_subtitle_off` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="                    subtitles.setImageResource(androidx.media3.ui.R.drawable.exo_ic_subtitle_off)"
+        errorLine2="                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/ExoPlayerFragment.kt"
+            line="408"
+            column="48"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_speed` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="        android:icon=&quot;@drawable/exo_ic_speed&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/player_button_preferences.xml"
+            line="63"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_icon_fastforward` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="        android:icon=&quot;@drawable/exo_icon_fastforward&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/player_button_preferences.xml"
+            line="111"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_subtitle_off` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="        android:icon=&quot;@drawable/exo_ic_subtitle_off&quot;"
+        errorLine2="                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/xml/player_button_preferences.xml"
+            line="139"
+            column="23"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_styled_controls_rewind` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="        android:foreground=&quot;@drawable/exo_styled_controls_rewind&quot;"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="34"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_styled_controls_fastforward` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="        android:foreground=&quot;@drawable/exo_styled_controls_fastforward&quot;"
+        errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="55"
+            column="29"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_speed` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="            android:src=&quot;@drawable/exo_ic_speed&quot;"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="207"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_icon_fastforward` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="            android:src=&quot;@drawable/exo_icon_fastforward&quot;"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="258"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="PrivateResource"
+        message="The resource `@drawable/exo_ic_subtitle_off` is marked as private in androidx.media3:media3-ui:1.11.0"
+        errorLine1="            android:src=&quot;@drawable/exo_ic_subtitle_off&quot;"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="319"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="&quot;video&quot; is a common misspelling; did you mean &quot;vídeo&quot;?"
+        errorLine1="    &lt;string name=&quot;find_unlisted_video&quot;>Find unlisted video&lt;/string>"
+        errorLine2="                                                     ~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="548"
+            column="54"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="&quot;Video&quot; is a common misspelling; did you mean &quot;Vídeo&quot;?"
+        errorLine1="    &lt;string name=&quot;video_not_found&quot;>Video not found&lt;/string>"
+        errorLine2="                                   ~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="549"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="&quot;video&quot; is a common misspelling; did you mean &quot;vídeo&quot;?"
+        errorLine1="    &lt;string name=&quot;use_video_swap&quot;>Use video swap&lt;/string>"
+        errorLine2="                                      ~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="566"
+            column="39"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="&quot;Video&quot; is a common misspelling; did you mean &quot;Vídeo&quot;?"
+        errorLine1="    &lt;string name=&quot;video_swap_settings&quot;>Video swap settings&lt;/string>"
+        errorLine2="                                       ~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="568"
+            column="40"/>
+    </issue>
+
+    <issue
+        id="Typos"
+        message="&quot;Video&quot; is a common misspelling; did you mean &quot;Vídeo&quot;?"
+        errorLine1="    &lt;string name=&quot;video_swap_active&quot;>Video swap active&lt;/string>"
+        errorLine2="                                     ~~~~~">
+        <location
+            file="src/main/res/values-pt-rBR/strings.xml"
+            line="572"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;channel&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;points_earned&quot;>Received %d channel points&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="289"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;viewers&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;raid_text&quot;>Raiding %1$s with %2$d viewers&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="293"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="PluralsCandidate"
+        message="Formatting %d followed by words (&quot;bits&quot;): This should probably be a plural rather than a string"
+        errorLine1="    &lt;string name=&quot;bits_reward_emote&quot;>%d bits reward&lt;/string>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="435"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnsafeIntentLaunch"
+        message="This intent could be coming from an untrusted source. It is later launched by an unprotected component com.xtra.kick.ui.main.MainActivity. You could either make the component com.xtra.kick.ui.main.MainActivity protected; or sanitize this intent using androidx.core.content.IntentSanitizer."
+        errorLine1="                        extras.getParcelable(Intent.EXTRA_INTENT, Intent::class.java)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/main/MainActivity.kt"
+            line="813"
+            column="25"/>
+        <location
+            file="src/main/java/com/xtra/kick/ui/main/MainActivity.kt"
+            line="821"
+            column="25"
+            message="The unsafe intent is launched here."/>
+    </issue>
+
+    <issue
+        id="UnsafeIntentLaunch"
+        message="This intent could be coming from an untrusted source. It is later launched by an unprotected component com.xtra.kick.ui.main.MainActivity. You could either make the component com.xtra.kick.ui.main.MainActivity protected; or sanitize this intent using androidx.core.content.IntentSanitizer."
+        errorLine1="                        extras.getParcelable(Intent.EXTRA_INTENT)"
+        errorLine2="                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/main/MainActivity.kt"
+            line="816"
+            column="25"/>
+        <location
+            file="src/main/java/com/xtra/kick/ui/main/MainActivity.kt"
+            line="821"
+            column="25"
+            message="The unsafe intent is launched here."/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="            notifyDataSetChanged()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/saved/bookmarks/BookmarksAdapter.kt"
+            line="68"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="            notifyDataSetChanged()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/saved/bookmarks/BookmarksAdapter.kt"
+            line="77"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="NotifyDataSetChanged"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort."
+        errorLine1="            notifyDataSetChanged()"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/common/VideosAdapter.kt"
+            line="67"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="&lt;LinearLayout xmlns:android=&quot;http://schemas.android.com/apk/res/android&quot;"
+        errorLine2=" ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/auto_complete_emotes_list_item.xml"
+            line="2"
+            column="2"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="        &lt;LinearLayout"
+        errorLine2="         ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/fragment_chat.xml"
+            line="41"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="UseCompoundDrawables"
+        message="This tag and its children can be replaced by one `&lt;TextView/>` and a compound drawable"
+        errorLine1="        &lt;LinearLayout"
+        errorLine2="         ~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="394"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?android:colorBackground` with a theme that also paints a background (inferred theme is `@style/DarkTheme`)"
+        errorLine1="    android:background=&quot;?android:colorBackground&quot;>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_main.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="Overdraw"
+        message="Possible overdraw: Root element paints background `?android:colorBackground` with a theme that also paints a background (inferred theme is `@style/DarkTheme`)"
+        errorLine1="    android:background=&quot;?android:colorBackground&quot;>"
+        errorLine2="    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/activity_settings.xml"
+            line="7"
+            column="5"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_arrow_back_black_24` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_arrow_back_black_24.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_forward_10_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_forward_10_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_forward_15_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_forward_15_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_forward_30_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_forward_30_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_forward_5_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_forward_5_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_forward_60_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_forward_60_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_person_black_36` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_person_black_36.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_replay_10_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_replay_10_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_replay_15_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_replay_15_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_replay_30_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_replay_30_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_replay_5_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_replay_5_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.baseline_replay_60_black_48` appears to be unused">
+        <location
+            file="src/main/res/drawable-hdpi/baseline_replay_60_black_48.png"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.exo_styled_controls_play` appears to be unused"
+        errorLine1="    &lt;drawable name=&quot;exo_styled_controls_play&quot; tools:override=&quot;true&quot;>@drawable/baseline_play_arrow_black_48&lt;/drawable>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/drawables.xml"
+            line="3"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.exo_styled_controls_pause` appears to be unused"
+        errorLine1="    &lt;drawable name=&quot;exo_styled_controls_pause&quot; tools:override=&quot;true&quot;>@drawable/baseline_pause_black_48&lt;/drawable>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/drawables.xml"
+            line="4"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.drawable.media3_notification_small_icon` appears to be unused"
+        errorLine1="    &lt;drawable name=&quot;media3_notification_small_icon&quot; tools:override=&quot;true&quot;>@drawable/notification_icon&lt;/drawable>"
+        errorLine2="              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/drawables.xml"
+            line="5"
+            column="15"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.trending` appears to be unused"
+        errorLine1="    &lt;string name=&quot;trending&quot;>Trending&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="36"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.welcome` appears to be unused"
+        errorLine1="    &lt;string name=&quot;welcome&quot;>Welcome&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="51"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.skip` appears to be unused"
+        errorLine1="    &lt;string name=&quot;skip&quot;>Skip&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="54"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.storage_permission_title` appears to be unused"
+        errorLine1="    &lt;string name=&quot;storage_permission_title&quot;>Storage permission required&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="69"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.storage_permission_message` appears to be unused"
+        errorLine1="    &lt;string name=&quot;storage_permission_message&quot;>Storage permission is required to download videos.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="70"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.permission_denied` appears to be unused"
+        errorLine1="    &lt;string name=&quot;permission_denied&quot;>Required permissions were denied.&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="71"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.error_stream` appears to be unused"
+        errorLine1="    &lt;string name=&quot;error_stream&quot;>Error when loading stream&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="75"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.error_loading_user` appears to be unused"
+        errorLine1="    &lt;string name=&quot;error_loading_user&quot;>Error loading user profile&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="107"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.chat_send_msg_error` appears to be unused"
+        errorLine1="    &lt;string name=&quot;chat_send_msg_error&quot;>Error sending message - %s&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="206"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.api_gql_redirect` appears to be unused"
+        errorLine1="    &lt;string name=&quot;api_gql_redirect&quot;>GQL redirect URL&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="232"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.stream_proxy` appears to be unused"
+        errorLine1="    &lt;string name=&quot;stream_proxy&quot;>Stream proxy&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="308"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UnusedResources"
+        message="The resource `R.string.no_file_manager_found` appears to be unused"
+        errorLine1="    &lt;string name=&quot;no_file_manager_found&quot;>No file manager app found&lt;/string>"
+        errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/values/strings.xml"
+            line="364"
+            column="13"/>
+    </issue>
+
+    <issue
+        id="UselessParent"
+        message="This `FrameLayout` layout or its `LinearLayout` parent is possibly unnecessary"
+        errorLine1="    &lt;FrameLayout"
+        errorLine2="     ~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/fragment_player.xml"
+            line="7"
+            column="6"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="        android:textSize=&quot;10sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="41"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="SmallSp"
+        message="Avoid using sizes smaller than `11sp`: `10sp`"
+        errorLine1="        android:textSize=&quot;10sp&quot;"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/player_layout.xml"
+            line="62"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="AlwaysShowAction"
+        message="Prefer &quot;`ifRoom`&quot; instead of &quot;`always`&quot;"
+        errorLine1="        app:showAsAction=&quot;always&quot; />"
+        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/menu/channel_menu.xml"
+            line="10"
+            column="9"/>
+        <location
+            file="src/main/res/menu/channel_menu.xml"
+            line="17"
+            column="9"/>
+        <location
+            file="src/main/res/menu/channel_menu.xml"
+            line="24"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `Canvas.withSave` instead?"
+        errorLine1="        canvas.save()"
+        errorLine2="        ~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/view/CenteredImageSpan.kt"
+            line="30"
+            column="9"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX extension function `String.toColorInt` instead?"
+        errorLine1="        return savedColors[color] ?: Color.parseColor(color).let { newColor ->"
+        errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/util/chat/ChatAdapterUtils.kt"
+            line="438"
+            column="38"/>
+    </issue>
+
+    <issue
+        id="UseKtx"
+        message="Use the KTX function `createBitmap` instead?"
+        errorLine1="        val maskBitmap = Bitmap.createBitmap(max(fullWidth - xOffset, 0), max(fullHeight - top, 0), Bitmap.Config.ARGB_8888)"
+        errorLine2="                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/view/NamePaintImageSpan.kt"
+            line="66"
+            column="26"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    compileOnly(&quot;com.google.j2objc:j2objc-annotations:3.0.0&quot;) // OkHttpDataSource SettableFuture"
+        errorLine2="                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="69"
+            column="17"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.google.android.gms:play-services-cronet:18.1.0&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="70"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.google.mlkit:language-id:17.0.6&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="71"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="UseTomlInstead"
+        message="Use version catalog instead"
+        errorLine1="    implementation(&quot;com.google.mlkit:translate:17.0.3&quot;)"
+        errorLine2="                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="build.gradle.kts"
+            line="72"
+            column="20"/>
+    </issue>
+
+    <issue
+        id="LabelFor"
+        message="Missing accessibility label: provide either a view with an `android:labelFor` that references this view or provide an `android:hint`"
+        errorLine1="            &lt;AutoCompleteTextView"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/dialog_video_download.xml"
+            line="45"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="LabelFor"
+        message="Missing accessibility label: provide either a view with an `android:labelFor` that references this view or provide an `android:hint`"
+        errorLine1="                    &lt;AutoCompleteTextView"
+        errorLine2="                     ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/fragment_game.xml"
+            line="148"
+            column="22"/>
+    </issue>
+
+    <issue
+        id="LabelFor"
+        message="Missing accessibility label: provide either a view with an `android:labelFor` that references this view or provide an `android:hint`"
+        errorLine1="            &lt;AutoCompleteTextView"
+        errorLine2="             ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/fragment_media.xml"
+            line="32"
+            column="14"/>
+    </issue>
+
+    <issue
+        id="LabelFor"
+        message="Missing accessibility label: provide either a view with an `android:labelFor` that references this view or provide an `android:hint`"
+        errorLine1="        &lt;AutoCompleteTextView"
+        errorLine2="         ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/res/layout/storage_selection.xml"
+            line="40"
+            column="10"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Number formatting does not take into account locale settings. Consider using `String.format` instead."
+        errorLine1="                rewind.text = (requireContext().prefs().getString(C.PLAYER_REWIND, &quot;10&quot;)?.toLongOrNull() ?: 10).toString()"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="592"
+            column="31"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Number formatting does not take into account locale settings. Consider using `String.format` instead."
+        errorLine1="                fastForward.text = (requireContext().prefs().getString(C.PLAYER_FORWARD, &quot;10&quot;)?.toLongOrNull() ?: 10).toString()"
+        errorLine2="                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerFragment.kt"
+            line="597"
+            column="36"/>
+    </issue>
+
+    <issue
+        id="SetTextI18n"
+        message="Number formatting does not take into account locale settings. Consider using `String.format` instead."
+        errorLine1="            volumeText.text = volume.toInt().toString()"
+        errorLine2="                              ~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="src/main/java/com/xtra/kick/ui/player/PlayerVolumeDialog.kt"
+            line="63"
+            column="31"/>
+    </issue>
+
+</issues>
