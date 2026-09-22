@@ -32,8 +32,8 @@ object PlaylistUtils {
                                     rangeClass = Pattern.compile("CLASS=\"(.+?)\"").matcher(line).let { if (it.find()) it.group(1) else null },
                                     startDate = startDate,
                                     endDate = Pattern.compile("END-DATE=\"(.+?)\"").matcher(line).let { if (it.find()) it.group(1) else null },
-                                    duration = Pattern.compile("DURATION=(.+?)").matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() else null },
-                                    plannedDuration = Pattern.compile("PLANNED-DURATION=(.+?)").matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() else null },
+                                    duration = Pattern.compile("DURATION=([\\d.]+)").matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() else null },
+                                    plannedDuration = Pattern.compile("PLANNED-DURATION=([\\d.]+)").matcher(line).let { if (it.find()) it.group(1)?.toFloatOrNull() else null },
                                     ad = Pattern.compile("X-TV-TWITCH-AD-.+?=\"(.+?)\"").matcher(line).let { if (it.find()) it.group(1) else null } != null
                                 ))
                             }
