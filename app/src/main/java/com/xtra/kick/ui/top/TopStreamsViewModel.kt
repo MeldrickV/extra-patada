@@ -17,6 +17,7 @@ import com.xtra.kick.model.ui.SavedFilter
 import com.xtra.kick.repository.GameSortRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.SavedFiltersRepository
 import com.xtra.kick.repository.datasource.StreamsDataSource
 import com.xtra.kick.ui.common.StreamsSortDialog
@@ -33,6 +34,7 @@ class TopStreamsViewModel(
     private val savedFiltersRepository: SavedFiltersRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val filter = MutableStateFlow<Filter?>(null)
@@ -77,6 +79,7 @@ class TopStreamsViewModel(
                 graphQLRepository = graphQLRepository,
                 helixHeaders = TwitchApiHelper.getHelixHeaders(applicationContext),
                 helixRepository = helixRepository,
+                kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
             )
@@ -110,7 +113,7 @@ class TopStreamsViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                TopStreamsViewModel(application.applicationContext, xtraModule.gameSortRepository, xtraModule.savedFiltersRepository, xtraModule.graphQLRepository, xtraModule.helixRepository)
+                TopStreamsViewModel(application.applicationContext, xtraModule.gameSortRepository, xtraModule.savedFiltersRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository)
             }
         }
     }

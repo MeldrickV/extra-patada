@@ -2,11 +2,13 @@ package com.xtra.kick.repository.datasource
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.xtra.kick.model.kick.toStream
 import com.xtra.kick.graphql.type.Language
 import com.xtra.kick.graphql.type.StreamSort
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 
 class StreamsDataSource(
@@ -19,6 +21,7 @@ class StreamsDataSource(
     private val graphQLRepository: GraphQLRepository,
     private val helixHeaders: Map<String, String>,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
 ) : PagingSource<Int, Stream>() {
@@ -34,18 +37,23 @@ class StreamsDataSource(
             }
         } else {
             try {
-                api = C.GQL
+                api = C.KICK
                 loadFromApi(params)
             } catch (e: Exception) {
                 try {
-                    api = C.GQL_PERSISTED_QUERY
+                    api = C.GQL
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.HELIX
+                        api = C.GQL_PERSISTED_QUERY
                         loadFromApi(params)
                     } catch (e: Exception) {
-                        LoadResult.Error(e)
+                        try {
+                            api = C.HELIX
+                            loadFromApi(params)
+                        } catch (e: Exception) {
+                            LoadResult.Error(e)
+                        }
                     }
                 }
             }
@@ -54,11 +62,27 @@ class StreamsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Stream> {
         return when (api) {
+            C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank() && tags.isNullOrEmpty() && gqlQueryLanguages.isNullOrEmpty() && gqlLanguages.isNullOrEmpty()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        val response = kickRepository.getLivestreams(params.loadSize, offset)
+        val list = response.livestreams.map { it.toStream() }.takeIf { streams ->
+            streams.any { it.channelId != null || it.channelLogin != null }
+        } ?: emptyList()
+        offset = response.nextCursor
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = if (!offset.isNullOrBlank()) {
+                (params.key ?: 1) + 1
+            } else null
+        )
     }
 
     private suspend fun gqlQueryLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {

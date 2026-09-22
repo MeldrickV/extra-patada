@@ -13,6 +13,7 @@ object C {
     const val GQL = "gql"
     const val GQL_PERSISTED_QUERY = "gql_persisted_query"
     const val HELIX = "helix"
+    const val KICK = "kick"
     const val HEADER_CLIENT_ID = "Client-Id"
     const val HEADER_TOKEN = "Authorization"
     const val FAILED_INTEGRITY_CHECK = "failed integrity check"

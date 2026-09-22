@@ -14,6 +14,7 @@ import com.xtra.kick.repository.ChannelSortRepository
 import com.xtra.kick.repository.GameSortRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.LocalGameFollowsRepository
 import com.xtra.kick.repository.NotificationsRepository
@@ -331,6 +332,10 @@ class XtraModule(application: Application) {
 
     val graphQLRepository by lazy {
         GraphQLRepository(httpEngine, cronetEngine, cronetExecutor, okHttpClient, json)
+    }
+
+    val kickRepository by lazy {
+        KickRepository(okHttpClient, json)
     }
 
     val helixRepository by lazy {

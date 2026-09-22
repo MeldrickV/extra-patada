@@ -13,6 +13,7 @@ import com.xtra.kick.XtraApp
 import com.xtra.kick.model.ui.Tag
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.datasource.GamesDataSource
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
@@ -25,6 +26,7 @@ class GamesViewModel(
     applicationContext: Context,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val filter = MutableStateFlow<Filter?>(null)
@@ -44,6 +46,7 @@ class GamesViewModel(
                 graphQLRepository = graphQLRepository,
                 helixHeaders = TwitchApiHelper.getHelixHeaders(applicationContext),
                 helixRepository = helixRepository,
+                kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
             )
@@ -63,7 +66,7 @@ class GamesViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                GamesViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository)
+                GamesViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository)
             }
         }
     }
