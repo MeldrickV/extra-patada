@@ -9,7 +9,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <com.github.andreyasadchy.xtra.ui.view.PlayerLayout
+        <com.xtra.kick.ui.view.PlayerLayout
             android:id="@+id/playerLayout"
             android:layout_width="0dp"
             android:layout_height="0dp"
@@ -50,9 +50,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-        </com.github.andreyasadchy.xtra.ui.view.PlayerLayout>
+        </com.xtra.kick.ui.view.PlayerLayout>
 
-        <com.github.andreyasadchy.xtra.ui.view.ChatLayout
+        <com.xtra.kick.ui.view.ChatLayout
             android:id="@+id/chatLayout"
             android:layout_width="0dp"
             android:layout_height="0dp"
@@ -87,7 +87,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-        </com.github.andreyasadchy.xtra.ui.view.ChatLayout>
+        </com.xtra.kick.ui.view.ChatLayout>
 
     </FrameLayout>
 </LinearLayout>

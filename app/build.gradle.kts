@@ -20,11 +20,11 @@ android {
             storePassword = "123456"
         }
     }
-    namespace = "com.github.andreyasadchy.xtra"
+    namespace = "com.xtra.kick"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.github.andreyasadchy.xtra"
+        applicationId = "com.xtra.kick"
         minSdk = 23
         targetSdk = 37
         versionCode = 121
@@ -122,7 +122,7 @@ dependencies {
 apollo {
     @Suppress("ApolloEndpointNotConfigured")
     service("service") {
-        packageName.set("com.github.andreyasadchy.xtra.graphql")
+        packageName.set("com.xtra.kick.graphql")
     }
 }
 
