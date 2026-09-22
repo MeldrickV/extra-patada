@@ -18,13 +18,16 @@ el entorno de la sesión; usarlo SOLO vía variable de entorno (nunca escribirlo
 
 ### `.github/workflows/ci.yml` (gatillado por push/PR a `main`)
 - **build-debug** (ubuntu-latest): `assembleDebug` + `compileDebugKotlin`, luego `lintDebug`.
-  Sube el APK debug como artifact `apk-debug`.
+  Sube el APK debug como artifact `apk-debug`. Tiene lint baseline `app/lint-baseline.xml`.
 - **unit-tests** (ubuntu-latest): `testDebugUnitTest`; sube reports.
-- **instrumented-tests** (macos-14, matrix API 29 y 34): `connectedDebugAndroidTest` vía
-  `reactivecircus/android-emulator-runner`; sube reports.
 
-Comandos clave (Gradle): `assembleDebug`, `compileDebugKotlin`, `lintDebug`,
-`testDebugUnitTest`, `connectedDebugAndroidTest`.
+**No hay instrumented tests** (`connectedDebugAndroidTest`): se eliminaron del CI porque el emulador
+tardaba 10+ min solo para arrancar con un suite vacío (no había tests en `src/androidTest`) y además
+daba timeouts de boot en runners de GitHub. La cobertura de la capa Kick se hace con **unit tests JVM**
+(`src/test`): parsing de DTOs kotlinx-serialization, mappers y `PlaylistUtils`. El dispositivo real lo
+prueba el usuario en su teléfono; no revivir el job de emulador salvo que haya tests que lo justifiquen.
+
+Comandos clave (Gradle): `assembleDebug`, `compileDebugKotlin`, `lintDebug`, `testDebugUnitTest`.
 
 ### `.github/workflows/release.yml` (manual o tag `v*`)
 - `assembleRelease`, sube APK release y crea GitHub Release si fue por tag.
@@ -64,6 +67,6 @@ Comandos clave (Gradle): `assembleDebug`, `compileDebugKotlin`, `lintDebug`,
 
 ## Reglas al tocar los workflows
 
-- Mantener las 4 validaciones (build, lint, unit, instrumented).
+- Mantener las 3 validaciones (build, lint, unit).
 - No romper el `concurrency` group ni quitar `timeout-minutes`.
 - Actualizar este skill si cambia la matriz o los comandos.
