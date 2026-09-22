@@ -575,4 +575,10 @@
     <string name="show_gif_messages">Show GIF messages</string>
     <string name="proxy_timeout">Proxy timeout</string>
     <string name="proxy_timeout_summary">Proxy timeout in milliseconds</string>
+<string name="kick_login_description">Kick, OAuth 2.1 kullanır. Oturum açmak için kayıtlı bir geliştirici uygulaması gerekir. Devam etmek için Kick geliştirici kimlik bilgilerinizi girin.</string>
+    <string name="kick_client_id">Kick istemci kimliği</string>
+    <string name="kick_client_secret">Kick istemci sırrı (isteğe bağlı)</string>
+    <string name="kick_redirect_uri">Kick yönlendirme URI\'si</string>
+    <string name="kick_login_error">Kick oturumu açılamadı</string>
+    <string name="kick_login_state_mismatch">Durum eşleşmiyor, lütfen tekrar deneyin</string>
 </resources>

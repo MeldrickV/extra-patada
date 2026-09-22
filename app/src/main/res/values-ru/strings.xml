@@ -574,4 +574,10 @@
     <string name="show_gif_messages">Show GIF messages</string>
     <string name="proxy_timeout">Proxy timeout</string>
     <string name="proxy_timeout_summary">Proxy timeout in milliseconds</string>
+<string name="kick_login_description">Kick использует OAuth 2.1. Для входа требуется зарегистрированное приложение разработчика. Введите учетные данные разработчика Kick, чтобы продолжить.</string>
+    <string name="kick_client_id">Идентификатор клиента Kick</string>
+    <string name="kick_client_secret">Секрет клиента Kick (необязательно)</string>
+    <string name="kick_redirect_uri">URI перенаправления Kick</string>
+    <string name="kick_login_error">Сбой входа в Kick</string>
+    <string name="kick_login_state_mismatch">Состояние не совпадает, повторите попытку</string>
 </resources>

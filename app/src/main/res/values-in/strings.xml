@@ -575,4 +575,10 @@
     <string name="show_gif_messages">Show GIF messages</string>
     <string name="proxy_timeout">Proxy timeout</string>
     <string name="proxy_timeout_summary">Proxy timeout in milliseconds</string>
+<string name="kick_login_description">Kick menggunakan OAuth 2.1. Masuk memerlukan aplikasi developer terdaftar. Masukkan kredensial developer Kick Anda untuk melanjutkan.</string>
+    <string name="kick_client_id">ID klien Kick</string>
+    <string name="kick_client_secret">Rahasia klien Kick (opsional)</string>
+    <string name="kick_redirect_uri">URI pengalihan Kick</string>
+    <string name="kick_login_error">Masuk Kick gagal</string>
+    <string name="kick_login_state_mismatch">Keadaan tidak cocok, coba lagi</string>
 </resources>

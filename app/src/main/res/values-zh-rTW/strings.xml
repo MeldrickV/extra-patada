@@ -574,4 +574,10 @@
     <string name="show_gif_messages">Show GIF messages</string>
     <string name="proxy_timeout">Proxy timeout</string>
     <string name="proxy_timeout_summary">Proxy timeout in milliseconds</string>
+<string name="kick_login_description">Kick 使用 OAuth 2.1。登入需要已註冊的開發者應用程式。請輸入您的 Kick 開發者憑證以繼續。</string>
+    <string name="kick_client_id">Kick 用戶端 ID</string>
+    <string name="kick_client_secret">Kick 用戶端密鑰（可選）</string>
+    <string name="kick_redirect_uri">Kick 重新導向 URI</string>
+    <string name="kick_login_error">Kick 登入失敗</string>
+    <string name="kick_login_state_mismatch">狀態不符，請重試</string>
 </resources>
