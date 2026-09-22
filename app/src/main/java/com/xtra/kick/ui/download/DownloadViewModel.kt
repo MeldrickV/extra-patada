@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoQuality
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.NetworkUtils
