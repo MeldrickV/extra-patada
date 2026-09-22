@@ -873,8 +873,15 @@ class MediaPlayerService : BasePlaybackService() {
     }
 
     private suspend fun getStreamPlaylistUrl(channelLogin: String, streamProxy: StreamProxy?): String? {
-        return try {
-            xtraModule.playerRepository.loadStreamPlaylistUrl(
+        return if (channelId?.startsWith("user_") == true) {
+            try {
+                xtraModule.kickRepository.getChannel(channelLogin)?.playbackUrl
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            val url = try {
+                xtraModule.playerRepository.loadStreamPlaylistUrl(
                 context = this,
                 networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
                 gqlHeaders = TwitchApiHelper.getGQLHeaders(this, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_STREAM, true)),
@@ -889,11 +896,13 @@ class MediaPlayerService : BasePlaybackService() {
                 proxyPassword = streamProxy?.password,
                 enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false) && streamProxy == null
             )
-        } catch (e: Exception) {
-            if (e.message == C.FAILED_INTEGRITY_CHECK) {
-                integrity.emit("refreshStream")
+            } catch (e: Exception) {
+                if (e.message == C.FAILED_INTEGRITY_CHECK) {
+                    integrity.emit("refreshStream")
+                }
+                null
             }
-            null
+            url
         }
     }
 

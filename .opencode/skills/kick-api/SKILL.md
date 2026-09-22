@@ -58,15 +58,31 @@ Cloudflare: los endpoints internos pueden exigir headers de navegador (User-Agen
 público de la web de Kick) o TLS browser-grade. En Xtra for Kick usamos el stack `HttpEngine`/Cronet
 cuando sea necesario.
 
-## 3. Chat — Pusher WebSocket (lectura pública, sin auth)
+## 3. Chat — WebSocket self-hosted tipo Pusher (lectura pública, sin auth)
 
-- Gateway: `wss://websockets.kick.com/viewer/v1/connect?token=...` (protocolo **Pusher**).
-- Suscripción: frame `pusher:subscribe` → canal `chatrooms.{id}.v2`.
-- `chatroom.id` se obtiene de `GET /api/v2/channels/{slug}`.
+- Gateway actual: `wss://websockets.kick.com/viewer/v1/connect?token=...`.
+- **Token (un solo uso)**: `GET https://websockets.kick.com/viewer/v1/token` con header
+  `X-CLIENT-TOKEN` (constante pública horneada en el frontend — ver más abajo). Responde
+  `{"data":{"token":"01K...","message":"OK"}}`. Refetch en CADA reconnect, el anterior queda gastado.
+- `X-CLIENT-TOKEN` actual (extraído de los bundles `_next/static/chunks` de kick.com, puede rotar;
+  si da 401/403 re-extraer grepeando `NEXT_PUBLIC_WEBSOCKET_CLIENT_TOKEN`):
+  `e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823`.
+- Suscripción: frame `pusher:subscribe` → canal `chatrooms.{id}.v2`. `chatroom.id` de
+  `GET /api/v2/channels/{slug}`. Confirmación: `pusher_internal:subscription_succeeded`.
 - Evento de mensaje: `App\Events\ChatMessageEvent` → campos: `id`, `content`, `sender`
   (`id`, `username`, `slug`, `identity{color, badges}`, `isSubscribed`), `chatroom.id`,
   `created_at`, `type`. Otros eventos: `MessageDeleted`, `PinnedMessageCreated`, `UserBanned`,
   `SubscriptionEvent`, `FollowEvent`, `GiftEvent`.
+- **PROTECCIÓN CLOUDFLARE (BLOQUEO CONOCIDO)**: la antigua nube Pusher
+  (`wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679`) está MUERTA (4001 desde la migración).
+  El gateway nuevo exige fingerprint TLS de navegador: el GET del token sí responde vía curl/OkHttp,
+  pero el upgrade WS se bloquea a nivel TLS/Cloudflare — sin cookies `__cf_bm`/`_cfuvid` da 403 con
+  `{"message":"Forbidden"}`; incluso con esas cookies + `Origin: https://kick.com` + UA de navegador
+  y `X-CLIENT-TOKEN` en el handshake, la conexión sube 101 pero el servidor NO envía
+  `pusher:connection_established` (blackhole silencioso). Solo funciona desde navegador/extensiones
+  (lo confirma el módulo kick-chat, que requiere `websockets.kick.com` en `host_permissions`).
+  En Xtra por ahora: **chat BLOQUEADO en fase 4**; probar como fallback el stack `HttpEngine`
+  (Codename Kernel) que sí trae fingerprint de Chrome antes de descartarlo.
 - Envío: NO por el socket; usar `POST /public/v1/chat` con token OAuth (`chat:write`).
 - Reutilizar `util/WebSocket.kt` (cliente WS propietario de la app).
 
