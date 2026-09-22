@@ -56,14 +56,19 @@ toolchain locally.
 
 ## Current roadmap status
 
-- [x] Repository + CI/CD (build, lint, tests on GitHub Actions)
+- [x] Repository + CI/CD (build, lint, unit tests on GitHub Actions)
 - [x] Platform abstraction layer (pluggable `Twitch` / `Kick` providers)
 - [x] Kick data layer (official public API + internal `/api/v2`)
 - [x] Kick playback (HLS `playback_url`, no tokens needed)
-- [x] Kick chat (Centrifugo realtime WebSocket)
-- [x] Login / follows (OAuth 2.1 PKCE)
-- [x] VODs, clips, downloads
-- [ ] Combined Twitch + Kick mode
+- [x] Kick chat read (Centrifugo realtime WebSocket, anonymous)
+- [x] Login (OAuth 2.1 PKCE) + read follows
+- [x] VODs / clips playback + clip & VOD downloads
+- [ ] Follow/unfollow from UI + token refresh + Kick live notifications (phase 6)
+- [ ] Live stream downloads + pagination in channel videos/clips (phase 7)
+- [ ] Kick chat write: send/reply, Kick emotes & badges, reconnect/TTL (phase 8)
+- [ ] Kick search & catalog: channels/streams/games/videos, game pages (phase 9)
+- [ ] Combined Twitch + Kick mode (phase 10)
+- [ ] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11)
 
 ## License
 
