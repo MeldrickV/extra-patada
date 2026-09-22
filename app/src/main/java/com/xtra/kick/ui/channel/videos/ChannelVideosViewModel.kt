@@ -24,6 +24,7 @@ import com.xtra.kick.repository.BookmarksRepository
 import com.xtra.kick.repository.ChannelSortRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.repository.datasource.ChannelVideosDataSource
 import com.xtra.kick.ui.channel.ChannelPagerFragmentArgs
@@ -53,6 +54,7 @@ class ChannelVideosViewModel(
     private val bookmarksRepository: BookmarksRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val httpEngine: Lazy<HttpEngine?>,
     private val cronetEngine: Lazy<CronetEngine?>,
     private val cronetExecutor: Lazy<ExecutorService>,
@@ -130,6 +132,7 @@ class ChannelVideosViewModel(
                 helixRepository = helixRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                kickRepository = kickRepository,
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -369,7 +372,7 @@ class ChannelVideosViewModel(
                 val savedStateHandle = createSavedStateHandle()
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                ChannelVideosViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.playerRepository, xtraModule.bookmarksRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
+                ChannelVideosViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.playerRepository, xtraModule.bookmarksRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
             }
         }
     }

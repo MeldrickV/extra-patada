@@ -17,6 +17,7 @@ import com.xtra.kick.model.ui.ChannelSort
 import com.xtra.kick.repository.ChannelSortRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.datasource.ChannelClipsDataSource
 import com.xtra.kick.ui.channel.ChannelPagerFragmentArgs
 import com.xtra.kick.ui.common.VideosSortDialog
@@ -34,6 +35,7 @@ class ChannelClipsViewModel(
     private val channelSortRepository: ChannelSortRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     savedStateHandle: SavedStateHandle,
 ) : ViewModel() {
 
@@ -92,6 +94,7 @@ class ChannelClipsViewModel(
                 helixRepository = helixRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                kickRepository = kickRepository,
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -122,7 +125,7 @@ class ChannelClipsViewModel(
                 val savedStateHandle = createSavedStateHandle()
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                ChannelClipsViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, savedStateHandle)
+                ChannelClipsViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository, savedStateHandle)
             }
         }
     }

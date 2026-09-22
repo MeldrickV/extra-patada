@@ -3,9 +3,11 @@ package com.xtra.kick.repository.datasource
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.graphql.type.ClipsPeriod
+import com.xtra.kick.model.kick.toClip
 import com.xtra.kick.model.ui.Clip
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 import kotlin.math.max
 
@@ -22,6 +24,7 @@ class ChannelClipsDataSource(
     private val helixRepository: HelixRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val kickRepository: KickRepository,
 ) : PagingSource<Int, Clip>() {
     private var api: String? = null
     private var offset: String? = null
@@ -35,18 +38,23 @@ class ChannelClipsDataSource(
             }
         } else {
             try {
-                api = C.GQL
+                api = C.KICK
                 loadFromApi(params)
             } catch (e: Exception) {
                 try {
-                    api = C.HELIX
+                    api = C.GQL
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.HELIX
                         loadFromApi(params)
                     } catch (e: Exception) {
-                        LoadResult.Error(e)
+                        try {
+                            api = C.GQL_PERSISTED_QUERY
+                            loadFromApi(params)
+                        } catch (e: Exception) {
+                            LoadResult.Error(e)
+                        }
                     }
                 }
             }
@@ -55,6 +63,7 @@ class ChannelClipsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Clip> {
         return when (api) {
+            C.KICK -> if (!channelLogin.isNullOrBlank()) kickLoad(params) else throw Exception()
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
@@ -191,6 +200,20 @@ class ChannelClipsDataSource(
             nextKey = if (!offset.isNullOrBlank()) {
                 (params.key ?: 1) + 1
             } else null
+        )
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Clip> {
+        val list = kickRepository.getChannelClips(channelLogin!!).map {
+            it.toClip(
+                channelId = channelId,
+                channelLogin = channelLogin,
+            )
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
         )
     }
 

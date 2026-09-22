@@ -1332,19 +1332,23 @@ class ExoPlayerService : BasePlaybackService() {
                 null
             } ?: savedPosition ?: 0
             if (qualities.isNullOrEmpty()) {
-                val result = try {
-                    xtraModule.playerRepository.loadVideoPlaylistUrl(
-                        networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
-                        gqlHeaders = TwitchApiHelper.getGQLHeaders(this@ExoPlayerService, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_VIDEO, true)),
-                        videoId = videoId,
-                        supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
-                        enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false),
-                    )
-                } catch (e: Exception) {
-                    if (e.message == C.FAILED_INTEGRITY_CHECK) {
-                        integrity.emit("refreshVideo")
+                val result = if (channelId?.startsWith("user_") == true) {
+                    runCatching { xtraModule.kickRepository.getVideo(videoId)?.source }.getOrNull()?.let { it to null }
+                } else {
+                    try {
+                        xtraModule.playerRepository.loadVideoPlaylistUrl(
+                            networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                            gqlHeaders = TwitchApiHelper.getGQLHeaders(this@ExoPlayerService, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_VIDEO, true)),
+                            videoId = videoId,
+                            supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
+                            enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                        )
+                    } catch (e: Exception) {
+                        if (e.message == C.FAILED_INTEGRITY_CHECK) {
+                            integrity.emit("refreshVideo")
+                        }
+                        null
                     }
-                    null
                 }
                 if (result != null) {
                     playlistUrl = result.first
@@ -1474,36 +1478,44 @@ class ExoPlayerService : BasePlaybackService() {
         clipId?.let { clipId ->
             val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP)
             if (qualities.isNullOrEmpty()) {
-                val list = try {
-                    xtraModule.playerRepository.loadClipQualities(
-                        networkLibrary = networkLibrary,
-                        gqlHeaders = TwitchApiHelper.getGQLHeaders(this@ExoPlayerService),
-                        clipId = clipId,
-                        enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false)
-                    )
-                } catch (e: Exception) {
-                    if (e.message == C.FAILED_INTEGRITY_CHECK) {
-                        integrity.emit("refreshClip")
+                if (channelId?.startsWith("user_") == true) {
+                    val url = runCatching { xtraModule.kickRepository.getClip(clipId)?.clipUrl }.getOrNull()
+                    if (url != null) {
+                        qualities = mutableListOf(VideoQuality(url = url))
+                        setDefaultQuality()
                     }
-                    null
-                }
-                if (list != null) {
-                    val supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264")?.split(',') ?: emptyList()
-                    val filtered = list.filterNot {
-                        it.codecs?.substringBefore('.').let { codec ->
-                            (codec == "av01" && !supportedCodecs.contains("av1")) || ((codec == "hev1" || codec == "hvc1") && !supportedCodecs.contains("h265"))
-                        }
-                    }
-                    qualities = filtered
-                        .sortedWith(
-                            compareByDescending<VideoQuality> { it.bitrate }
-                                .thenByDescending { it.frameRate }
-                                .thenByDescending { it.resolution }
+                } else {
+                    val list = try {
+                        xtraModule.playerRepository.loadClipQualities(
+                            networkLibrary = networkLibrary,
+                            gqlHeaders = TwitchApiHelper.getGQLHeaders(this@ExoPlayerService),
+                            clipId = clipId,
+                            enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false)
                         )
-                        .toMutableList().apply {
-                            add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY))
+                    } catch (e: Exception) {
+                        if (e.message == C.FAILED_INTEGRITY_CHECK) {
+                            integrity.emit("refreshClip")
                         }
-                    setDefaultQuality()
+                        null
+                    }
+                    if (list != null) {
+                        val supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264")?.split(',') ?: emptyList()
+                        val filtered = list.filterNot {
+                            it.codecs?.substringBefore('.').let { codec ->
+                                (codec == "av01" && !supportedCodecs.contains("av1")) || ((codec == "hev1" || codec == "hvc1") && !supportedCodecs.contains("h265"))
+                            }
+                        }
+                        qualities = filtered
+                            .sortedWith(
+                                compareByDescending<VideoQuality> { it.bitrate }
+                                    .thenByDescending { it.frameRate }
+                                    .thenByDescending { it.resolution }
+                            )
+                            .toMutableList().apply {
+                                add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY))
+                            }
+                        setDefaultQuality()
+                    }
                 }
             }
             serviceListener?.changePlayerMode()
