@@ -58,33 +58,49 @@ Cloudflare: los endpoints internos pueden exigir headers de navegador (User-Agen
 público de la web de Kick) o TLS browser-grade. En Xtra for Kick usamos el stack `HttpEngine`/Cronet
 cuando sea necesario.
 
-## 3. Chat — WebSocket self-hosted tipo Pusher (lectura pública, sin auth)
+## 3. Chat — PROTOCOLO REAL ACTUAL (Centrifugo self-hosted) — verificado 2026-09
 
-- Gateway actual: `wss://websockets.kick.com/viewer/v1/connect?token=...`.
-- **Token (un solo uso)**: `GET https://websockets.kick.com/viewer/v1/token` con header
-  `X-CLIENT-TOKEN` (constante pública horneada en el frontend — ver más abajo). Responde
-  `{"data":{"token":"01K...","message":"OK"}}`. Refetch en CADA reconnect, el anterior queda gastado.
-- `X-CLIENT-TOKEN` actual (extraído de los bundles `_next/static/chunks` de kick.com, puede rotar;
-  si da 401/403 re-extraer grepeando `NEXT_PUBLIC_WEBSOCKET_CLIENT_TOKEN`):
-  `e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823`.
-- Suscripción: frame `pusher:subscribe` → canal `chatrooms.{id}.v2`. `chatroom.id` de
-  `GET /api/v2/channels/{slug}`. Confirmación: `pusher_internal:subscription_succeeded`.
-- Evento de mensaje: `App\Events\ChatMessageEvent` → campos: `id`, `content`, `sender`
-  (`id`, `username`, `slug`, `identity{color, badges}`, `isSubscribed`), `chatroom.id`,
-  `created_at`, `type`. Otros eventos: `MessageDeleted`, `PinnedMessageCreated`, `UserBanned`,
-  `SubscriptionEvent`, `FollowEvent`, `GiftEvent`.
-- **PROTECCIÓN CLOUDFLARE (BLOQUEO CONOCIDO)**: la antigua nube Pusher
-  (`wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679`) está MUERTA (4001 desde la migración).
-  El gateway nuevo exige fingerprint TLS de navegador: el GET del token sí responde vía curl/OkHttp,
-  pero el upgrade WS se bloquea a nivel TLS/Cloudflare — sin cookies `__cf_bm`/`_cfuvid` da 403 con
-  `{"message":"Forbidden"}`; incluso con esas cookies + `Origin: https://kick.com` + UA de navegador
-  y `X-CLIENT-TOKEN` en el handshake, la conexión sube 101 pero el servidor NO envía
-  `pusher:connection_established` (blackhole silencioso). Solo funciona desde navegador/extensiones
-  (lo confirma el módulo kick-chat, que requiere `websockets.kick.com` en `host_permissions`).
-  En Xtra por ahora: **chat BLOQUEADO en fase 4**; probar como fallback el stack `HttpEngine`
-  (Codename Kernel) que sí trae fingerprint de Chrome antes de descartarlo.
-- Envío: NO por el socket; usar `POST /public/v1/chat` con token OAuth (`chat:write`).
-- Reutilizar `util/WebSocket.kt` (cliente WS propietario de la app).
+**CONFIRMADO FUNCIONAL desde Node puro (TLS normal, sin cookies ni fingerprints)**: el chat de Kick
+YA NO usa websockets.kick.com. Flujo (todo anónimo, sin login):
+
+1. Client id: `uuid` (persistir por sesión; identity `{id, kind}` anónimo en la web es uuid).
+2. `POST https://web.kick.com/api/v1/realtime/connection`
+   body: `{"client":{"id":"<uuid>","type":"web"},"capabilities":{"accepted_providers":[{"provider":"pusher"},{"provider":"centrifugo"}]}}`
+3. `POST https://web.kick.com/api/v1/realtime/auth/connection`  body: `{"client_id":"<uuid>"}`
+   → `{"data":{"token":"<JWT>"},"message":"success"}` (JWT para el frame `connect`; TTL ~45min)
+4. `POST https://web.kick.com/api/v1/realtime/channels/{channelId}/chat/connection`
+   (mismo body que 2) → `{"data":{"connections":[{"credentials":{"url":"wss://realtime.<reg>.platform.kick.com/connection/websocket"},"provider":"centrifugo"}],"mode":"websocket"}}`
+   - `channelId` = el **channel id** del streamer (e.j. 669746), NO el chatroom id.
+5. Abrir el WebSocket a esa URL y enviar (protocolo Centrifugo con ids correlativos):
+   - `{"connect":{"token":"<JWT>","name":"js"},"id":1}`
+   - `{"subscribe":{"channel":"chatrooms.<chatroomId>.v2","flag":1},"id":2}`
+   - Response: `{"id":1,"connect":{"client":"...","version":"6.9.2 PRO","ttl":...,"ping":25}}`, `{"id":2,"subscribe":{}}`
+6. Mensajes: `{"push":{"channel":"chatrooms.<chatroomId>.v2","pub":{"data":{"event":"App\\Events\\ChatMessageEvent","data":"<json-as-string>","tags":{...}}}}`
+   → `data.data` es string JSON con `{id, chatroom_id, content, type, created_at, sender{id,username,slug,identity{color,badges,badges_v2}}, metadata{message_ref}}`.
+   - Emotes en content: `[emote:<id>:<name>]`.
+7. Ping: el servidor manda `{"push":{"channel":"$centrifugo.push.default","pub":{...}}}` ping/ttl; reenviar connect si expira (ttl). Frames: JSON, algunos agrupados con `\n` (split por newline al recibir).
+
+Extras: `POST /realtime/auth/channel` (body `{"channel":...}`) para auth por canal. Otros canales que
+suscribe la web: `channel_{id}`, `channel.{id}`, `chatroom_{id}`, `chatrooms.{id}`, `drops_category_*`.
+
+**Importante**: el `wss://websockets.kick.com/viewer/v1/connect?token=...` (viewer token, doble-uso
+`X-CLIENT-TOKEN`) sigue VIVO pero SOLO para eventos del canal/live (tracking, `channel_handshake`,
+`user_event`), NO para mensajes del chat. Ese dominio está bloqueado por TLS fingerprint para
+websocket (aun con cookies); el REST `/viewer/v1/token` sí responde por curl/OkHttp.
+
+**Bloqueo Cloudflare "security policy" (403)**: NO aplica a `web.kick.com/api/v1/realtime/*` ni a
+`realtime.*.platform.kick.com` — ambos accesibles con TLS normal (Node/OkHttp), solo con headers
+básicos (`x-app-platform: web`, UA navegador, `Referer: https://kick.com/`, `Content-Type: application/json`).
+**DoH no interviene aquí**: el bloqueo residual (viewer WS) es WAF de prueba de cliente, no DNS.
+No se necesitan cookies de navegador Android: el chat anónimo no usa cookies.
+
+## 3b. (Histórico) Chat — viejo gateway viewer (NO usar para mensajes)
+
+- Gateway: `wss://websockets.kick.com/viewer/v1/connect?token=...` (eventos, no mensajes).
+- **Token (un solo uso)**: `GET https://websockets.kick.com/viewer/v1/token` con header `X-CLIENT-TOKEN`
+  (constante horneada en bundles, puede rotar): `e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823`.
+- Chat histórico era Pusher `chatrooms.{id}.v2` con `App\Events\ChatMessageEvent` — hoy reemplazado por Centrifugo.
+- Protección: WS bloqueado por TLS fingerprint fuera de navegador/extensiones; la nube Pusher vieja (4001).
 
 ## 4. Playback (live y VOD) — HLS directo, sin tokens
 

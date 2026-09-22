@@ -78,9 +78,11 @@ Android para Kick.com derivado de la base de Xtra for Twitch (v2.60.1).
   `https://kick.com/api/v2/channels/{slug}` devuelve `playback_url` (master.m3u8 live),
   `chatroom.id`, `followers_count`, `is_live`, `livestream`. Clips en `api.kick.com/private/v1/clips`
   y `private/v1/channels/{slug}/clips`. VOD: reconstruir ma��ster desde thumbnail/session/segment.
-- **Chat**: Pusher WebSocket en `wss://websockets.kick.com/viewer/v1/connect` (protocolo Pusher;
-  canal `chatrooms.{id}.v2`; `pusher:subscribe`). Evento relevante `App\Events\ChatMessageEvent`.
-  Lectura sin auth; envío mediante `POST /public/v1/chat` con token.
+- **Chat**: Centrifugo realtime self-hosted (`realtime.*.platform.kick.com`, protocolo Centrifugo;
+  canal `chatrooms.{id}.v2`, evento `App\Events\ChatMessageEvent`; JWT vía
+  `web.kick.com/api/v1/realtime/*`). Lectura anónima sin auth; envío mediante `POST /public/v1/chat`
+  con token. Detalle y flujo exacto en el skill `kick-api` (sección 3). El gateway viejo
+  `websockets.kick.com` ya NO se usa para mensajes.
 - **Playback**: no hay `sig`/`token`; usar `playback_url` directo como `HlsMediaSource`. Cloudflare
   puede exigir headers de navegador/`X-CLIENT-TOKEN` o el stack HttpEngine.
 

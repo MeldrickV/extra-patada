@@ -15,7 +15,7 @@ all without ads.
 
 - **Browse** live streams and categories (official Kick public API + internal endpoints)
 - **Playback** with AndroidX Media3 (ExoPlayer), low-latency HLS sources and quality selection
-- **Real-time chat** over Kick's Pusher WebSocket with badges, emotes and moderation
+- **Real-time chat** over Kick's Centrifugo realtime WebSocket with badges, emotes and moderation (readable anonymously, no login)
 - **OAuth 2.1 (PKCE)** login with Kick
 - Follow channels and content creators
 - Video-on-demand (past broadcasts) playback
@@ -24,8 +24,8 @@ all without ads.
 - Picture-in-picture, background audio and sleep timer
 - Theme engine (light/dark), multiple network stacks (OkHttp / Cronet / HttpEngine)
 
-> Note: some features rely on Kick's **internal, undocumented** endpoints (`/api/v2`, Pusher
-> WebSocket). They may change without notice; the app falls back gracefully when possible.
+> Note: some features rely on Kick's **internal, undocumented** endpoints (`/api/v2`, Centrifugo
+> realtime). They may change without notice; the app falls back gracefully when possible.
 
 ## Download
 
@@ -60,9 +60,9 @@ toolchain locally.
 - [x] Platform abstraction layer (pluggable `Twitch` / `Kick` providers)
 - [x] Kick data layer (official public API + internal `/api/v2`)
 - [x] Kick playback (HLS `playback_url`, no tokens needed)
-- [x] Kick chat (Pusher WebSocket)
-- [ ] Login / follows (OAuth 2.1 PKCE)
-- [ ] VODs, clips, downloads (secondary phase)
+- [x] Kick chat (Centrifugo realtime WebSocket)
+- [x] Login / follows (OAuth 2.1 PKCE)
+- [x] VODs, clips, downloads
 - [ ] Combined Twitch + Kick mode
 
 ## License
