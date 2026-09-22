@@ -22,8 +22,10 @@ Android para Kick.com derivado de la base de Xtra for Twitch (v2.60.1).
 - Toda validación ocurre en **GitHub Actions** (workflow `.github/workflows/ci.yml`):
   - `assembleDebug` + `compileDebugKotlin` (compila).
   - `lintDebug` (static analysis).
-  - `testDebugUnitTest` (unit tests JVM).
-  - `connectedDebugAndroidTest` (instrumented tests en emulador, jobs del workflow).
+  - `testDebugUnitTest` (unit tests JVM, incluyen la capa Kick en `app/src/test`).
+- **No hay instrumented tests** (`connectedDebugAndroidTest`): se eliminaron por el coste del emulador
+  (10+ min solo para arrancar, suite vacía y timeouts de boot). Las pruebas de dispositivo real las
+  hace el usuario en su teléfono. Escribir unit tests JVM cuando se toque lógica nueva.
 - **Flujo obligatorio por tarea**: hacer cambios en una rama → push → verificar en GitHub que
   `ci.yml` pasa → mergear a `main`. Nunca reportar una tarea como completada si el CI no ha pasado.
 - Para comprobar el estado del CI usar la API de GitHub con el token de acceso del repo
@@ -78,9 +80,11 @@ Android para Kick.com derivado de la base de Xtra for Twitch (v2.60.1).
   `https://kick.com/api/v2/channels/{slug}` devuelve `playback_url` (master.m3u8 live),
   `chatroom.id`, `followers_count`, `is_live`, `livestream`. Clips en `api.kick.com/private/v1/clips`
   y `private/v1/channels/{slug}/clips`. VOD: reconstruir ma��ster desde thumbnail/session/segment.
-- **Chat**: Pusher WebSocket en `wss://websockets.kick.com/viewer/v1/connect` (protocolo Pusher;
-  canal `chatrooms.{id}.v2`; `pusher:subscribe`). Evento relevante `App\Events\ChatMessageEvent`.
-  Lectura sin auth; envío mediante `POST /public/v1/chat` con token.
+- **Chat**: Centrifugo realtime self-hosted (`realtime.*.platform.kick.com`, protocolo Centrifugo;
+  canal `chatrooms.{id}.v2`, evento `App\Events\ChatMessageEvent`; JWT vía
+  `web.kick.com/api/v1/realtime/*`). Lectura anónima sin auth; envío mediante `POST /public/v1/chat`
+  con token. Detalle y flujo exacto en el skill `kick-api` (sección 3). El gateway viejo
+  `websockets.kick.com` ya NO se usa para mensajes.
 - **Playback**: no hay `sig`/`token`; usar `playback_url` directo como `HlsMediaSource`. Cloudflare
   puede exigir headers de navegador/`X-CLIENT-TOKEN` o el stack HttpEngine.
 
