@@ -112,9 +112,16 @@ Cargar con la herramienta de skills cuando aplique:
 2. ✅ Abstracción de plataforma (interfaces de repositorios; impl Kick, Twitch reutilizable luego).
 3. ✅ Capa de datos Kick (explorar: top streams, categorías, canal).
 4. ✅ Reproductor Kick (HLS directo).
-5. ✅ Chat Kick (Pusher).
-6. ⏳ Login/follows (OAuth 2.1 PKCE).
-7. ⏳ VODs, clips, descargas.
-8. ⏳ Modo combinado Twitch+Kick.
+5. ✅ Chat Kick lectura (Centrifugo, anónimo).
+6. ⏳ Login/follows (OAuth 2.1 PKCE) — login + lectura de follows ✓; pendiente: follow/unfollow desde UI,
+   refresh de token automático, notificaciones "live".
+7. ⏳ VODs, clips, descargas — playback y download video/clip ✓; pendiente: download de directo (stream),
+   paginación en canal videos/clips, chat-replay de VOD.
+8. ⏳ Modo combinado Twitch+Kick — sin empezar (requiere campo platform en modelos UI + providers limpios).
+9. ⏳ Chat Kick escritura: envío/reply `POST /public/v1/chat`, emotes `[emote:...]` y badges `badges_v2`,
+   re-context por TTL (~45 min), historial reciente.
+10. ⏳ Búsqueda y catálogo Kick: search (slug), game pages, channel suggestions — hoy Twitch-only.
+11. ⏳ Deuda técnica: baseline lint (120 issues), más tests JVM (KickRepository, PKCE, ChatWebSocket.handleFrame),
+    quitar código muerto (getGlobalClips, getChannelLivestream), proxy opcional en playback_url.
 
 Concéntrate en completar el paso actual del roadmap sin regresar fases ya validadas por CI.
