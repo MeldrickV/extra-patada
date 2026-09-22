@@ -2,10 +2,12 @@ package com.xtra.kick.repository.datasource
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.xtra.kick.model.kick.toUser
 import com.xtra.kick.model.ui.User
 import com.xtra.kick.repository.BookmarksRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.util.C
@@ -23,6 +25,8 @@ class FollowedChannelsDataSource(
     private val helixRepository: HelixRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val kickRepository: KickRepository,
+    private val kickToken: String?,
 ) : PagingSource<Int, User>() {
     private var api: String? = null
     private var offset: String? = null
@@ -45,7 +49,8 @@ class FollowedChannelsDataSource(
                 list.add(user)
             }
             list.filter { it.lastBroadcast == null || it.profileImageURL == null }.mapNotNull { it.id }.chunked(100).forEach { ids ->
-                val response = graphQLRepository.loadQueryUsersLastBroadcast(networkLibrary, gqlHeaders, ids)
+                if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+                    val response = graphQLRepository.loadQueryUsersLastBroadcast(networkLibrary, gqlHeaders, ids)
                 if (enableIntegrity) {
                     response.errors?.find { it.message == C.FAILED_INTEGRITY_CHECK }?.let { return LoadResult.Error(Exception(it.message)) }
                 }
@@ -56,6 +61,7 @@ class FollowedChannelsDataSource(
                         }
                         item.lastBroadcast = user?.lastBroadcast?.startedAt?.toString()
                     }
+                }
                 }
             }
             LoadResult.Page(
@@ -73,20 +79,25 @@ class FollowedChannelsDataSource(
                     localFollow = true,
                 ))
             }
-            val result = if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+            val result = if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank() || !kickToken.isNullOrBlank()) {
                 try {
-                    api = C.GQL
+                    api = C.KICK
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.GQL
                         loadFromApi(params)
                     } catch (e: Exception) {
                         try {
-                            api = C.HELIX
+                            api = C.GQL_PERSISTED_QUERY
                             loadFromApi(params)
                         } catch (e: Exception) {
-                            null
+                            try {
+                                api = C.HELIX
+                                loadFromApi(params)
+                            } catch (e: Exception) {
+                                null
+                            }
                         }
                     }
                 }?.let {
@@ -141,6 +152,7 @@ class FollowedChannelsDataSource(
             list.filter {
                 it.lastBroadcast == null || it.profileImageURL == null
             }.mapNotNull { it.id }.chunked(100).forEach { ids ->
+                if (gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) return@forEach
                 val response = graphQLRepository.loadQueryUsersLastBroadcast(networkLibrary, gqlHeaders, ids)
                 if (enableIntegrity) {
                     response.errors?.find { it.message == C.FAILED_INTEGRITY_CHECK }?.let { return LoadResult.Error(Exception(it.message)) }
@@ -207,6 +219,7 @@ class FollowedChannelsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, User> {
         return when (api) {
+            C.KICK -> if (!kickToken.isNullOrBlank()) kickLoad(params) else throw Exception()
             C.GQL -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlQueryLoad(params) else throw Exception()
             C.GQL_PERSISTED_QUERY -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlLoad(params) else throw Exception()
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
@@ -296,6 +309,17 @@ class FollowedChannelsDataSource(
             nextKey = if (!offset.isNullOrBlank()) {
                 (params.key ?: 1) + 1
             } else null
+        )
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, User> {
+        val list = kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset).map {
+            it.toUser()
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
         )
     }
 

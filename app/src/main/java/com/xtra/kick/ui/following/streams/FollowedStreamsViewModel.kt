@@ -12,6 +12,7 @@ import androidx.paging.cachedIn
 import com.xtra.kick.XtraApp
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.datasource.FollowedStreamsDataSource
 import com.xtra.kick.util.C
@@ -24,6 +25,7 @@ class FollowedStreamsViewModel(
     private val localChannelFollowsRepository: LocalChannelFollowsRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val flow = Pager(
@@ -42,6 +44,8 @@ class FollowedStreamsViewModel(
             helixRepository = helixRepository,
             enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
             networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+            kickRepository = kickRepository,
+            kickToken = applicationContext.tokenPrefs().getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
         )
     }.flow.cachedIn(viewModelScope)
 
@@ -50,7 +54,7 @@ class FollowedStreamsViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                FollowedStreamsViewModel(application.applicationContext, xtraModule.localChannelFollowsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository)
+                FollowedStreamsViewModel(application.applicationContext, xtraModule.localChannelFollowsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository)
             }
         }
     }

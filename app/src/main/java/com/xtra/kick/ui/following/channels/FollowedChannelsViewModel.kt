@@ -15,6 +15,7 @@ import com.xtra.kick.repository.BookmarksRepository
 import com.xtra.kick.repository.ChannelSortRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.repository.datasource.FollowedChannelsDataSource
@@ -34,6 +35,7 @@ class FollowedChannelsViewModel(
     private val bookmarksRepository: BookmarksRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val filter = MutableStateFlow<Filter?>(null)
@@ -71,6 +73,8 @@ class FollowedChannelsViewModel(
                 helixRepository = helixRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                kickRepository = kickRepository,
+                kickToken = applicationContext.tokenPrefs().getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -97,7 +101,7 @@ class FollowedChannelsViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                FollowedChannelsViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.graphQLRepository, xtraModule.helixRepository)
+                FollowedChannelsViewModel(application.applicationContext, xtraModule.channelSortRepository, xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository)
             }
         }
     }

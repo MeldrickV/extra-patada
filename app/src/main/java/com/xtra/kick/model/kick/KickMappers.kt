@@ -3,6 +3,7 @@ package com.xtra.kick.model.kick
 import com.xtra.kick.model.ui.Game
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.model.ui.Tag
+import com.xtra.kick.model.ui.User
 
 fun KickLivestream.toStream(): Stream {
     return Stream(
@@ -30,5 +31,15 @@ fun KickCategory.toGame(): Game {
         boxArtURL = imageUrl,
         viewerCount = viewersCount,
         tags = tags.takeIf { it.isNotEmpty() }?.map { Tag(name = it) },
+    )
+}
+
+fun KickFollowedChannel.toUser(): User {
+    return User(
+        id = "user_$id",
+        login = slug,
+        name = username,
+        profileImageURL = profilePicture,
+        accountFollow = true,
     )
 }

@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.util.C
 
@@ -17,6 +18,8 @@ class FollowedStreamsDataSource(
     private val helixRepository: HelixRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val kickRepository: KickRepository,
+    private val kickToken: String?,
 ) : PagingSource<Int, Stream>() {
     private var api: String? = null
     private var offset: String? = null
@@ -46,20 +49,25 @@ class FollowedStreamsDataSource(
                 }
                 (it as? LoadResult.Page)?.data?.let { list.addAll(it) }
             }
-            val result = if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+            val result = if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank() || !kickToken.isNullOrBlank()) {
                 try {
-                    api = C.GQL
+                    api = C.KICK
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.GQL
                         loadFromApi(params)
                     } catch (e: Exception) {
                         try {
-                            api = C.HELIX
+                            api = C.GQL_PERSISTED_QUERY
                             loadFromApi(params)
                         } catch (e: Exception) {
-                            null
+                            try {
+                                api = C.HELIX
+                                loadFromApi(params)
+                            } catch (e: Exception) {
+                                null
+                            }
                         }
                     }
                 }?.let {
@@ -86,6 +94,7 @@ class FollowedStreamsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Stream> {
         return when (api) {
+            C.KICK -> if (!kickToken.isNullOrBlank()) kickLoad(params) else throw Exception()
             C.GQL -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlQueryLoad(params) else throw Exception()
             C.GQL_PERSISTED_QUERY -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlLoad(params) else throw Exception()
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
@@ -280,6 +289,39 @@ class FollowedStreamsDataSource(
                     tags = it.tags,
                 )
             } else null
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
+        )
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        val followed = kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset)
+        val list = mutableListOf<Stream>()
+        for (item in followed) {
+            val slug = item.slug
+            if (slug.isNullOrBlank()) continue
+            val channel = runCatching { kickRepository.getChannel(slug) }.getOrNull() ?: continue
+            val livestream = channel.livestream
+            if (livestream?.isLive != true) continue
+            val id = "user_${channel.id}"
+            list.add(
+                Stream(
+                    id = id,
+                    channelId = id,
+                    channelLogin = slug,
+                    channelName = channel.user?.username ?: item.username,
+                    channelImageURL = channel.user?.profilePicture ?: item.profilePicture,
+                    gameId = livestream.category?.id,
+                    gameSlug = livestream.category?.slug,
+                    gameName = livestream.category?.name,
+                    title = livestream.sessionTitle,
+                    viewerCount = livestream.viewerCount,
+                )
+            )
+            if (list.size >= params.loadSize) break
         }
         return LoadResult.Page(
             data = list,
