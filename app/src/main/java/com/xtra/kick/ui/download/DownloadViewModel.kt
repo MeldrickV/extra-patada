@@ -165,7 +165,7 @@ class DownloadViewModel(
             if (kickChannelId?.startsWith("user_") == true) {
                 viewModelScope.launch {
                     try {
-                        val source = kickRepository.getVideo(videoId)?.source
+                        val source = videoId?.let { kickRepository.getVideo(it)?.source }
                         if (!source.isNullOrBlank()) {
                             _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
                         }
@@ -398,7 +398,7 @@ class DownloadViewModel(
             if (kickChannelId?.startsWith("user_") == true) {
                 viewModelScope.launch {
                     try {
-                        val url = kickRepository.getClip(clipId)?.clipUrl
+                        val url = clipId?.let { kickRepository.getClip(it)?.clipUrl }
                         if (!url.isNullOrBlank()) {
                             _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
                         } else {
