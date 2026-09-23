@@ -2,18 +2,25 @@ package com.xtra.kick.repository
 
 import com.xtra.kick.model.kick.KickCategoriesData
 import com.xtra.kick.model.kick.KickCategoriesResponse
+import com.xtra.kick.model.kick.KickCategory
 import com.xtra.kick.model.kick.KickChannelResponse
 import com.xtra.kick.model.kick.KickChannelVideo
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
 import com.xtra.kick.model.kick.KickClip
 import com.xtra.kick.model.kick.KickFollowedChannel
+import com.xtra.kick.model.kick.KickLivestream
+import com.xtra.kick.model.kick.KickLivestreamMetadata
 import com.xtra.kick.model.kick.KickLivestreamsData
 import com.xtra.kick.model.kick.KickLivestreamsResponse
 import com.xtra.kick.model.kick.KickOAuthIntrospection
 import com.xtra.kick.model.kick.KickOAuthTokenResponse
 import com.xtra.kick.model.kick.KickRealtimeConnectionInfo
+import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.KickSelfUserResponse
 import com.xtra.kick.model.kick.KickSingleClipResponse
+import com.xtra.kick.model.kick.KickStreamer
+import com.xtra.kick.model.kick.KickStreamerChannel
+import com.xtra.kick.model.kick.KickStreamerUser
 import com.xtra.kick.model.kick.KickVideoResponse
 import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.NetworkUtils.executeAsync
