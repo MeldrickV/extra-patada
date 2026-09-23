@@ -1337,6 +1337,7 @@ class ExoPlayerService : BasePlaybackService() {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
                     val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: playlistUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
                     if (url != null) {
                         playlistUrl = url
@@ -1549,24 +1550,45 @@ class ExoPlayerService : BasePlaybackService() {
                         }.build()
                     }
                     player.setMediaSource(
-                        ProgressiveMediaSource.Factory(
-                            DefaultDataSource.Factory(
-                                this@ExoPlayerService,
-                                when {
-                                    networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
-                                        HttpEngineDataSource.Factory(xtraModule.httpEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
+                        if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                            HlsMediaSource.Factory(
+                                DefaultDataSource.Factory(
+                                    this@ExoPlayerService,
+                                    when {
+                                        networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
+                                            HttpEngineDataSource.Factory(xtraModule.httpEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
+                                        }
+                                        networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
+                                            CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
+                                        }
+                                        else -> {
+                                            OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                        }
                                     }
-                                    networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
-                                        CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
-                                    }
-                                    else -> {
-                                        OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
-                                    }
-                                }
+                                )
+                            ).createMediaSource(
+                                MediaItem.fromUri(url)
                             )
-                        ).createMediaSource(
-                            MediaItem.fromUri(url)
-                        )
+                        } else {
+                            ProgressiveMediaSource.Factory(
+                                DefaultDataSource.Factory(
+                                    this@ExoPlayerService,
+                                    when {
+                                        networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
+                                            HttpEngineDataSource.Factory(xtraModule.httpEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
+                                        }
+                                        networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
+                                            CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
+                                        }
+                                        else -> {
+                                            OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                        }
+                                    }
+                                )
+                            ).createMediaSource(
+                                MediaItem.fromUri(url)
+                            )
+                        }
                     )
                     player.volume = prefs().getInt(C.PLAYER_VOLUME, 100) / 100f
                     player.setPlaybackSpeed(prefs().getFloat(C.PLAYER_SPEED, 1f))

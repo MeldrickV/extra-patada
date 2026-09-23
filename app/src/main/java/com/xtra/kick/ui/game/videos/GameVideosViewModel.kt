@@ -136,6 +136,7 @@ class GameVideosViewModel(
                 helixRepository = helixRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                platform = args.platform,
             )
         }.flow
     }.cachedIn(viewModelScope)

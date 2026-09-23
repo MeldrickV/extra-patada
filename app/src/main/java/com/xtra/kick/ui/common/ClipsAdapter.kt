@@ -165,17 +165,19 @@ class ClipsAdapter(
                         val gameListener: (View) -> Unit = {
                             fragment.findNavController().navigate(
                                 if (context.prefs().getBoolean(C.UI_GAME_PAGER, true)) {
-                                    GamePagerFragmentDirections.actionGlobalGamePagerFragment(
-                                        gameId = item.gameId,
-                                        gameSlug = item.gameSlug,
-                                        gameName = item.gameName
-                                    )
-                                } else {
-                                    GameMediaFragmentDirections.actionGlobalGameMediaFragment(
-                                        gameId = item.gameId,
-                                        gameSlug = item.gameSlug,
-                                        gameName = item.gameName
-                                    )
+GamePagerFragmentDirections.actionGlobalGamePagerFragment(
+                                    gameId = item.gameId,
+                                    gameSlug = item.gameSlug,
+                                    gameName = item.gameName,
+                                    platform = item.platform
+                                )
+                            } else {
+                                GameMediaFragmentDirections.actionGlobalGameMediaFragment(
+                                    gameId = item.gameId,
+                                    gameSlug = item.gameSlug,
+                                    gameName = item.gameName,
+                                    platform = item.platform
+                                )
                                 }
                             )
                         }

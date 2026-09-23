@@ -22,6 +22,7 @@ class Video(
     val durationSeconds: Int? = null,
     val type: String? = null,
     val animatedPreviewURL: String? = null,
+    val playlistUrl: String? = null,
     val platform: String? = null,
 ) : Parcelable {
 

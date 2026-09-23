@@ -633,13 +633,15 @@ class ChannelPagerFragment : BaseNetworkFragment(), Scrollable, FragmentHost, In
                             GamePagerFragmentDirections.actionGlobalGamePagerFragment(
                                 gameId = stream.gameId,
                                 gameSlug = stream.gameSlug,
-                                gameName = stream.gameName
+                                gameName = stream.gameName,
+                                platform = stream.platform
                             )
                         } else {
                             GameMediaFragmentDirections.actionGlobalGameMediaFragment(
                                 gameId = stream.gameId,
                                 gameSlug = stream.gameSlug,
-                                gameName = stream.gameName
+                                gameName = stream.gameName,
+                                platform = stream.platform
                             )
                         }
                     )

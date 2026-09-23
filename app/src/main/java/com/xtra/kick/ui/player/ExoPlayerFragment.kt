@@ -235,13 +235,15 @@ class ExoPlayerFragment : PlayerFragment() {
                                         GamePagerFragmentDirections.actionGlobalGamePagerFragment(
                                             gameId = playbackService?.gameId,
                                             gameSlug = playbackService?.gameSlug,
-                                            gameName = gameName
+                                            gameName = gameName,
+                                            platform = if (playbackService?.channelId?.startsWith(C.KICK_USER_PREFIX) == true) C.KICK else null
                                         )
                                     } else {
                                         GameMediaFragmentDirections.actionGlobalGameMediaFragment(
                                             gameId = playbackService?.gameId,
                                             gameSlug = playbackService?.gameSlug,
-                                            gameName = gameName
+                                            gameName = gameName,
+                                            platform = if (playbackService?.channelId?.startsWith(C.KICK_USER_PREFIX) == true) C.KICK else null
                                         )
                                     }
                                 )

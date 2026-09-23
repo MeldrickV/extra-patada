@@ -64,14 +64,16 @@ class GamesAdapter(
                                     gameId = item.id,
                                     gameSlug = item.slug,
                                     gameName = item.name,
-                                    boxArt = item.boxArt
+                                    boxArt = item.boxArt,
+                                    platform = item.platform
                                 )
                             } else {
                                 GameMediaFragmentDirections.actionGlobalGameMediaFragment(
                                     gameId = item.id,
                                     gameSlug = item.slug,
                                     gameName = item.name,
-                                    boxArt = item.boxArt
+                                    boxArt = item.boxArt,
+                                    platform = item.platform
                                 )
                             }
                         )

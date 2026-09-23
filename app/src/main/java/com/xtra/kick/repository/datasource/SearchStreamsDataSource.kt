@@ -57,7 +57,7 @@ class SearchStreamsDataSource(
     }
 
     private suspend fun loadCombined(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        val kickItems = runCatching { kickRepository.searchChannels(query) }
+        val kickItems = runCatching { kickRepository.searchStreams(query) }
             .getOrNull()
             .orEmpty()
             .mapNotNull { channel -> channel.takeIf { it.isLive }?.let { channel ->
@@ -117,7 +117,7 @@ class SearchStreamsDataSource(
     }
 
     private suspend fun kickLoad(): LoadResult<Int, Stream> {
-        val list = kickRepository.searchChannels(query).mapNotNull { it.takeIf { channel -> channel.isLive }?.let { channel ->
+        val list = kickRepository.searchStreams(query).mapNotNull { it.takeIf { channel -> channel.isLive }?.let { channel ->
             Stream(
                 id = "search_${channel.id}",
                 channelId = "user_${channel.id}",

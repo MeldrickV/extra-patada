@@ -8,8 +8,6 @@ import com.xtra.kick.model.kick.KickChannelVideo
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
 import com.xtra.kick.model.kick.KickClip
 import com.xtra.kick.model.kick.KickFollowedChannel
-import com.xtra.kick.model.kick.KickLivestream
-import com.xtra.kick.model.kick.KickLivestreamMetadata
 import com.xtra.kick.model.kick.KickLivestreamsData
 import com.xtra.kick.model.kick.KickLivestreamsResponse
 import com.xtra.kick.model.kick.KickOAuthIntrospection
@@ -18,9 +16,6 @@ import com.xtra.kick.model.kick.KickRealtimeConnectionInfo
 import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.KickSelfUserResponse
 import com.xtra.kick.model.kick.KickSingleClipResponse
-import com.xtra.kick.model.kick.KickStreamer
-import com.xtra.kick.model.kick.KickStreamerChannel
-import com.xtra.kick.model.kick.KickStreamerUser
 import com.xtra.kick.model.kick.KickVideoResponse
 import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.NetworkUtils.executeAsync
@@ -59,7 +54,7 @@ class KickRepository(
     }
 
     suspend fun getLivestreamsByCategory(categoryId: String, limit: Int, cursor: String?): KickLivestreamsData = withContext(Dispatchers.IO) {
-        val url = "${KickApiHelper.API_BASE_URL}/public/v2/livestreams".toHttpUrl().newBuilder()
+        val url = KickApiHelper.PRIVATE_LIVESTREAMS_URL.toHttpUrl().newBuilder()
             .addQueryParameter("category_id", categoryId)
             .addQueryParameter("page_size", limit.toString())
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
@@ -71,54 +66,8 @@ class KickRepository(
             if (!it.isSuccessful) {
                 throw IllegalStateException("Kick category livestreams request failed: ${it.code}")
             }
-            val root = JSONObject(it.body.string())
-            val data = root.optJSONObject("data") ?: root
-            val items = data.optJSONArray("livestreams") ?: data.optJSONArray("streams") ?: JSONArray()
-            val list = buildList {
-                for (i in 0 until items.length()) {
-                    items.optJSONObject(i)?.let { obj -> parseLivestreamV2(obj)?.let { add(it) } }
-                }
-            }
-            val next = data.optString("next_cursor").takeIf { value -> value.isNotBlank() }
-            KickLivestreamsData(livestreams = list, nextCursor = next)
+            json.decodeFromString<KickLivestreamsResponse>(it.body.string()).data
         }
-    }
-
-    private fun parseLivestreamV2(obj: JSONObject): KickLivestream? {
-        val broadcaster = obj.optJSONObject("broadcaster")
-        val category = obj.optJSONObject("category")
-        val nullableCategory = category?.let {
-            KickCategory(
-                id = it.opt("id")?.toString()?.takeIf { id -> id != "null" },
-                name = it.optString("name").takeIf { name -> name.isNotBlank() },
-                slug = it.optString("slug").takeIf { name -> name.isNotBlank() },
-                tags = it.optJSONArray("tags")?.let { tags ->
-                    buildList { for (j in 0 until tags.length()) { tags.optString(j).takeIf { value -> value.isNotBlank() }?.let { value -> add(value) } } }
-                } ?: emptyList(),
-            )
-        }
-        return KickLivestream(
-            id = obj.optString("id").takeIf { value -> value.isNotBlank() },
-            streamer = KickStreamer(
-                user = KickStreamerUser(
-                    id = obj.optString("broadcaster_user_id").takeIf { value -> value.isNotBlank() }
-                        ?: broadcaster?.optString("id")?.takeIf { value -> value.isNotBlank() },
-                    username = broadcaster?.optString("username")?.takeIf { value -> value.isNotBlank() },
-                    profilePicture = broadcaster?.optString("profile_picture")?.takeIf { value -> value.isNotBlank() },
-                ),
-                channel = KickStreamerChannel(
-                    slug = broadcaster?.optString("slug")?.takeIf { value -> value.isNotBlank() }
-                        ?: obj.optString("slug")?.takeIf { value -> value.isNotBlank() },
-                ),
-            ),
-            metadata = KickLivestreamMetadata(
-                title = obj.optString("title").takeIf { value -> value.isNotBlank() },
-                category = nullableCategory,
-            ),
-            viewersCount = obj.optInt("viewer_count", 0),
-            thumbnailUrl = obj.optJSONObject("thumbnail")?.optString("url")?.takeIf { value -> value.isNotBlank() },
-            startedAt = obj.optString("created_at").takeIf { value -> value.isNotBlank() },
-        )
     }
 
     suspend fun getCategories(limit: Int, cursor: String?): KickCategoriesData = withContext(Dispatchers.IO) {
@@ -330,74 +279,82 @@ class KickRepository(
         }
     }
 
-    suspend fun searchChannels(query: String): List<KickSearchChannel> = withContext(Dispatchers.IO) {
-        val url = "${KickApiHelper.WEBSITE_BASE_URL}/api/v2/search/channels".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query)
+    private suspend fun searchEnriched(query: String): JSONObject = withContext(Dispatchers.IO) {
+        val url = KickApiHelper.SEARCH_URL.toHttpUrl().newBuilder()
+            .addQueryParameter("query", query)
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
             headers.forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
-                throw IllegalStateException("Kick search channels request failed: ${it.code}")
+                throw IllegalStateException("Kick search request failed: ${it.code}")
             }
-            val root = JSONArray(it.body.string())
-            buildList {
-                for (i in 0 until root.length()) {
-                    root.optJSONObject(i)?.let { obj ->
-                        val livestream = obj.optJSONObject("livestream")
-                        val category = livestream?.optJSONObject("category")
-                        add(KickSearchChannel(
-                            id = obj.optLong("id", 0),
-                            username = obj.optString("username").takeIf { name -> name.isNotBlank() },
-                            slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
-                            profilePicture = obj.optString("profile_picture").takeIf { name -> name.isNotBlank() },
-                            isLive = obj.optBoolean("is_live", livestream != null),
-                            title = livestream?.optString("session_title")?.takeIf { name -> name.isNotBlank() }
-                                ?: livestream?.optString("title")?.takeIf { name -> name.isNotBlank() },
-                            thumbnail = livestream?.optJSONObject("thumbnail")?.optString("url")?.takeIf { name -> name.isNotBlank() },
-                            startedAt = livestream?.optString("started_at")?.takeIf { name -> name.isNotBlank() },
-                            viewerCount = livestream?.optInt("viewer_count", 0) ?: 0,
-                            categoryId = category?.opt("id")?.toString()?.takeIf { id -> id != "null" },
-                            categorySlug = category?.optString("slug")?.takeIf { name -> name.isNotBlank() },
-                            categoryName = category?.optString("name")?.takeIf { name -> name.isNotBlank() },
-                        ))
-                    }
-                }
-            }
+            JSONObject(it.body.string()).optJSONObject("data") ?: JSONObject()
         }
     }
 
-    suspend fun searchCategories(query: String): List<KickCategory> = withContext(Dispatchers.IO) {
-        val url = "${KickApiHelper.PUBLIC_API_BASE_URL}/categories".toHttpUrl().newBuilder()
-            .addQueryParameter("q", query)
-            .addQueryParameter("page_size", "20")
-            .build()
-        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
-        }.build()).executeAsync()
-        response.use {
-            if (!it.isSuccessful) {
-                throw IllegalStateException("Kick categories search request failed: ${it.code}")
-            }
-            val root = JSONObject(it.body.string())
-            val data = root.optJSONArray("data") ?: return@use emptyList()
-            buildList {
-                for (i in 0 until data.length()) {
-                    data.optJSONObject(i)?.let { obj ->
-                        add(KickCategory(
-                            id = obj.opt("id")?.toString()?.takeIf { id -> id != "null" },
-                            slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
-                            name = obj.optString("name").takeIf { name -> name.isNotBlank() },
-                            imageUrl = obj.optString("cover").takeIf { name -> name.isNotBlank() }
-                                ?: obj.optString("banner").takeIf { name -> name.isNotBlank() },
-                            viewersCount = obj.optInt("viewer_count", 0),
-                        ))
-                    }
+    suspend fun searchChannels(query: String): List<KickSearchChannel> = searchEnriched(query).optJSONArray("channels")?.let { items ->
+        buildList {
+            for (i in 0 until items.length()) {
+                items.optJSONObject(i)?.let { obj ->
+                    add(KickSearchChannel(
+                        id = obj.optLong("id", 0),
+                        username = obj.optString("username").takeIf { name -> name.isNotBlank() },
+                        slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
+                        profilePicture = obj.optString("profile_picture").takeIf { name -> name.isNotBlank() },
+                        isLive = obj.optBoolean("is_live", false),
+                    ))
                 }
             }
         }
-    }
+    } ?: emptyList()
+
+    suspend fun searchStreams(query: String): List<KickSearchChannel> = searchEnriched(query).optJSONArray("livestreams")?.let { items ->
+        buildList {
+            for (i in 0 until items.length()) {
+                items.optJSONObject(i)?.let { obj ->
+                    val channel = obj.optJSONObject("channel")
+                    val category = obj.optJSONObject("category")
+                    val thumbnail = obj.optJSONObject("thumbnail")
+                    add(KickSearchChannel(
+                        id = channel?.optLong("id", 0) ?: 0,
+                        username = channel?.optString("username")?.takeIf { name -> name.isNotBlank() },
+                        slug = channel?.optString("slug")?.takeIf { name -> name.isNotBlank() },
+                        profilePicture = channel?.optString("profile_picture")?.takeIf { name -> name.isNotBlank() },
+                        isLive = true,
+                        title = obj.optString("title").takeIf { value -> value.isNotBlank() },
+                        thumbnail = thumbnail?.optString("src")?.takeIf { value -> value.isNotBlank() },
+                        startedAt = obj.optString("start_time").takeIf { value -> value.isNotBlank() },
+                        viewerCount = obj.optInt("viewer_count", 0),
+                        categoryId = category?.opt("id")?.toString()?.takeIf { id -> id != "null" },
+                        categorySlug = category?.optString("slug")?.takeIf { name -> name.isNotBlank() },
+                        categoryName = category?.optString("name")?.takeIf { name -> name.isNotBlank() },
+                    ))
+                }
+            }
+        }
+    } ?: emptyList()
+
+    suspend fun searchCategories(query: String): List<KickCategory> = searchEnriched(query).optJSONArray("categories")?.let { items ->
+        buildList {
+            for (i in 0 until items.length()) {
+                items.optJSONObject(i)?.let { obj ->
+                    val thumbnail = obj.optJSONObject("thumbnail")
+                    add(KickCategory(
+                        id = obj.opt("id")?.toString()?.takeIf { id -> id != "null" },
+                        slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
+                        name = obj.optString("name").takeIf { name -> name.isNotBlank() },
+                        tags = obj.optJSONArray("tags")?.let { tags ->
+                            buildList { for (j in 0 until tags.length()) { tags.optString(j).takeIf { value -> value.isNotBlank() }?.let { value -> add(value) } } }
+                        } ?: emptyList(),
+                        imageUrl = thumbnail?.optString("src")?.takeIf { value -> value.isNotBlank() },
+                        viewersCount = obj.optInt("viewer_count", 0),
+                    ))
+                }
+            }
+        }
+    } ?: emptyList()
 
     suspend fun getClip(id: String): KickClip? = withContext(Dispatchers.IO) {
         runCatching {

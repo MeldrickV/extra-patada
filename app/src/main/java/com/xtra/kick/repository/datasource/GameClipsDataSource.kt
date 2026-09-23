@@ -26,6 +26,7 @@ class GameClipsDataSource(
     private val helixRepository: HelixRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val platform: String?,
 ) : PagingSource<Int, Clip>() {
     private var api: String? = null
     private var offset: String? = null
@@ -38,6 +39,13 @@ class GameClipsDataSource(
                 LoadResult.Error(e)
             }
         } else {
+            if (platform == C.KICK) {
+                return LoadResult.Page(
+                    data = emptyList(),
+                    prevKey = null,
+                    nextKey = null
+                )
+            }
             try {
                 api = C.GQL
                 loadFromApi(params)

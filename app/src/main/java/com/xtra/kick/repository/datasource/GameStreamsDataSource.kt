@@ -27,6 +27,7 @@ class GameStreamsDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val platform: String?,
 ) : PagingSource<Int, Stream>() {
     private var api: String? = null
     private var offset: String? = null
@@ -39,7 +40,7 @@ class GameStreamsDataSource(
                 LoadResult.Error(e)
             }
         } else {
-            if (gameId?.toLongOrNull() != null) {
+            if (platform == C.KICK || gameId?.startsWith("category_") == true) {
                 try {
                     api = C.KICK
                     return loadFromApi(params)

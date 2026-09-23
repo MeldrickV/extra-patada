@@ -11,6 +11,7 @@ object KickApiHelper {
     const val PRIVATE_LIVESTREAMS_URL = "https://api.kick.com/private/v1/livestreams"
     const val PRIVATE_CATEGORIES_URL = "https://api.kick.com/private/v1/categories"
     const val PRIVATE_CLIPS_CHANNEL_URL = "$API_BASE_URL/private/v1/channels/{slug}/clips"
+    const val SEARCH_URL = "https://search.kick.com/api/v1/search/enriched"
 
     const val BROWSER_USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
