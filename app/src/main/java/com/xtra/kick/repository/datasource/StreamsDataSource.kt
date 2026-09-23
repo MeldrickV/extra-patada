@@ -111,7 +111,7 @@ class StreamsDataSource(
                 val items = response.livestreams.map { it.toStream() }.takeIf { streams ->
                     streams.any { it.channelId != null || it.channelLogin != null }
                 } ?: emptyList()
-                appendDeduplicated(combinedSeen, list, items, combinedStreamKey, max)
+                appendDeduplicated(combinedSeen, list, items, { combinedStreamKey(it) }, max)
                 remaining -= items.size
                 kickOffset = response.nextCursor
                 if (kickOffset.isNullOrBlank()) {
@@ -162,7 +162,7 @@ class StreamsDataSource(
                         stream.channelId != null || stream.channelLogin != null
                     }
                 }
-                appendDeduplicated(combinedSeen, list, items, combinedStreamKey, max)
+                appendDeduplicated(combinedSeen, list, items, { combinedStreamKey(it) }, max)
                 twitchOffset = response.pagination?.cursor
                 if (twitchOffset.isNullOrBlank()) {
                     twitchExhausted = true

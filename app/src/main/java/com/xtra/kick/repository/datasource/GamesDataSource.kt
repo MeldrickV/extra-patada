@@ -103,7 +103,7 @@ class GamesDataSource(
                     break
                 }
                 val items = response.categories.map { it.toGame() }
-                appendDeduplicated(combinedSeen, list, items, combinedGameKey, max)
+                appendDeduplicated(combinedSeen, list, items, { combinedGameKey(it) }, max)
                 remaining -= items.size
                 offset = response.nextCursor
                 if (offset.isNullOrBlank()) {
@@ -132,7 +132,7 @@ class GamesDataSource(
                         boxArtURL = it.boxArtURL,
                     )
                 }
-                appendDeduplicated(combinedSeen, list, items, combinedGameKey, max)
+                appendDeduplicated(combinedSeen, list, items, { combinedGameKey(it) }, max)
                 twitchOffset = response.pagination?.cursor
                 if (twitchOffset.isNullOrBlank()) {
                     twitchExhausted = true
