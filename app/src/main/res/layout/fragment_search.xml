@@ -32,6 +32,10 @@
                 app:searchIcon="@null" />
         </com.google.android.material.appbar.MaterialToolbar>
 
+        <include
+            android:id="@+id/platformToggle"
+            layout="@layout/view_platform_toggle" />
+
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"

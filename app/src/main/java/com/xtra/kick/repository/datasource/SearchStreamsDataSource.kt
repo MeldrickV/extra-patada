@@ -17,31 +17,42 @@ class SearchStreamsDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val platform: String,
 ) : PagingSource<Int, Stream>() {
     private var api: String? = null
     private var offset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        return if (query.isBlank()) {
-            LoadResult.Page(
+        if (query.isBlank()) {
+            return LoadResult.Page(
                 data = emptyList(),
                 prevKey = null,
                 nextKey = null
             )
-        } else if (params.key == null) {
-            loadCombined(params)
-        } else if (!offset.isNullOrBlank()) {
-            try {
-                loadFromApi(params)
+        }
+        if (params.key != null) {
+            return if (!offset.isNullOrBlank()) {
+                try {
+                    loadFromApi(params)
+                } catch (e: Exception) {
+                    LoadResult.Error(e)
+                }
+            } else {
+                LoadResult.Page(
+                    data = emptyList(),
+                    prevKey = null,
+                    nextKey = null
+                )
+            }
+        }
+        return when (platform) {
+            C.PLATFORM_KICK -> try {
+                kickLoad()
             } catch (e: Exception) {
                 LoadResult.Error(e)
             }
-        } else {
-            LoadResult.Page(
-                data = emptyList(),
-                prevKey = null,
-                nextKey = null
-            )
+            C.PLATFORM_BOTH -> loadCombined(params)
+            else -> firstTwitchResult(params) ?: LoadResult.Error(Exception(C.GQL))
         }
     }
 
@@ -120,6 +131,7 @@ class SearchStreamsDataSource(
                 thumbnailURL = channel.thumbnail,
                 createdAt = channel.startedAt,
                 viewerCount = channel.viewerCount,
+                platform = C.KICK,
             )
         } }
         return LoadResult.Page(

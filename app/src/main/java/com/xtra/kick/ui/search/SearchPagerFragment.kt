@@ -31,6 +31,7 @@ import com.xtra.kick.ui.common.Sortable
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.ui.search.SearchPagerViewModel.Companion.SearchPagerViewModelFactory
 import com.xtra.kick.util.C
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -157,6 +158,27 @@ class SearchPagerFragment : BaseNetworkFragment(), FragmentHost {
                     else -> getString(R.string.channels)
                 }
             }.attach()
+            PlatformState.refresh(requireContext())
+            platformToggle.platformToggleGroup.check(
+                if (PlatformState.flow.value == C.PLATFORM_KICK) R.id.btnKick else R.id.btnTwitch
+            )
+            viewLifecycleOwner.lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    PlatformState.flow.collectLatest { platform ->
+                        platformToggle.platformToggleGroup.check(
+                            if (platform == C.PLATFORM_KICK) R.id.btnKick else R.id.btnTwitch
+                        )
+                    }
+                }
+            }
+            platformToggle.platformToggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (isChecked) {
+                    val newPlatform = if (checkedId == R.id.btnKick) C.PLATFORM_KICK else C.PLATFORM_TWITCH
+                    if (PlatformState.flow.value != newPlatform) {
+                        PlatformState.set(requireContext(), newPlatform)
+                    }
+                }
+            }
             val navController = findNavController()
             val appBarConfiguration = AppBarConfiguration(setOf(R.id.rootGamesFragment, R.id.rootTopFragment, R.id.followPagerFragment, R.id.followMediaFragment, R.id.savedPagerFragment, R.id.savedMediaFragment))
             toolbar.setupWithNavController(navController, appBarConfiguration)

@@ -42,6 +42,7 @@ import com.xtra.kick.ui.search.SearchPagerFragmentDirections
 import com.xtra.kick.ui.settings.SettingsActivity
 import com.xtra.kick.ui.top.TopStreamsViewModel.Companion.TopStreamsViewModelFactory
 import com.xtra.kick.util.C
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -133,6 +134,36 @@ class TopStreamsFragment : PagedListFragment(), Scrollable, StreamsSortDialog.On
             StreamsAdapter(this, { addTag(it) })
         }
         setAdapter(binding.recyclerViewLayout.recyclerView, pagingAdapter)
+        setupPlatformToggle()
+    }
+
+    private fun setupPlatformToggle() {
+        PlatformState.refresh(requireContext())
+        with(binding.platformToggle) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    PlatformState.flow.collectLatest { platform ->
+                        platformToggleGroup.check(
+                            if (platform == C.PLATFORM_KICK) R.id.btnKick else R.id.btnTwitch
+                        )
+                    }
+                }
+            }
+            platformToggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (isChecked) {
+                    val newPlatform = if (checkedId == R.id.btnKick) C.PLATFORM_KICK else C.PLATFORM_TWITCH
+                    if (PlatformState.flow.value != newPlatform) {
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            pagingAdapter.submitData(PagingData.empty())
+                        }
+                        viewModel.setPlatform(newPlatform)
+                    }
+                }
+            }
+            platformToggleGroup.check(
+                if (PlatformState.flow.value == C.PLATFORM_KICK) R.id.btnKick else R.id.btnTwitch
+            )
+        }
     }
 
     override fun initialize() {

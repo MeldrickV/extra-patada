@@ -22,15 +22,16 @@ import com.xtra.kick.repository.SavedFiltersRepository
 import com.xtra.kick.repository.datasource.StreamsDataSource
 import com.xtra.kick.ui.common.StreamsSortDialog
 import com.xtra.kick.util.C
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
-import com.xtra.kick.util.platformPrefIsCombined
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 
 class TopStreamsViewModel(
-    applicationContext: Context,
+    private val applicationContext: Context,
     private val gameSortRepository: GameSortRepository,
     private val savedFiltersRepository: SavedFiltersRepository,
     private val graphQLRepository: GraphQLRepository,
@@ -50,7 +51,9 @@ class TopStreamsViewModel(
         get() = filter.value?.languages ?: emptyArray()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val flow = filter.flatMapLatest {
+    val flow = combine(filter, PlatformState.flow) { _, platform ->
+        platform
+    }.flatMapLatest { platform ->
         Pager(
             if (applicationContext.prefs().getString(C.COMPACT_STREAMS, "disabled") == "all") {
                 PagingConfig(pageSize = 30, prefetchDistance = 10, initialLoadSize = 30)
@@ -83,10 +86,14 @@ class TopStreamsViewModel(
                 kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
-                combinePlatforms = platformPrefIsCombined(applicationContext.prefs().getString(C.PLATFORM, C.PLATFORM_TWITCH)),
+                platform = platform,
             )
         }.flow
     }.cachedIn(viewModelScope)
+
+    fun setPlatform(platform: String) {
+        PlatformState.set(applicationContext, platform)
+    }
 
     suspend fun getGameSort(id: String): GameSort? {
         return gameSortRepository.getById(id)

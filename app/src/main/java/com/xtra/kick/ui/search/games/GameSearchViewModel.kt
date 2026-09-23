@@ -17,16 +17,18 @@ import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.RecentSearchesRepository
 import com.xtra.kick.repository.datasource.SearchGamesDataSource
 import com.xtra.kick.util.C
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
 class GameSearchViewModel(
-    applicationContext: Context,
+    private val applicationContext: Context,
     private val recentSearchesRepository: RecentSearchesRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
@@ -38,7 +40,9 @@ class GameSearchViewModel(
     val recentSearches = recentSearchesRepository.getAll(RecentSearch.TYPE_GAME)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val flow = _query.flatMapLatest { query ->
+    val flow = combine(_query, PlatformState.flow) { query, platform ->
+        query to platform
+    }.flatMapLatest { (query, platform) ->
         Pager(
             PagingConfig(pageSize = 30, prefetchDistance = 10, initialLoadSize = 30)
         ) {
@@ -51,9 +55,14 @@ class GameSearchViewModel(
                 kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                platform = platform,
             )
         }.flow
     }.cachedIn(viewModelScope)
+
+    fun setPlatform(platform: String) {
+        PlatformState.set(applicationContext, platform)
+    }
 
     fun setQuery(newQuery: String) {
         if (_query.value != newQuery) {

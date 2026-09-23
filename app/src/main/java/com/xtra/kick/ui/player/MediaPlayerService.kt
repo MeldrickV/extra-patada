@@ -523,6 +523,7 @@ class MediaPlayerService : BasePlaybackService() {
 
     private suspend fun loadStream(restorePauseState: Boolean = false, restart: Boolean = false) {
         channelLogin?.let { channelLogin ->
+            val isKick = channelId?.startsWith(C.KICK_USER_PREFIX) == true
             var streamProxy = if (useStreamProxy) {
                 streamProxyList?.getOrNull(currentStreamProxy).also {
                     if (it == null) {
@@ -531,7 +532,7 @@ class MediaPlayerService : BasePlaybackService() {
                 }
             } else null
             if (restart || qualities.isNullOrEmpty()) {
-                val proxyUrl = if (useCustomProxy) {
+                val proxyUrl = if (useCustomProxy && !isKick) {
                     customProxyList?.getOrNull(currentCustomProxy)?.let { proxy ->
                         proxy.url?.let { proxyUrl ->
                             (proxyUrl.toUri().takeIf { it.host != null } ?: "https://$proxyUrl".toUri()).let { uri ->
@@ -598,7 +599,7 @@ class MediaPlayerService : BasePlaybackService() {
                     val proxyPort = streamProxy?.port
                     val proxyUser = streamProxy?.username
                     val proxyPassword = streamProxy?.password
-                    val proxyMultivariantPlaylist = streamProxy?.proxyMultivariantPlaylist == true && !proxyHost.isNullOrBlank() && proxyPort != null
+                    val proxyMultivariantPlaylist = streamProxy?.proxyMultivariantPlaylist == true && !isKick && !proxyHost.isNullOrBlank() && proxyPort != null
                     val response = try {
                         when {
                             networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
@@ -786,7 +787,7 @@ class MediaPlayerService : BasePlaybackService() {
                                 responseCode == 404 -> {
                                     serviceListener?.toast(R.string.stream_ended, Toast.LENGTH_LONG)
                                 }
-                                useCustomProxy && responseCode >= 400 -> {
+                                useCustomProxy && !isKick && responseCode >= 400 -> {
                                     val host = customProxyList?.getOrNull(currentCustomProxy)?.url?.let {
                                         it.toUri().host ?: "https://$it".toUri().host
                                     }
@@ -799,7 +800,7 @@ class MediaPlayerService : BasePlaybackService() {
                                         restartPlayer()
                                     }
                                 }
-                                useStreamProxy && responseCode >= 400 -> {
+                                useStreamProxy && !isKick && responseCode >= 400 -> {
                                     val host = streamProxyList?.getOrNull(currentStreamProxy)?.host
                                     currentStreamProxy += 1
                                     if (host != null) {

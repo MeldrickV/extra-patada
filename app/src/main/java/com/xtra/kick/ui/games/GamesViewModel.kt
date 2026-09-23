@@ -16,15 +16,16 @@ import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.datasource.GamesDataSource
 import com.xtra.kick.util.C
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
-import com.xtra.kick.util.platformPrefIsCombined
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 
 class GamesViewModel(
-    applicationContext: Context,
+    private val applicationContext: Context,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
     private val kickRepository: KickRepository,
@@ -37,7 +38,9 @@ class GamesViewModel(
         get() = filter.value?.tags ?: emptyArray()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val flow = filter.flatMapLatest {
+    val flow = combine(filter, PlatformState.flow) { _, platform ->
+        platform
+    }.flatMapLatest { platform ->
         Pager(
             PagingConfig(pageSize = 30, prefetchDistance = 10, initialLoadSize = 30)
         ) {
@@ -50,10 +53,14 @@ class GamesViewModel(
                 kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
-                combinePlatforms = platformPrefIsCombined(applicationContext.prefs().getString(C.PLATFORM, C.PLATFORM_TWITCH)),
+                platform = platform,
             )
         }.flow
     }.cachedIn(viewModelScope)
+
+    fun setPlatform(platform: String) {
+        PlatformState.set(applicationContext, platform)
+    }
 
     fun setFilter(tags: Array<Tag>?) {
         filter.value = Filter(tags)

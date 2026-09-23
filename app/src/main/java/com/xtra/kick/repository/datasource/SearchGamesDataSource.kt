@@ -19,48 +19,52 @@ class SearchGamesDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val platform: String,
 ) : PagingSource<Int, Game>() {
     private var api: String? = null
     private var offset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Game> {
-        return if (query.isBlank()) {
-            LoadResult.Page(
+        if (query.isBlank()) {
+            return LoadResult.Page(
                 data = emptyList(),
                 prevKey = null,
                 nextKey = null
             )
-        } else {
-            if (!offset.isNullOrBlank()) {
-                try {
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    LoadResult.Error(e)
-                }
-            } else {
-                try {
-                    api = C.KICK
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    try {
-                        api = C.GQL
-                        loadFromApi(params)
-                    } catch (e: Exception) {
-                        try {
-                            api = C.GQL_PERSISTED_QUERY
-                            loadFromApi(params)
-                        } catch (e: Exception) {
-                            try {
-                                api = C.HELIX
-                                loadFromApi(params)
-                            } catch (e: Exception) {
-                                LoadResult.Error(e)
-                            }
-                        }
-                    }
+        }
+        if (!offset.isNullOrBlank()) {
+            return try {
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
+        }
+        val candidates = buildList {
+            if (platform == C.PLATFORM_KICK || platform == C.PLATFORM_BOTH) {
+                add(C.KICK)
+            }
+            if (platform != C.PLATFORM_KICK) {
+                add(C.GQL)
+                add(C.GQL_PERSISTED_QUERY)
+                if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+                    add(C.HELIX)
                 }
             }
         }
+        for (candidate in candidates) {
+            api = candidate
+            try {
+                val result = loadFromApi(params)
+                if (result is LoadResult.Page) {
+                    return result
+                }
+                if (result is LoadResult.Error) {
+                    return result
+                }
+            } catch (e: Exception) {
+            }
+        }
+        return LoadResult.Error(Exception(C.GQL))
     }
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Game> {

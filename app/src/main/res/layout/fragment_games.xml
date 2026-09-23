@@ -20,6 +20,10 @@
             app:menu="@menu/top_menu" />
 
         <include
+            android:id="@+id/platformToggle"
+            layout="@layout/view_platform_toggle" />
+
+        <include
             android:id="@+id/sortBar"
             layout="@layout/sort_bar" />
 

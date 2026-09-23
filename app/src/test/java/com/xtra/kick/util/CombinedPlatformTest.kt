@@ -16,6 +16,15 @@ class CombinedPlatformTest {
     }
 
     @Test
+    fun `platform pref normalizes to twitch or kick`() {
+        assertEquals(C.PLATFORM_TWITCH, platformPref(null))
+        assertEquals(C.PLATFORM_TWITCH, platformPref(""))
+        assertEquals(C.PLATFORM_TWITCH, platformPref(C.PLATFORM_TWITCH))
+        assertEquals(C.PLATFORM_KICK, platformPref(C.PLATFORM_KICK))
+        assertEquals(C.PLATFORM_TWITCH, platformPref(C.PLATFORM_BOTH))
+    }
+
+    @Test
     fun `append deduplicates across sources with same key`() {
         val seen = HashSet<String>()
         val target = mutableListOf<String>()

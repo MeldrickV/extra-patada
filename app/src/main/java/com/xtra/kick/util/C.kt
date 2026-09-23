@@ -16,6 +16,7 @@ object C {
     const val KICK = "kick"
     const val PLATFORM = "platform"
     const val PLATFORM_TWITCH = "twitch"
+    const val PLATFORM_KICK = "kick"
     const val PLATFORM_BOTH = "both"
     const val HEADER_CLIENT_ID = "Client-Id"
     const val HEADER_TOKEN = "Authorization"
