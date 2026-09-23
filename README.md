@@ -63,12 +63,12 @@ toolchain locally.
 - [x] Kick chat read (Centrifugo realtime WebSocket, anonymous)
 - [x] Login (OAuth 2.1 PKCE) + read follows
 - [x] VODs / clips playback + clip & VOD downloads
-- [ ] Follow/unfollow from UI + token refresh + Kick live notifications (phase 6)
-- [ ] Live stream downloads + pagination in channel videos/clips (phase 7)
-- [ ] Kick chat write: send/reply, Kick emotes & badges, reconnect/TTL (phase 8)
-- [ ] Kick search & catalog: channels/streams/games/videos, game pages (phase 9)
-- [ ] Combined Twitch + Kick mode (phase 10)
-- [ ] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11)
+- [x] Follow/unfollow from UI + token refresh + Kick live notifications (phase 6)
+- [x] Live stream downloads + pagination in channel videos/clips (phase 7)
+- [x] Kick chat write: send/reply, Kick emotes & badges, reconnect/TTL (phase 8)
+- [x] Kick search & catalog: channels/streams/games/videos, game pages (phase 9)
+- [ ] Combined Twitch + Kick mode (phase 10) — note: platform field + `isKick` model layer already merged; pending settings toggle + merged pagination
+- [ ] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11) — partial: dead code removed + mapper tests merged
 
 ## License
 
