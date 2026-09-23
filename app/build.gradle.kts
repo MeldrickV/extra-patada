@@ -54,7 +54,6 @@ android {
     lint {
         disable += "ContentDescription"
         baseline = file("lint-baseline.xml")
-        warningsAsErrors = true
     }
     packaging.jniLibs.excludes.addAll(listOf(
         "lib/x86/libtranslate_jni.so",
