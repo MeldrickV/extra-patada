@@ -24,6 +24,7 @@ import com.xtra.kick.ui.common.StreamsSortDialog
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
+import com.xtra.kick.util.platformPrefIsCombined
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -82,6 +83,7 @@ class TopStreamsViewModel(
                 kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
+                combinePlatforms = platformPrefIsCombined(applicationContext.prefs().getString(C.PLATFORM, C.PLATFORM_TWITCH)),
             )
         }.flow
     }.cachedIn(viewModelScope)

@@ -341,4 +341,14 @@
         <item>followed</item>
         <item>disabled</item>
     </string-array>
+
+    <string-array name="platformEntries">
+        <item>Twitch</item>
+        <item>Twitch + Kick</item>
+    </string-array>
+
+    <string-array name="platformValues">
+        <item>twitch</item>
+        <item>both</item>
+    </string-array>
 </resources>

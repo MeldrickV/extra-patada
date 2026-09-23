@@ -9,6 +9,7 @@ import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.appendDeduplicated
 
 class GamesDataSource(
     private val tags: List<String>?,
@@ -19,12 +20,24 @@ class GamesDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val combinePlatforms: Boolean,
 ) : PagingSource<Int, Game>() {
     private var api: String? = null
     private var offset: String? = null
+    private var combinedSeen = HashSet<String>()
+    private var kickExhausted = false
+    private var twitchExhausted = false
+    private var twitchOffset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Game> {
-        return if (!offset.isNullOrBlank()) {
+        return if (combinePlatforms) {
+            try {
+                api = C.PLATFORM_BOTH
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
+        } else if (!offset.isNullOrBlank()) {
             try {
                 loadFromApi(params)
             } catch (e: Exception) {
@@ -60,9 +73,87 @@ class GamesDataSource(
             C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
+            C.PLATFORM_BOTH -> bothLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank() && tags.isNullOrEmpty()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun bothLoad(params: LoadParams<Int>): LoadResult<Int, Game> {
+        if (params.key == null) {
+            combinedSeen.clear()
+            offset = null
+            twitchOffset = null
+            kickExhausted = false
+            twitchExhausted = false
+        }
+        val list = mutableListOf<Game>()
+        val max = params.loadSize
+        val kickTarget = (max + 1) / 2
+        if (!kickExhausted) {
+            var remaining = kickTarget
+            var attempts = 0
+            while (remaining > 0 && !kickExhausted && attempts < 5) {
+                attempts++
+                val response = runCatching {
+                    kickRepository.getCategories(remaining.coerceAtLeast(1), offset)
+                }.getOrNull()
+                if (response == null) {
+                    kickExhausted = true
+                    break
+                }
+                val items = response.categories.map { it.toGame() }
+                appendDeduplicated(combinedSeen, list, items, { combinedGameKey(it) }, max)
+                remaining -= items.size
+                offset = response.nextCursor
+                if (offset.isNullOrBlank()) {
+                    kickExhausted = true
+                }
+            }
+            if (attempts >= 5 && !kickExhausted) {
+                kickExhausted = true
+            }
+        }
+        if (list.size < max && !twitchExhausted) {
+            val need = max - list.size
+            val response = runCatching {
+                helixRepository.getTopGames(
+                    networkLibrary = networkLibrary,
+                    headers = helixHeaders,
+                    limit = need,
+                    offset = twitchOffset,
+                )
+            }.getOrNull()
+            if (response?.data?.isNotEmpty() == true) {
+                val items = response.data.map {
+                    Game(
+                        id = it.id,
+                        name = it.name,
+                        boxArtURL = it.boxArtURL,
+                    )
+                }
+                appendDeduplicated(combinedSeen, list, items, { combinedGameKey(it) }, max)
+                twitchOffset = response.pagination?.cursor
+                if (twitchOffset.isNullOrBlank()) {
+                    twitchExhausted = true
+                }
+            } else {
+                twitchExhausted = true
+            }
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = if (kickExhausted && twitchExhausted) {
+                null
+            } else {
+                (params.key ?: 1) + 1
+            }
+        )
+    }
+
+    private fun combinedGameKey(game: Game): String {
+        return "${game.platform ?: ""}|${game.slug ?: game.id}"
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Game> {

@@ -586,4 +586,5 @@
     <string name="kick_login_error">Error al iniciar sesión en Kick</string>
     <string name="kick_login_state_mismatch">El estado no coincide, inténtalo de nuevo</string>
     <string name="kick_follow_failed">No se pudo actualizar el estado de seguimiento de Kick.</string>
+    <string name="platform_setting">Plataforma</string>
 </resources>

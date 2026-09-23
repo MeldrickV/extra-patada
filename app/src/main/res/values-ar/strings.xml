@@ -581,4 +581,5 @@
     <string name="kick_login_error">فشل تسجيل الدخول إلى Kick</string>
     <string name="kick_login_state_mismatch">عدم تطابق الحالة، حاول مرة أخرى</string>
     <string name="kick_follow_failed">تعذر تحديث حالة المتابعة في Kick.</string>
+    <string name="platform_setting">المنصة</string>
 </resources>

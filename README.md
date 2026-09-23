@@ -67,8 +67,8 @@ toolchain locally.
 - [x] Live stream downloads + pagination in channel videos/clips (phase 7)
 - [x] Kick chat write: send/reply, Kick emotes & badges, reconnect/TTL (phase 8)
 - [x] Kick search & catalog: channels/streams/games/videos, game pages (phase 9)
-- [ ] Combined Twitch + Kick mode (phase 10) — note: platform field + `isKick` model layer already merged; pending settings toggle + merged pagination
-- [ ] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11) — partial: dead code removed + mapper tests merged
+- [x] Combined Twitch + Kick mode (phase 10): settings toggle "Platform" (`twitch` = existing kick-first feed with Twitch fallback, default; `both` = Kick+Twitch interleaved, de-duplicated by `platform|channelId` to avoid numeric-id collisions) applied to Popular, Following streams and Browse games.
+- [x] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11): dead code removed, combined-paging + mapper JVM tests; lint baseline kept (warningsAsErrors rejected: exposes pre-existing false positives)
 
 ## License
 
