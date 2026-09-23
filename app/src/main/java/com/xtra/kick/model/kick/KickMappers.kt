@@ -11,7 +11,7 @@ import com.xtra.kick.util.C
 fun KickLivestream.toStream(): Stream {
     return Stream(
         id = id,
-        channelId = streamer?.user?.id,
+        channelId = streamer?.user?.id?.let { "${C.KICK_USER_PREFIX}$it" },
         channelLogin = streamer?.channel?.slug,
         channelName = streamer?.user?.username,
         channelImageURL = streamer?.user?.profilePicture,

@@ -18,6 +18,7 @@ import com.xtra.kick.model.ui.User
 import com.xtra.kick.repository.BookmarksRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.NotificationsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
@@ -46,6 +47,7 @@ class ChannelPagerViewModel(
     private val notificationsRepository: NotificationsRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val kickSession: KickSession,
     private val httpEngine: Lazy<HttpEngine?>,
     private val cronetEngine: Lazy<CronetEngine?>,
@@ -72,7 +74,42 @@ class ChannelPagerViewModel(
 
     fun loadStream(networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, enableIntegrity: Boolean) {
         if (_stream.value == null) {
-            viewModelScope.launch {
+            if (args.channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                viewModelScope.launch {
+                    val channel = runCatching {
+                        kickRepository.getChannel(args.channelLogin ?: "")
+                    }.getOrNull()
+                    channel?.let { kickChannel ->
+                        val login = args.channelLogin ?: kickChannel.slug
+                        kickChannel.livestream?.takeIf { it.isLive }?.let {
+                            _stream.value = Stream(
+                                id = it.id.toString(),
+                                channelId = args.channelId,
+                                channelLogin = login,
+                                channelName = kickChannel.user?.username,
+                                channelImageURL = kickChannel.user?.profilePicture,
+                                gameId = it.category?.id,
+                                gameSlug = it.category?.slug,
+                                gameName = it.category?.name,
+                                title = it.sessionTitle,
+                                viewerCount = it.viewerCount,
+                                createdAt = it.startedAt,
+                                platform = C.KICK,
+                            )
+                        }
+                        _user.value = User(
+                            id = args.channelId,
+                            login = login,
+                            name = kickChannel.user?.username,
+                            profileImageURL = kickChannel.user?.profilePicture,
+                            followerCount = kickChannel.followersCount.toInt(),
+                            isLive = kickChannel.livestream?.isLive ?: false,
+                            platform = C.KICK,
+                        )
+                    }
+                }
+            } else {
+                viewModelScope.launch {
                 try {
                     val response = graphQLRepository.loadQueryUserChannelPage(networkLibrary, gqlHeaders, args.channelId, if (args.channelId.isNullOrBlank()) args.channelLogin else null)
                     if (enableIntegrity) {
@@ -160,6 +197,7 @@ class ChannelPagerViewModel(
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -522,7 +560,7 @@ class ChannelPagerViewModel(
                 val savedStateHandle = createSavedStateHandle()
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                ChannelPagerViewModel(xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.notificationsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, KickSession(application, xtraModule.kickRepository), xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
+                ChannelPagerViewModel(xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.notificationsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.kickRepository, KickSession(application, xtraModule.kickRepository), xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
             }
         }
     }

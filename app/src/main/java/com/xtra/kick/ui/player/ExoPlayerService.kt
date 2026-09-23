@@ -74,6 +74,7 @@ import com.xtra.kick.player.lowlatency.HttpEngineDataSource
 import com.xtra.kick.player.lowlatency.OkHttpDataSource
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickPlayback
 import com.xtra.kick.util.MediaButtonReceiver
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
@@ -1332,10 +1333,15 @@ class ExoPlayerService : BasePlaybackService() {
                 null
             } ?: savedPosition ?: 0
             if (qualities.isNullOrEmpty()) {
-                val result = if (channelId?.startsWith("user_") == true) {
-                    runCatching { xtraModule.kickRepository.getVideo(videoId)?.source }.getOrNull()?.let { it to null }
+                if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
+                    val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
+                    if (url != null) {
+                        playlistUrl = url
+                    }
                 } else {
-                    try {
+                    val result = try {
                         xtraModule.playerRepository.loadVideoPlaylistUrl(
                             networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
                             gqlHeaders = TwitchApiHelper.getGQLHeaders(this@ExoPlayerService, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_VIDEO, true)),
@@ -1349,10 +1355,10 @@ class ExoPlayerService : BasePlaybackService() {
                         }
                         null
                     }
-                }
-                if (result != null) {
-                    playlistUrl = result.first
-                    backupQualities = result.second
+                    if (result != null) {
+                        playlistUrl = result.first
+                        backupQualities = result.second
+                    }
                 }
             }
             val url = if (skipAccessToken) {
@@ -1396,6 +1402,18 @@ class ExoPlayerService : BasePlaybackService() {
     }
 
     private suspend fun updateVideoInfo() {
+        if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+            val channel = runCatching { xtraModule.kickRepository.getChannel(channelLogin ?: "") }.getOrNull()
+            channel?.let {
+                channelLogin = it.slug ?: channelLogin
+                channelName = it.user?.username ?: channelName
+                channelImage = it.user?.profilePicture ?: channelImage
+                updateMetadata()
+                updateNotification()
+                serviceListener?.updateVideoInfo()
+            }
+            return
+        }
         val video = try {
             val response = xtraModule.graphQLRepository.loadQueryVideo(
                 networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
@@ -1478,8 +1496,10 @@ class ExoPlayerService : BasePlaybackService() {
         clipId?.let { clipId ->
             val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP)
             if (qualities.isNullOrEmpty()) {
-                if (channelId?.startsWith("user_") == true) {
-                    val url = runCatching { xtraModule.kickRepository.getClip(clipId)?.clipUrl }.getOrNull()
+                if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    val clip = runCatching { xtraModule.kickRepository.getClip(clipId) }.getOrNull()
+                    val url = clip?.clipUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: clip?.videoUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                     if (url != null) {
                         qualities = mutableListOf(VideoQuality(url = url))
                         setDefaultQuality()

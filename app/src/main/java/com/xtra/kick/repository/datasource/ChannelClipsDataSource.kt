@@ -205,10 +205,15 @@ class ChannelClipsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Clip> {
+        val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
+        val channelName = channel?.user?.username
+        val channelImageURL = channel?.user?.profilePicture
         val list = kickRepository.getChannelClips(channelLogin!!).map {
             it.toClip(
                 channelId = channelId,
                 channelLogin = channelLogin,
+                channelName = channelName,
+                channelImageURL = channelImageURL,
             )
         }
         val page = params.key ?: 0
