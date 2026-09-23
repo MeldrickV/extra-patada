@@ -194,7 +194,28 @@ class ChannelVideosDataSource(
         val channelImageURL = channel?.user?.profilePicture
         val list = kickRepository.getChannelVideos(channelLogin!!)?.mapNotNull { it ->
             if (it.isLive) {
-                null
+                it.video.uuid?.takeIf { uuid -> uuid.isNotBlank() }?.let { uuid ->
+                    val category = it.categories.firstOrNull()
+                    Video(
+                        id = uuid,
+                        channelId = channelId,
+                        channelLogin = channelLogin,
+                        channelName = channelName,
+                        channelImageURL = channelImageURL,
+                        gameId = category?.id?.toString(),
+                        gameSlug = category?.slug,
+                        gameName = category?.name,
+                        title = it.sessionTitle,
+                        thumbnailURL = it.thumbnail.src,
+                        createdAt = it.startTime,
+                        viewCount = it.viewerCount,
+                        durationSeconds = null,
+                        type = "live",
+                        animatedPreviewURL = it.thumbnail.src,
+                        playlistUrl = it.source?.takeIf { source -> source.startsWith("https://") || source.startsWith("http://") },
+                        platform = C.KICK,
+                    )
+                }
             } else {
                 it.toVideo(
                     channelId = channelId,

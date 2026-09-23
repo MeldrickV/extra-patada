@@ -209,12 +209,19 @@ class ChannelClipsDataSource(
         val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
         val channelName = channel?.user?.username
         val channelImageURL = channel?.user?.profilePicture
-        val list = kickRepository.getChannelClips(channelLogin!!).map {
-            it.toClip(
+        val videosByLivestreamId = runCatching { kickRepository.getChannelVideos(channelLogin!!) }.getOrNull()
+            .orEmpty()
+            .mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }
+            .toMap()
+        val list = kickRepository.getChannelClips(channelLogin!!).map { clip ->
+            val video = clip.livestreamId?.let { videosByLivestreamId[it] }
+            clip.toClip(
                 channelId = channelId,
                 channelLogin = channelLogin,
                 channelName = channelName,
                 channelImageURL = channelImageURL,
+                videoId = video?.video?.uuid?.takeIf { it.isNotBlank() },
+                videoCreatedAt = video?.startTime,
             )
         }
         val page = params.key ?: 0

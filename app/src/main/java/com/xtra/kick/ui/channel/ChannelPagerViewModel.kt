@@ -341,7 +341,9 @@ class ChannelPagerViewModel(
                             if (success) {
                                 _isFollowing.value = true
                                 follow.value = Pair(true, null)
-                                localChannelFollowsRepository.getById(channelId)?.let { localChannelFollowsRepository.delete(it) }
+                                if (localChannelFollowsRepository.getById(channelId) == null) {
+                                    localChannelFollowsRepository.save(LocalChannelFollow(channelId, channelLogin, channelName))
+                                }
                                 if (!disableNotifications) {
                                     notificationsRepository.saveUser(NotificationUser(channelId))
                                     _notificationsEnabled.value = true

@@ -2,6 +2,7 @@ package com.xtra.kick.repository.datasource
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.xtra.kick.model.kick.KickFollowedChannel
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
@@ -167,10 +168,12 @@ class FollowedStreamsDataSource(
         val kickTarget = (max + 1) / 2
         if (!kickFetched) {
             kickFetched = true
-            if (!kickToken.isNullOrBlank()) {
-                val followed = runCatching {
+            val followed = (if (!kickToken.isNullOrBlank()) {
+                runCatching {
                     kickRepository.getFollowedChannels(kickToken.orEmpty(), kickTarget.coerceAtLeast(1), null)
-                }.getOrNull() ?: emptyList()
+                }.getOrNull()
+            } else null)?.takeIf { it.isNotEmpty() }
+                ?: localKickFollowed()
             for (item in followed) {
                 if (list.size >= kickTarget) {
                     break
@@ -195,7 +198,6 @@ class FollowedStreamsDataSource(
                         viewerCount = livestream.viewerCount,
                     )
                 )
-            }
             }
         }
         if (list.size < max && !twitchExhausted) {
@@ -453,7 +455,12 @@ class FollowedStreamsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        val followed = kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset)
+        val followed = (if (!kickToken.isNullOrBlank()) {
+            runCatching {
+                kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset)
+            }.getOrNull()
+        } else null)?.takeIf { it.isNotEmpty() }
+            ?: localKickFollowed()
         val list = mutableListOf<Stream>()
         for (item in followed) {
             val slug = item.slug
@@ -483,6 +490,18 @@ class FollowedStreamsDataSource(
             prevKey = null,
             nextKey = null
         )
+    }
+
+    private suspend fun localKickFollowed(): List<KickFollowedChannel> {
+        return localChannelFollowsRepository.getAll().mapNotNull { pin ->
+            pin.userId?.removePrefix(C.KICK_USER_PREFIX)?.toLongOrNull()?.let { id ->
+                KickFollowedChannel(
+                    id = id,
+                    username = pin.userName,
+                    slug = pin.userLogin,
+                )
+            }
+        }
     }
 
     override fun getRefreshKey(state: PagingState<Int, Stream>): Int? {

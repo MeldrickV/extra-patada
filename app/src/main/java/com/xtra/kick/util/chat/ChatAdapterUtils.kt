@@ -206,34 +206,60 @@ object ChatAdapterUtils {
                     }
                 }
                 chatMessage.badges?.forEach { chatBadge ->
-                    val badge = synchronized(channelBadges) {
-                        channelBadges.find { it.setId == chatBadge.setId && it.version == chatBadge.version }
-                    } ?:
-                    synchronized(globalBadges) {
-                        globalBadges.find { it.setId == chatBadge.setId && it.version == chatBadge.version }
-                    }
-                    if (badge != null) {
+                    if (!chatBadge.url.isNullOrBlank()) {
                         builder.append(". ")
                         builder.setSpan(ForegroundColorSpan(Color.TRANSPARENT), builderIndex, builderIndex + 1, SPAN_EXCLUSIVE_EXCLUSIVE)
                         if (imageClick != null) {
                             builder.setSpan(object : ClickableSpan() {
                                 override fun onClick(widget: View) {
-                                    imageClick(badge.url4x ?: badge.url3x ?: badge.url2x ?: badge.url1x, badge.title, null, null, null, null, null)
+                                    imageClick(chatBadge.url, chatBadge.setId, chatBadge.format, chatBadge.isAnimated, null, null, null)
                                 }
 
                                 override fun updateDrawState(ds: TextPaint) {}
                             }, builderIndex, builderIndex + 1, SPAN_EXCLUSIVE_EXCLUSIVE)
                         }
                         images.add(Image(
-                            localData = badge.localData?.let { getLocalEmoteData(badge.setId + badge.version, it, savedLocalBadges, chatUrl, getEmoteBytes) },
-                            url1x = badge.url1x,
-                            url2x = badge.url2x,
-                            url3x = badge.url3x,
-                            url4x = badge.url4x,
+                            localData = null,
+                            url1x = chatBadge.url,
+                            url2x = chatBadge.url,
+                            url3x = chatBadge.url,
+                            url4x = chatBadge.url,
+                            format = chatBadge.format,
+                            isAnimated = chatBadge.isAnimated,
                             size = Image.IMAGE_SIZE_BADGE,
                             start = builderIndex++,
                             end = builderIndex++
                         ))
+                    } else {
+                        val badge = synchronized(channelBadges) {
+                            channelBadges.find { it.setId == chatBadge.setId && it.version == chatBadge.version }
+                        } ?:
+                            synchronized(globalBadges) {
+                                globalBadges.find { it.setId == chatBadge.setId && it.version == chatBadge.version }
+                            }
+                        if (badge != null) {
+                            builder.append(". ")
+                            builder.setSpan(ForegroundColorSpan(Color.TRANSPARENT), builderIndex, builderIndex + 1, SPAN_EXCLUSIVE_EXCLUSIVE)
+                            if (imageClick != null) {
+                                builder.setSpan(object : ClickableSpan() {
+                                    override fun onClick(widget: View) {
+                                        imageClick(badge.url4x ?: badge.url3x ?: badge.url2x ?: badge.url1x, badge.title, null, null, null, null, null)
+                                    }
+
+                                    override fun updateDrawState(ds: TextPaint) {}
+                                }, builderIndex, builderIndex + 1, SPAN_EXCLUSIVE_EXCLUSIVE)
+                            }
+                            images.add(Image(
+                                localData = badge.localData?.let { getLocalEmoteData(badge.setId + badge.version, it, savedLocalBadges, chatUrl, getEmoteBytes) },
+                                url1x = badge.url1x,
+                                url2x = badge.url2x,
+                                url3x = badge.url3x,
+                                url4x = badge.url4x,
+                                size = Image.IMAGE_SIZE_BADGE,
+                                start = builderIndex++,
+                                end = builderIndex++
+                            ))
+                        }
                     }
                 }
                 val stvUser = if ((showSTVBadges || showNamePaints || showPersonalEmotes) && !chatMessage.userId.isNullOrBlank()) {
