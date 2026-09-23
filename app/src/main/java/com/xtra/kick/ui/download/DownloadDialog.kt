@@ -231,6 +231,7 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                     playerType = requireContext().prefs().getString(C.TOKEN_PLAYER_TYPE, "site"),
                     supportedCodecs = requireContext().prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
                 )
             }
             VIDEO -> {
@@ -282,6 +283,8 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                     },
                     supportedCodecs = requireContext().prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
+                    kickChannelLogin = requireArguments().getString(KEY_CHANNEL_LOGIN),
                 )
             }
             CLIP -> {
@@ -314,6 +317,7 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                         }
                     },
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
                 )
             }
         }
@@ -729,6 +733,7 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                     playerType = requireContext().prefs().getString(C.TOKEN_PLAYER_TYPE, "site"),
                     supportedCodecs = requireContext().prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
                 )
             }
             "video" -> {
@@ -780,6 +785,7 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                         }
                     },
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                    kickChannelId = requireArguments().getString(KEY_CHANNEL_ID),
                 )
             }
         }

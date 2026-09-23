@@ -35,7 +35,13 @@ class ChannelVideosDataSource(
     private var offset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Video> {
-        return if (!offset.isNullOrBlank()) {
+        return if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+            try {
+                kickLoad(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
+        } else if (!offset.isNullOrBlank()) {
             try {
                 loadFromApi(params)
             } catch (e: Exception) {
@@ -43,23 +49,18 @@ class ChannelVideosDataSource(
             }
         } else {
             try {
-                api = C.KICK
+                api = C.GQL
                 loadFromApi(params)
             } catch (e: Exception) {
                 try {
-                    api = C.GQL
+                    api = C.GQL_PERSISTED_QUERY
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.HELIX
                         loadFromApi(params)
                     } catch (e: Exception) {
-                        try {
-                            api = C.HELIX
-                            loadFromApi(params)
-                        } catch (e: Exception) {
-                            LoadResult.Error(e)
-                        }
+                        LoadResult.Error(e)
                     }
                 }
             }

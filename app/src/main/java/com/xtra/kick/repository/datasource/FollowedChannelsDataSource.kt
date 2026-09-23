@@ -77,6 +77,7 @@ class FollowedChannelsDataSource(
                     login = it.userLogin,
                     name = it.userName,
                     localFollow = true,
+                    platform = if (it.userId?.startsWith(C.KICK_USER_PREFIX) == true) C.KICK else null,
                 ))
             }
             var nextKey: Int? = null

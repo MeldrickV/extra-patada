@@ -54,8 +54,7 @@ class KickRepository(
     }
 
     suspend fun getLivestreamsByCategory(categoryId: String, limit: Int, cursor: String?): KickLivestreamsData = withContext(Dispatchers.IO) {
-        val url = KickApiHelper.PRIVATE_LIVESTREAMS_URL.toHttpUrl().newBuilder()
-            .addQueryParameter("category_id", categoryId)
+        val url = KickApiHelper.PRIVATE_CATEGORY_LIVESTREAMS_URL.replace("{categoryId}", categoryId).toHttpUrl().newBuilder()
             .addQueryParameter("page_size", limit.toString())
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
             .build()
@@ -66,7 +65,12 @@ class KickRepository(
             if (!it.isSuccessful) {
                 throw IllegalStateException("Kick category livestreams request failed: ${it.code}")
             }
-            json.decodeFromString<KickLivestreamsResponse>(it.body.string()).data
+            val body = it.body.string()
+            if (body.trimStart().startsWith("[")) {
+                KickLivestreamsData(livestreams = emptyList(), nextCursor = null)
+            } else {
+                json.decodeFromString<KickLivestreamsResponse>(body).data
+            }
         }
     }
 

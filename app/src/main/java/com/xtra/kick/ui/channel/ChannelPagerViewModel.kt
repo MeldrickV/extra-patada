@@ -291,12 +291,15 @@ class ChannelPagerViewModel(
                     if (!channelId.isNullOrBlank()) {
                         if (channelId.startsWith(C.KICK_USER_PREFIX)) {
                             val token = kickSession.accessToken()
+                            val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
                             if (!token.isNullOrBlank()) {
                                 val followedIds = runCatching {
                                     kickSession.repository.getFollowedChannels(token, 100, null).mapNotNull { it.id }
                                 }.getOrDefault(emptyList())
-                                val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
-                                _isFollowing.value = id != null && id in followedIds
+                                _isFollowing.value = id != null && (id in followedIds || localChannelFollowsRepository.getById(channelId) != null)
+                                _notificationsEnabled.value = notificationsRepository.getUserById(channelId) != null
+                            } else {
+                                _isFollowing.value = localChannelFollowsRepository.getById(channelId) != null
                                 _notificationsEnabled.value = notificationsRepository.getUserById(channelId) != null
                             }
                             return@launch
@@ -329,12 +332,30 @@ class ChannelPagerViewModel(
                     if (channelId.startsWith(C.KICK_USER_PREFIX)) {
                         val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
                         val token = kickSession.accessToken()
-                        if (id == null || token.isNullOrBlank()) {
+                        if (id == null) {
                             follow.value = Pair(true, kickSession.followFailedMessage())
                             return@launch
                         }
-                        val success = runCatching { kickSession.repository.followChannel(token, id) }.getOrDefault(false)
-                        if (success) {
+                        if (!token.isNullOrBlank()) {
+                            val success = runCatching { kickSession.repository.followChannel(token, id) }.getOrDefault(false)
+                            if (success) {
+                                _isFollowing.value = true
+                                follow.value = Pair(true, null)
+                                localChannelFollowsRepository.getById(channelId)?.let { localChannelFollowsRepository.delete(it) }
+                                if (!disableNotifications) {
+                                    notificationsRepository.saveUser(NotificationUser(channelId))
+                                    _notificationsEnabled.value = true
+                                }
+                                if (liveNotificationsEnabled) {
+                                    kickStreamStartedAt(channelLogin)?.let {
+                                        notificationsRepository.saveList(listOf(ShownNotification(channelId, it)))
+                                    }
+                                }
+                            } else {
+                                follow.value = Pair(true, kickSession.followFailedMessage())
+                            }
+                        } else {
+                            localChannelFollowsRepository.save(LocalChannelFollow(channelId, channelLogin, channelName))
                             _isFollowing.value = true
                             follow.value = Pair(true, null)
                             if (!disableNotifications) {
@@ -346,8 +367,6 @@ class ChannelPagerViewModel(
                                     notificationsRepository.saveList(listOf(ShownNotification(channelId, it)))
                                 }
                             }
-                        } else {
-                            follow.value = Pair(true, kickSession.followFailedMessage())
                         }
                         return@launch
                     }
@@ -406,18 +425,27 @@ class ChannelPagerViewModel(
                     if (channelId.startsWith(C.KICK_USER_PREFIX)) {
                         val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
                         val token = kickSession.accessToken()
-                        if (id == null || token.isNullOrBlank()) {
+                        if (id == null) {
                             follow.value = Pair(false, kickSession.followFailedMessage())
                             return@launch
                         }
-                        val success = runCatching { kickSession.repository.unfollowChannel(token, id) }.getOrDefault(false)
-                        if (success) {
+                        if (!token.isNullOrBlank()) {
+                            val success = runCatching { kickSession.repository.unfollowChannel(token, id) }.getOrDefault(false)
+                            if (success) {
+                                _isFollowing.value = false
+                                follow.value = Pair(false, null)
+                                localChannelFollowsRepository.getById(channelId)?.let { localChannelFollowsRepository.delete(it) }
+                                notificationsRepository.deleteUser(NotificationUser(channelId))
+                                _notificationsEnabled.value = false
+                            } else {
+                                follow.value = Pair(false, kickSession.followFailedMessage())
+                            }
+                        } else {
+                            localChannelFollowsRepository.getById(channelId)?.let { localChannelFollowsRepository.delete(it) }
                             _isFollowing.value = false
                             follow.value = Pair(false, null)
                             notificationsRepository.deleteUser(NotificationUser(channelId))
                             _notificationsEnabled.value = false
-                        } else {
-                            follow.value = Pair(false, kickSession.followFailedMessage())
                         }
                         return@launch
                     }

@@ -49,13 +49,115 @@ class DownloadViewModel(
     var backupQualities: List<String>? = null
     var selectedQuality: String? = null
 
-    fun setStream(networkLibrary: String?, gqlHeaders: Map<String, String>, channelLogin: String?, qualities: List<VideoQuality>?, platform: String?, playerType: String?, supportedCodecs: String?, enableIntegrity: Boolean) {
+    private val defaultQualityNames = listOf("source", "1080p60", "1080p30", "720p60", "720p30", "480p30", "360p30", "160p30", "audio_only")
+
+    @SuppressLint("NewApi")
+    private suspend fun fetchPlaylistText(url: String, networkLibrary: String?): String? = withContext(Dispatchers.IO) {
+        when {
+            networkLibrary == C.HTTP_ENGINE && httpEngine.value != null -> {
+                val response = suspendCancellableCoroutine { continuation ->
+                    val timeout = NetworkUtils.HttpEngineTimeout()
+                    val request = httpEngine.value!!.newUrlRequestBuilder(
+                        url,
+                        cronetExecutor.value,
+                        NetworkUtils.ByteArrayUrlCallback(continuation, timeout)
+                    ).build()
+                    timeout.start(request, continuation)
+                    request.start()
+                    continuation.invokeOnCancellation {
+                        request.cancel()
+                        timeout.stop()
+                    }
+                }
+                if (response.info.httpStatusCode in 200..299) {
+                    response.body.decodeToString()
+                } else null
+            }
+            networkLibrary == C.CRONET && cronetEngine.value != null -> {
+                val response = suspendCancellableCoroutine { continuation ->
+                    val timeout = NetworkUtils.CronetTimeout()
+                    val request = cronetEngine.value!!.newUrlRequestBuilder(
+                        url,
+                        NetworkUtils.ByteArrayCronetCallback(continuation, timeout),
+                        cronetExecutor.value
+                    ).build()
+                    timeout.start(request, continuation)
+                    request.start()
+                    continuation.invokeOnCancellation {
+                        request.cancel()
+                        timeout.stop()
+                    }
+                }
+                if (response.info.httpStatusCode in 200..299) {
+                    response.body.decodeToString()
+                } else null
+            }
+            else -> {
+                okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                    if (response.isSuccessful) {
+                        response.body.string()
+                    } else null
+                }
+            }
+        }
+    }
+
+    private fun parseMasterVariants(playlist: String): List<VideoQuality> {
+        val stableVariantIds = Regex("STABLE-VARIANT-ID=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
+        val resolutions = Regex("RESOLUTION=(\\d+x\\d+)").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
+        val frameRates = Regex("FRAME-RATE=([\\d.]+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toFloatOrNull() }.toMutableList()
+        val bitrates = Regex("BANDWIDTH=(\\d+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toIntOrNull() }.toMutableList()
+        val codecs = Regex("CODECS=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
+        val urls = Regex("https://.*\\.m3u8").findAll(playlist).map(MatchResult::value).toMutableList()
+        return stableVariantIds.mapIndexedNotNull { index, variantId ->
+            urls.getOrNull(index)?.let { url ->
+                VideoQuality(variantId, resolutions.getOrNull(index)?.substringAfter('x')?.toIntOrNull(), frameRates.getOrNull(index), bitrates.getOrNull(index), codecs.getOrNull(index), url)
+            }
+        }
+    }
+
+    private fun sortedQualities(list: List<VideoQuality>): List<VideoQuality> {
+        return list
+            .sortedWith(
+                compareByDescending<VideoQuality> { it.bitrate }
+                    .thenByDescending { it.frameRate }
+                    .thenByDescending { it.resolution }
+            )
+            .toMutableList().apply {
+                find { it.name.equals("source", true) || it.name?.contains("source", true) == true }?.let { source ->
+                    remove(source)
+                    add(0, VideoQuality(VideoQuality.SOURCE_QUALITY, source.resolution, source.frameRate, source.bitrate, source.codecs, source.url))
+                }
+                find { it.name?.startsWith("audio", true) == true }?.let { audio ->
+                    remove(audio)
+                    add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY, audio.resolution, audio.frameRate, audio.bitrate, audio.codecs, audio.url))
+                }
+            }
+    }
+
+    fun setStream(networkLibrary: String?, gqlHeaders: Map<String, String>, channelLogin: String?, qualities: List<VideoQuality>?, platform: String?, playerType: String?, supportedCodecs: String?, enableIntegrity: Boolean, kickChannelId: String? = null) {
         if (_qualities.value == null) {
             if (!qualities.isNullOrEmpty()) {
                 _qualities.value = qualities
+            } else if (kickChannelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                viewModelScope.launch {
+                    val default = defaultQualityNames.map { VideoQuality(it, url = "") }
+                    try {
+                        val url = kickRepository.getChannel(channelLogin.orEmpty())?.playbackUrl
+                        val master = url?.let { fetchPlaylistText(it, networkLibrary) }
+                        val parsed = master?.let { parseMasterVariants(it) }
+                        _qualities.value = if (!parsed.isNullOrEmpty()) {
+                            sortedQualities(parsed)
+                        } else {
+                            default
+                        }
+                    } catch (e: Exception) {
+                        _qualities.value = default
+                    }
+                }
             } else {
                 viewModelScope.launch {
-                    val default = listOf("source", "1080p60", "1080p30", "720p60", "720p30", "480p30", "360p30", "160p30", "audio_only")
+                    val default = defaultQualityNames.map { VideoQuality(it, url = "") }
                     try {
                         val list = if (!channelLogin.isNullOrBlank()) {
                             val url = playerRepository.loadStreamPlaylistUrl(applicationContext, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, enableIntegrity)
@@ -109,50 +211,19 @@ class DownloadViewModel(
                                 }
                             }
                             if (!playlist.isNullOrBlank()) {
-                                val stableVariantIds = Regex("STABLE-VARIANT-ID=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-                                val resolutions = Regex("RESOLUTION=(\\d+x\\d+)").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-                                val frameRates = Regex("FRAME-RATE=([\\d.]+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toFloatOrNull() }.toMutableList()
-                                val bitrates = Regex("BANDWIDTH=(\\d+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toIntOrNull() }.toMutableList()
-                                val codecs = Regex("CODECS=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-                                val urls = Regex("https://.*\\.m3u8").findAll(playlist).map(MatchResult::value).toMutableList()
-                                stableVariantIds.mapIndexedNotNull { index, variantId ->
-                                    urls.getOrNull(index)?.let { url ->
-                                        VideoQuality(variantId, resolutions.getOrNull(index)?.substringAfter('x')?.toIntOrNull(), frameRates.getOrNull(index), bitrates.getOrNull(index), codecs.getOrNull(index), url)
-                                    }
-                                }
+                                parseMasterVariants(playlist)
                             } else {
-                                default.map {
-                                    VideoQuality(it, url = "")
-                                }
+                                default
                             }
                         } else {
-                            default.map {
-                                VideoQuality(it, url = "")
-                            }
+                            default
                         }
-                        _qualities.value = list
-                            .sortedWith(
-                                compareByDescending<VideoQuality> { it.bitrate }
-                                    .thenByDescending { it.frameRate }
-                                    .thenByDescending { it.resolution }
-                            )
-                            .toMutableList().apply {
-                                find { it.name.equals("source", true) }?.let { source ->
-                                    remove(source)
-                                    add(0, VideoQuality(VideoQuality.SOURCE_QUALITY, source.resolution, source.frameRate, source.bitrate, source.codecs, source.url))
-                                }
-                                find { it.name?.startsWith("audio", true) == true }?.let { audio ->
-                                    remove(audio)
-                                    add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY, audio.resolution, audio.frameRate, audio.bitrate, audio.codecs, audio.url))
-                                }
-                            }
+                        _qualities.value = sortedQualities(list)
                     } catch (e: Exception) {
                         if (e.message == C.FAILED_INTEGRITY_CHECK) {
                             integrity.emit("stream")
                         } else {
-                            _qualities.value = default.map {
-                                VideoQuality(it, url = "")
-                            }
+                            _qualities.value = default
                         }
                     }
                 }
@@ -166,10 +237,16 @@ class DownloadViewModel(
                 viewModelScope.launch {
                     try {
                         val source = videoId?.let { kickRepository.getVideo(it)?.source }
-                        _qualities.value = if (!source.isNullOrBlank()) {
-                            listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                        if (!source.isNullOrBlank()) {
+                            val master = fetchPlaylistText(source, networkLibrary)
+                            val parsed = master?.let { parseMasterVariants(it) }
+                            _qualities.value = if (!parsed.isNullOrEmpty()) {
+                                sortedQualities(parsed)
+                            } else {
+                                listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                            }
                         } else {
-                            qualities
+                            _qualities.value = qualities
                         }
                     } catch (e: Exception) {
                         _qualities.value = qualities
