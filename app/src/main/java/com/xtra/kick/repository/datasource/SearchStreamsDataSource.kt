@@ -28,32 +28,72 @@ class SearchStreamsDataSource(
                 prevKey = null,
                 nextKey = null
             )
+        } else if (params.key == null) {
+            loadCombined(params)
+        } else if (!offset.isNullOrBlank()) {
+            try {
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
         } else {
-            if (!offset.isNullOrBlank()) {
-                try {
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    LoadResult.Error(e)
+            LoadResult.Page(
+                data = emptyList(),
+                prevKey = null,
+                nextKey = null
+            )
+        }
+    }
+
+    private suspend fun loadCombined(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        val kickItems = runCatching { kickRepository.searchChannels(query) }
+            .getOrNull()
+            .orEmpty()
+            .mapNotNull { channel -> channel.takeIf { it.isLive }?.let { channel ->
+                Stream(
+                    id = "search_${channel.id}",
+                    channelId = "user_${channel.id}",
+                    channelLogin = channel.slug,
+                    channelName = channel.username,
+                    channelImageURL = channel.profilePicture,
+                    gameId = channel.categoryId,
+                    gameSlug = channel.categorySlug,
+                    gameName = channel.categoryName,
+                    title = channel.title,
+                    thumbnailURL = channel.thumbnail,
+                    createdAt = channel.startedAt,
+                    viewerCount = channel.viewerCount,
+                    platform = C.KICK,
+                )
+            } }
+        val twitch = firstTwitchResult(params)
+        val twitchItems = (twitch as? LoadResult.Page)?.data.orEmpty()
+        return LoadResult.Page(
+            data = (kickItems + twitchItems).distinctBy { it.id },
+            prevKey = null,
+            nextKey = (twitch as? LoadResult.Page)?.nextKey,
+        )
+    }
+
+    private suspend fun firstTwitchResult(params: LoadParams<Int>): LoadResult<Int, Stream>? {
+        val candidates = buildList {
+            add(C.GQL)
+            add(C.HELIX)
+        }
+        for (candidate in candidates) {
+            val savedOffset = offset
+            offset = null
+            api = candidate
+            try {
+                val result = loadFromApi(params)
+                if (result is LoadResult.Page) {
+                    return result
                 }
-            } else {
-                try {
-                    api = C.KICK
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    try {
-                        api = C.GQL
-                        loadFromApi(params)
-                    } catch (e: Exception) {
-                        try {
-                            api = C.HELIX
-                            loadFromApi(params)
-                        } catch (e: Exception) {
-                            LoadResult.Error(e)
-                        }
-                    }
-                }
+            } catch (e: Exception) {
+                offset = savedOffset
             }
         }
+        return null
     }
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Stream> {

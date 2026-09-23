@@ -30,7 +30,7 @@ class KickMappersTest {
         val ui = stream.toStream()
 
         assertEquals("42", ui.id)
-        assertEquals("7", ui.channelId)
+        assertEquals("user_7", ui.channelId)
         assertEquals("streamer", ui.channelLogin)
         assertEquals("streamer", ui.channelName)
         assertEquals("3", ui.gameId)

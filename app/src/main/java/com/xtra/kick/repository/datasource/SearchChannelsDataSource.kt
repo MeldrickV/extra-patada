@@ -28,37 +28,65 @@ class SearchChannelsDataSource(
                 prevKey = null,
                 nextKey = null
             )
+        } else if (params.key == null) {
+            loadCombined(params)
+        } else if (!offset.isNullOrBlank()) {
+            try {
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
         } else {
-            if (!offset.isNullOrBlank()) {
-                try {
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    LoadResult.Error(e)
-                }
-            } else {
-                try {
-                    api = C.KICK
-                    loadFromApi(params)
-                } catch (e: Exception) {
-                    try {
-                        api = C.GQL
-                        loadFromApi(params)
-                    } catch (e: Exception) {
-                        try {
-                            api = C.GQL_PERSISTED_QUERY
-                            loadFromApi(params)
-                        } catch (e: Exception) {
-                            try {
-                                api = C.HELIX
-                                loadFromApi(params)
-                            } catch (e: Exception) {
-                                LoadResult.Error(e)
-                            }
-                        }
-                    }
-                }
+            LoadResult.Page(
+                data = emptyList(),
+                prevKey = null,
+                nextKey = null
+            )
+        }
+    }
+
+    private suspend fun loadCombined(params: LoadParams<Int>): LoadResult<Int, User> {
+        val kickItems = runCatching { kickRepository.searchChannels(query) }.getOrNull().orEmpty().map {
+            User(
+                id = "user_${it.id}",
+                login = it.slug,
+                name = it.username,
+                profileImageURL = it.profilePicture,
+                isLive = it.isLive,
+                platform = C.KICK,
+            )
+        }
+        val twitch = firstTwitchResult(params)
+        val twitchItems = (twitch as? LoadResult.Page)?.data.orEmpty()
+        return LoadResult.Page(
+            data = (kickItems + twitchItems).distinctBy { it.id },
+            prevKey = null,
+            nextKey = (twitch as? LoadResult.Page)?.nextKey,
+        )
+    }
+
+    private suspend fun firstTwitchResult(params: LoadParams<Int>): LoadResult<Int, User>? {
+        val candidates = buildList {
+            add(C.GQL)
+            add(C.GQL_PERSISTED_QUERY)
+            if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+                add(C.HELIX)
             }
         }
+        for (candidate in candidates) {
+            val savedOffset = offset
+            offset = null
+            api = candidate
+            try {
+                val result = loadFromApi(params)
+                if (result is LoadResult.Page) {
+                    return result
+                }
+            } catch (e: Exception) {
+                offset = savedOffset
+            }
+        }
+        return null
     }
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, User> {

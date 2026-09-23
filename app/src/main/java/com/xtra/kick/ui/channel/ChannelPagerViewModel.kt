@@ -72,7 +72,42 @@ class ChannelPagerViewModel(
 
     fun loadStream(networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, enableIntegrity: Boolean) {
         if (_stream.value == null) {
-            viewModelScope.launch {
+            if (args.channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                viewModelScope.launch {
+                    val channel = runCatching {
+                        kickRepository.getChannel(args.channelLogin ?: "")
+                    }.getOrNull()
+                    channel?.let { kickChannel ->
+                        val login = args.channelLogin ?: kickChannel.slug
+                        kickChannel.livestream?.takeIf { it.isLive }?.let {
+                            _stream.value = Stream(
+                                id = it.id.toString(),
+                                channelId = args.channelId,
+                                channelLogin = login,
+                                channelName = kickChannel.user?.username,
+                                channelImageURL = kickChannel.user?.profilePicture,
+                                gameId = it.category?.id,
+                                gameSlug = it.category?.slug,
+                                gameName = it.category?.name,
+                                title = it.sessionTitle,
+                                viewerCount = it.viewerCount,
+                                createdAt = it.startedAt,
+                                platform = C.KICK,
+                            )
+                        }
+                        _user.value = User(
+                            id = args.channelId,
+                            login = login,
+                            name = kickChannel.user?.username,
+                            profileImageURL = kickChannel.user?.profilePicture,
+                            followerCount = kickChannel.followersCount.toInt(),
+                            isLive = kickChannel.livestream?.isLive ?: false,
+                            platform = C.KICK,
+                        )
+                    }
+                }
+            } else {
+                viewModelScope.launch {
                 try {
                     val response = graphQLRepository.loadQueryUserChannelPage(networkLibrary, gqlHeaders, args.channelId, if (args.channelId.isNullOrBlank()) args.channelLogin else null)
                     if (enableIntegrity) {
@@ -160,6 +195,7 @@ class ChannelPagerViewModel(
                         }
                     }
                 }
+            }
             }
         }
     }

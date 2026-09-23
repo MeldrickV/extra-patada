@@ -46,6 +46,7 @@ import com.xtra.kick.model.ui.StreamProxy
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickPlayback
 import com.xtra.kick.util.MediaButtonReceiver
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
@@ -914,23 +915,32 @@ class MediaPlayerService : BasePlaybackService() {
                 null
             } ?: savedPosition ?: 0
             if (qualities.isNullOrEmpty()) {
-                val result = try {
-                    xtraModule.playerRepository.loadVideoPlaylistUrl(
-                        networkLibrary = prefs().getString(C.NETWORK_LIBRARY, "OkHttp"),
-                        gqlHeaders = TwitchApiHelper.getGQLHeaders(this@MediaPlayerService, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_VIDEO, true)),
-                        videoId = videoId,
-                        supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
-                        enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false),
-                    )
-                } catch (e: Exception) {
-                    if (e.message == C.FAILED_INTEGRITY_CHECK) {
-                        integrity.emit("refreshVideo")
+                if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
+                    val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
+                    if (url != null) {
+                        playlistUrl = url
                     }
-                    null
-                }
-                if (result != null) {
-                    playlistUrl = result.first
-                    backupQualities = result.second
+                } else {
+                    val result = try {
+                        xtraModule.playerRepository.loadVideoPlaylistUrl(
+                            networkLibrary = prefs().getString(C.NETWORK_LIBRARY, "OkHttp"),
+                            gqlHeaders = TwitchApiHelper.getGQLHeaders(this@MediaPlayerService, prefs().getBoolean(C.TOKEN_INCLUDE_TOKEN_VIDEO, true)),
+                            videoId = videoId,
+                            supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264"),
+                            enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false),
+                        )
+                    } catch (e: Exception) {
+                        if (e.message == C.FAILED_INTEGRITY_CHECK) {
+                            integrity.emit("refreshVideo")
+                        }
+                        null
+                    }
+                    if (result != null) {
+                        playlistUrl = result.first
+                        backupQualities = result.second
+                    }
                 }
             }
             val url = if (skipAccessToken) {
@@ -1213,6 +1223,18 @@ class MediaPlayerService : BasePlaybackService() {
     }
 
     private suspend fun updateVideoInfo() {
+        if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+            val channel = runCatching { xtraModule.kickRepository.getChannel(channelLogin ?: "") }.getOrNull()
+            channel?.let {
+                channelLogin = it.slug ?: channelLogin
+                channelName = it.user?.username ?: channelName
+                channelImage = it.user?.profilePicture ?: channelImage
+                updateMetadata()
+                updateNotification()
+                serviceListener?.updateVideoInfo()
+            }
+            return
+        }
         val video = try {
             val response = xtraModule.graphQLRepository.loadQueryVideo(
                 networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
@@ -1295,8 +1317,17 @@ class MediaPlayerService : BasePlaybackService() {
         clipId?.let { clipId ->
             val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, "OkHttp")
             if (qualities.isNullOrEmpty()) {
-                val list = try {
-                    xtraModule.playerRepository.loadClipQualities(
+                if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    val clip = runCatching { xtraModule.kickRepository.getClip(clipId) }.getOrNull()
+                    val url = clip?.clipUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: clip?.videoUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                    if (url != null) {
+                        qualities = mutableListOf(VideoQuality(url = url))
+                        setDefaultQuality()
+                    }
+                } else {
+                    val list = try {
+                        xtraModule.playerRepository.loadClipQualities(
                         networkLibrary = networkLibrary,
                         gqlHeaders = TwitchApiHelper.getGQLHeaders(this@MediaPlayerService),
                         clipId = clipId,
