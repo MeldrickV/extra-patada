@@ -73,6 +73,7 @@ fun KickChannelVideo.toVideo(
         durationSeconds = (duration / 1000L).toInt(),
         type = "archive",
         animatedPreviewURL = thumbnail.src,
+        playlistUrl = source?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
         platform = C.KICK,
     )
 }

@@ -111,6 +111,11 @@
             android:name="updateLocal"
             app:argType="boolean"
             android:defaultValue="false" />
+        <argument
+            android:name="platform"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
     </fragment>
     <action
         android:id="@+id/action_global_gamePagerFragment"
@@ -152,6 +157,11 @@
             android:name="updateLocal"
             app:argType="boolean"
             android:defaultValue="false" />
+        <argument
+            android:name="platform"
+            app:argType="string"
+            app:nullable="true"
+            android:defaultValue="@null" />
     </fragment>
     <action
         android:id="@+id/action_global_gameMediaFragment"

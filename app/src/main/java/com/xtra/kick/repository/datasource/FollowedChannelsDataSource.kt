@@ -79,123 +79,60 @@ class FollowedChannelsDataSource(
                     localFollow = true,
                 ))
             }
-            val result = if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank() || !kickToken.isNullOrBlank()) {
+            var nextKey: Int? = null
+            if (!kickToken.isNullOrBlank()) {
                 try {
                     api = C.KICK
-                    loadFromApi(params)
+                    val kickResult = loadFromApi(params)
+                    if (kickResult is LoadResult.Error && kickResult.throwable.message == C.FAILED_INTEGRITY_CHECK) {
+                        return kickResult
+                    }
+                    (kickResult as? LoadResult.Page)?.let { page ->
+                        nextKey = page.nextKey
+                        mergeFollowedUsers(list, page.data)
+                    }
+                } catch (e: Exception) {
+                }
+            }
+            if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() || !helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
+                try {
+                    api = C.GQL
+                    val gqlResult = loadFromApi(params)
+                    if (gqlResult is LoadResult.Error && gqlResult.throwable.message == C.FAILED_INTEGRITY_CHECK) {
+                        return gqlResult
+                    }
+                    (gqlResult as? LoadResult.Page)?.let { page ->
+                        nextKey = page.nextKey
+                        mergeFollowedUsers(list, page.data)
+                    }
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL
-                        loadFromApi(params)
+                        api = C.GQL_PERSISTED_QUERY
+                        val pqResult = loadFromApi(params)
+                        if (pqResult is LoadResult.Error && pqResult.throwable.message == C.FAILED_INTEGRITY_CHECK) {
+                            return pqResult
+                        }
+                        (pqResult as? LoadResult.Page)?.let { page ->
+                            nextKey = page.nextKey
+                            mergeFollowedUsers(list, page.data)
+                        }
                     } catch (e: Exception) {
                         try {
-                            api = C.GQL_PERSISTED_QUERY
-                            loadFromApi(params)
+                            api = C.HELIX
+                            val helixResult = loadFromApi(params)
+                            if (helixResult is LoadResult.Error && helixResult.throwable.message == C.FAILED_INTEGRITY_CHECK) {
+                                return helixResult
+                            }
+                            (helixResult as? LoadResult.Page)?.let { page ->
+                                nextKey = page.nextKey
+                                mergeFollowedUsers(list, page.data)
+                            }
                         } catch (e: Exception) {
-                            try {
-                                api = C.HELIX
-                                loadFromApi(params)
-                            } catch (e: Exception) {
-                                null
-                            }
-                        }
-                    }
-                }?.let {
-                    if (it is LoadResult.Error && it.throwable.message == C.FAILED_INTEGRITY_CHECK) {
-                        return it
-                    }
-                    it as? LoadResult.Page
-                }
-            } else null
-            result?.data?.forEach { user ->
-                val item = list.find { it.id == user.id }
-                if (item == null) {
-                    user.accountFollow = true
-                    list.add(user)
-                } else {
-                    list.remove(item)
-                    list.add(
-                        User(
-                            id = item.id,
-                            login = user.login ?: item.login,
-                            name = user.name ?: item.name,
-                            profileImageURL = user.profileImageURL,
-                            lastBroadcast = user.lastBroadcast,
-                            followedAt = user.followedAt,
-                            accountFollow = true,
-                            localFollow = item.localFollow,
-                        )
-                    )
-                    if (item.localFollow && item.id != null && user.login != null && user.name != null
-                        && (item.login != user.login || item.name != user.name)) {
-                        localChannelFollowsRepository.getById(item.id)?.let {
-                            localChannelFollowsRepository.update(it.apply {
-                                userLogin = user.login
-                                userName = user.name
-                            })
-                        }
-                        offlineVideosRepository.getByUserId(item.id).forEach {
-                            offlineVideosRepository.update(it.apply {
-                                channelLogin = user.login
-                                channelName = user.name
-                            })
-                        }
-                        bookmarksRepository.getByUserId(item.id).forEach {
-                            bookmarksRepository.update(it.apply {
-                                userLogin = user.login
-                                userName = user.name
-                            })
                         }
                     }
                 }
             }
-            list.filter {
-                it.lastBroadcast == null || it.profileImageURL == null
-            }.mapNotNull { it.id }.chunked(100).forEach { ids ->
-                if (gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) return@forEach
-                val response = graphQLRepository.loadQueryUsersLastBroadcast(networkLibrary, gqlHeaders, ids)
-                if (enableIntegrity) {
-                    response.errors?.find { it.message == C.FAILED_INTEGRITY_CHECK }?.let { return LoadResult.Error(Exception(it.message)) }
-                }
-                response.data?.users?.forEach { user ->
-                    list.find { it.id == user?.id }?.let { item ->
-                        list.remove(item)
-                        list.add(
-                            User(
-                                id = item.id,
-                                login = user?.login ?: item.login,
-                                name = user?.displayName ?: item.name,
-                                profileImageURL = user?.profileImageURL,
-                                lastBroadcast = user?.lastBroadcast?.startedAt?.toString(),
-                                followedAt = item.followedAt,
-                                accountFollow = item.accountFollow,
-                                localFollow = item.localFollow,
-                            )
-                        )
-                        if (item.localFollow && item.id != null && user?.login != null && user.displayName != null
-                            && (item.login != user.login || item.name != user.displayName)) {
-                            localChannelFollowsRepository.getById(item.id)?.let {
-                                localChannelFollowsRepository.update(it.apply {
-                                    userLogin = user.login
-                                    userName = user.displayName
-                                })
-                            }
-                            offlineVideosRepository.getByUserId(item.id).forEach {
-                                offlineVideosRepository.update(it.apply {
-                                    channelLogin = user.login
-                                    channelName = user.displayName
-                                })
-                            }
-                            bookmarksRepository.getByUserId(item.id).forEach {
-                                bookmarksRepository.update(it.apply {
-                                    userLogin = user.login
-                                    userName = user.displayName
-                                })
-                            }
-                        }
-                    }
-                }
-            }
+            backfillLastBroadcast(list)?.let { return it }
             val sorted = if (order == "asc") {
                 when (sort) {
                     "created_at" -> list.sortedWith(compareBy(nullsLast()) { it.followedAt })
@@ -212,9 +149,107 @@ class FollowedChannelsDataSource(
             LoadResult.Page(
                 data = sorted,
                 prevKey = null,
-                nextKey = result?.nextKey
+                nextKey = nextKey
             )
         }
+    }
+
+    private suspend fun mergeFollowedUsers(list: MutableList<User>, users: List<User>) {
+        users.forEach { user ->
+            val item = list.find { it.id == user.id }
+            if (item == null) {
+                user.accountFollow = true
+                list.add(user)
+            } else {
+                list.remove(item)
+                list.add(
+                    User(
+                        id = item.id,
+                        login = user.login ?: item.login,
+                        name = user.name ?: item.name,
+                        profileImageURL = user.profileImageURL,
+                        lastBroadcast = user.lastBroadcast,
+                        followedAt = user.followedAt,
+                        accountFollow = true,
+                        localFollow = item.localFollow,
+                        platform = user.platform ?: item.platform,
+                    )
+                )
+                if (item.localFollow && item.id != null && user.login != null && user.name != null
+                    && (item.login != user.login || item.name != user.name)) {
+                    localChannelFollowsRepository.getById(item.id)?.let {
+                        localChannelFollowsRepository.update(it.apply {
+                            userLogin = user.login
+                            userName = user.name
+                        })
+                    }
+                    offlineVideosRepository.getByUserId(item.id).forEach {
+                        offlineVideosRepository.update(it.apply {
+                            channelLogin = user.login
+                            channelName = user.name
+                        })
+                    }
+                    bookmarksRepository.getByUserId(item.id).forEach {
+                        bookmarksRepository.update(it.apply {
+                            userLogin = user.login
+                            userName = user.name
+                        })
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun backfillLastBroadcast(list: MutableList<User>): LoadResult<Int, User>? {
+        list.filter {
+            it.lastBroadcast == null || it.profileImageURL == null
+        }.mapNotNull { it.id }.chunked(100).forEach { ids ->
+            if (gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) return@forEach
+            val response = graphQLRepository.loadQueryUsersLastBroadcast(networkLibrary, gqlHeaders, ids)
+            if (enableIntegrity) {
+                response.errors?.find { it.message == C.FAILED_INTEGRITY_CHECK }?.let { return LoadResult.Error(Exception(it.message)) }
+            }
+            response.data?.users?.forEach { user ->
+                list.find { it.id == user?.id }?.let { item ->
+                    list.remove(item)
+                    list.add(
+                        User(
+                            id = item.id,
+                            login = user?.login ?: item.login,
+                            name = user?.displayName ?: item.name,
+                            profileImageURL = user?.profileImageURL,
+                            lastBroadcast = user?.lastBroadcast?.startedAt?.toString(),
+                            followedAt = item.followedAt,
+                            accountFollow = item.accountFollow,
+                            localFollow = item.localFollow,
+                            platform = item.platform,
+                        )
+                    )
+                    if (item.localFollow && item.id != null && user?.login != null && user.displayName != null
+                        && (item.login != user.login || item.name != user.displayName)) {
+                        localChannelFollowsRepository.getById(item.id)?.let {
+                            localChannelFollowsRepository.update(it.apply {
+                                userLogin = user.login
+                                userName = user.displayName
+                            })
+                        }
+                        offlineVideosRepository.getByUserId(item.id).forEach {
+                            offlineVideosRepository.update(it.apply {
+                                channelLogin = user.login
+                                channelName = user.displayName
+                            })
+                        }
+                        bookmarksRepository.getByUserId(item.id).forEach {
+                            bookmarksRepository.update(it.apply {
+                                userLogin = user.login
+                                userName = user.displayName
+                            })
+                        }
+                    }
+                }
+            }
+        }
+        return null
     }
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, User> {

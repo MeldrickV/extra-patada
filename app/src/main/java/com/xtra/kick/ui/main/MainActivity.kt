@@ -539,6 +539,7 @@ class MainActivity : AppCompatActivity() {
                                         gameName = game.name,
                                         boxArt = game.boxArt,
                                         tags = tag?.let { arrayOf(it) },
+                                        platform = game.platform,
                                     )
                                 } else {
                                     GameMediaFragmentDirections.actionGlobalGameMediaFragment(
@@ -547,6 +548,7 @@ class MainActivity : AppCompatActivity() {
                                         gameName = game.name,
                                         boxArt = game.boxArt,
                                         tags = tag?.let { arrayOf(it) },
+                                        platform = game.platform,
                                     )
                                 }
                             )
@@ -918,6 +920,7 @@ class MainActivity : AppCompatActivity() {
             durationSeconds = video.durationSeconds,
             videoType = video.type,
             videoAnimatedPreviewURL = video.animatedPreviewURL,
+            playlistUrl = video.playlistUrl,
             position = offset,
             qualities = qualities,
         ))

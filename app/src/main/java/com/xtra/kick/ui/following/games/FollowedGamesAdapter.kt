@@ -65,14 +65,16 @@ class FollowedGamesAdapter(
                                     gameId = item.id,
                                     gameSlug = item.slug,
                                     gameName = item.name,
-                                    updateLocal = item.localFollow
+                                    updateLocal = item.localFollow,
+                                    platform = item.platform
                                 )
                             } else {
                                 GameMediaFragmentDirections.actionGlobalGameMediaFragment(
                                     gameId = item.id,
                                     gameSlug = item.slug,
                                     gameName = item.name,
-                                    updateLocal = item.localFollow
+                                    updateLocal = item.localFollow,
+                                    platform = item.platform
                                 )
                             }
                         )
