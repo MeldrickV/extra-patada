@@ -600,6 +600,6 @@
     <string name="kick_login_error">Kick login failed</string>
     <string name="kick_login_state_mismatch">State mismatch, please try again</string>
     <string name="platform_setting">Platform</string>
-    <string name="platform_twitch">Twitch</string>
-    <string name="platform_kick">Kick</string>
+    <string name="platform_twitch" translatable="false">Twitch</string>
+    <string name="platform_kick" translatable="false">Kick</string>
 </resources>
