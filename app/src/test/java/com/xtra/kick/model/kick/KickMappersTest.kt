@@ -38,7 +38,7 @@ class KickMappersTest {
         assertEquals("Games", ui.gameName)
         assertEquals("Live now", ui.title)
         assertEquals("thumb.jpg", ui.thumbnailURL)
-        assertEquals(1234, ui.viewCount)
+        assertEquals(1234, ui.viewerCount)
         assertEquals(listOf("speedrun"), ui.tags)
     }
 
