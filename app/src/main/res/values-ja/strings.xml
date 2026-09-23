@@ -580,4 +580,5 @@
     <string name="kick_redirect_uri">Kick リダイレクト URI</string>
     <string name="kick_login_error">Kick ログインに失敗しました</string>
     <string name="kick_login_state_mismatch">ステートが一致しません。もう一度お試しください</string>
+    <string name="kick_follow_failed">Kickのフォローステータスを更新できませんでした。</string>
 </resources>

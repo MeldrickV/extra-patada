@@ -580,4 +580,5 @@
     <string name="kick_redirect_uri">URI перенаправления Kick</string>
     <string name="kick_login_error">Сбой входа в Kick</string>
     <string name="kick_login_state_mismatch">Состояние не совпадает, повторите попытку</string>
+    <string name="kick_follow_failed">Не удалось обновить статус подписки Kick.</string>
 </resources>
