@@ -11,6 +11,16 @@
         app:iconSpaceReserved="false"
         app:singleLineTitle="false" />
 
+    <ListPreference
+        android:defaultValue="twitch"
+        android:entries="@array/platformEntries"
+        android:entryValues="@array/platformValues"
+        android:key="platform"
+        android:summary="%s"
+        android:title="@string/platform_setting"
+        app:iconSpaceReserved="false"
+        app:singleLineTitle="false" />
+
     <SwitchPreferenceCompat
         android:defaultValue="false"
         android:key="ui_draw_behind_cutouts"

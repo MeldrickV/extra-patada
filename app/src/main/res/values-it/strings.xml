@@ -581,4 +581,5 @@
     <string name="kick_login_error">Accesso Kick non riuscito</string>
     <string name="kick_login_state_mismatch">Stato non corrispondente, riprova</string>
     <string name="kick_follow_failed">Impossibile aggiornare lo stato di follow di Kick.</string>
+    <string name="platform_setting">Piattaforma</string>
 </resources>

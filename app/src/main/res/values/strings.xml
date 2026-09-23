@@ -599,4 +599,5 @@
     <string name="kick_redirect_uri">Kick redirect_uri</string>
     <string name="kick_login_error">Kick login failed</string>
     <string name="kick_login_state_mismatch">State mismatch, please try again</string>
+    <string name="platform_setting">Platform</string>
 </resources>

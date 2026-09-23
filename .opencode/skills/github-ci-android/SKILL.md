@@ -18,7 +18,9 @@ el entorno de la sesión; usarlo SOLO vía variable de entorno (nunca escribirlo
 
 ### `.github/workflows/ci.yml` (gatillado por push/PR a `main`)
 - **build-debug** (ubuntu-latest): `assembleDebug` + `compileDebugKotlin`, luego `lintDebug`.
-  Sube el APK debug como artifact `apk-debug`. Tiene lint baseline `app/lint-baseline.xml`.
+  Sube el APK debug como artifact `apk-debug`. Tiene lint baseline `app/lint-baseline.xml`
+  y `warningsAsErrors = true`: los issues ya baselinados se ignoran, pero **cualquier issue nuevo
+  se convierte en error de build** (hay que corregirlo o añadirlo al baseline explícitamente).
 - **unit-tests** (ubuntu-latest): `testDebugUnitTest`; sube reports.
 
 **No hay instrumented tests** (`connectedDebugAndroidTest`): se eliminaron del CI porque el emulador

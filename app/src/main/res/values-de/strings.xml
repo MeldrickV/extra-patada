@@ -581,4 +581,5 @@
     <string name="kick_login_error">Kick-Anmeldung fehlgeschlagen</string>
     <string name="kick_login_state_mismatch">Status stimmt nicht überein, bitte erneut versuchen</string>
     <string name="kick_follow_failed">Kick-Follow-Status konnte nicht aktualisiert werden.</string>
+    <string name="platform_setting">Plattform</string>
 </resources>

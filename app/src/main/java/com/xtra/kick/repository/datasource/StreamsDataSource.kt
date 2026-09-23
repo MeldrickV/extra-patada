@@ -10,6 +10,7 @@ import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.appendDeduplicated
 
 class StreamsDataSource(
     private val gqlQueryLanguages: List<Language>?,
@@ -24,12 +25,25 @@ class StreamsDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
+    private val combinePlatforms: Boolean,
 ) : PagingSource<Int, Stream>() {
     private var api: String? = null
     private var offset: String? = null
+    private var combinedSeen = HashSet<String>()
+    private var kickExhausted = false
+    private var twitchExhausted = false
+    private var kickOffset: String? = null
+    private var twitchOffset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        return if (!offset.isNullOrBlank()) {
+        return if (combinePlatforms) {
+            try {
+                api = C.PLATFORM_BOTH
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
+        } else if (!offset.isNullOrBlank()) {
             try {
                 loadFromApi(params)
             } catch (e: Exception) {
@@ -65,9 +79,111 @@ class StreamsDataSource(
             C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
+            C.PLATFORM_BOTH -> bothLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank() && tags.isNullOrEmpty() && gqlQueryLanguages.isNullOrEmpty() && gqlLanguages.isNullOrEmpty()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun bothLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        if (params.key == null) {
+            combinedSeen.clear()
+            kickOffset = null
+            twitchOffset = null
+            kickExhausted = false
+            twitchExhausted = false
+        }
+        val list = mutableListOf<Stream>()
+        val max = params.loadSize
+        val kickTarget = (max + 1) / 2
+        if (!kickExhausted) {
+            var remaining = kickTarget
+            var attempts = 0
+            while (remaining > 0 && !kickExhausted && attempts < 5) {
+                attempts++
+                val response = runCatching {
+                    kickRepository.getLivestreams(remaining.coerceAtLeast(1), kickOffset)
+                }.getOrNull()
+                if (response == null) {
+                    kickExhausted = true
+                    break
+                }
+                val items = response.livestreams.map { it.toStream() }.takeIf { streams ->
+                    streams.any { it.channelId != null || it.channelLogin != null }
+                } ?: emptyList()
+                appendDeduplicated(combinedSeen, list, items, combinedStreamKey, max)
+                remaining -= items.size
+                kickOffset = response.nextCursor
+                if (kickOffset.isNullOrBlank()) {
+                    kickExhausted = true
+                }
+            }
+            if (attempts >= 5 && !kickExhausted) {
+                kickExhausted = true
+            }
+        }
+        if (list.size < max && !twitchExhausted) {
+            val need = max - list.size
+            val response = runCatching {
+                helixRepository.getStreams(
+                    networkLibrary = networkLibrary,
+                    headers = helixHeaders,
+                    limit = need,
+                    offset = twitchOffset
+                )
+            }.getOrNull()
+            if (response != null) {
+                val users = response.data.mapNotNull { it.channelId }.let {
+                    runCatching {
+                        helixRepository.getUsers(
+                            networkLibrary = networkLibrary,
+                            headers = helixHeaders,
+                            ids = it
+                        ).data
+                    }.getOrNull() ?: emptyList()
+                }
+                val items = response.data.mapNotNull {
+                    Stream(
+                        id = it.id,
+                        channelId = it.channelId,
+                        channelLogin = it.channelLogin,
+                        channelName = it.channelName,
+                        channelImageURL = it.channelId?.let { id ->
+                            users.find { user -> user.id == id }?.profileImageURL
+                        },
+                        gameId = it.gameId,
+                        gameName = it.gameName,
+                        title = it.title,
+                        thumbnailURL = it.thumbnailURL,
+                        createdAt = it.startedAt,
+                        viewerCount = it.viewerCount,
+                        tags = it.tags,
+                    ).takeIf { stream ->
+                        stream.channelId != null || stream.channelLogin != null
+                    }
+                }
+                appendDeduplicated(combinedSeen, list, items, combinedStreamKey, max)
+                twitchOffset = response.pagination?.cursor
+                if (twitchOffset.isNullOrBlank()) {
+                    twitchExhausted = true
+                }
+            } else {
+                twitchExhausted = true
+            }
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = if (kickExhausted && twitchExhausted) {
+                null
+            } else {
+                (params.key ?: 1) + 1
+            }
+        )
+    }
+
+    private fun combinedStreamKey(stream: Stream): String {
+        return "${stream.platform ?: ""}|${stream.channelId ?: stream.channelLogin}"
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
