@@ -1,5 +1,8 @@
 package com.xtra.kick.util
 
+fun platformPref(platform: String?): String =
+    if (platform == C.PLATFORM_KICK) C.PLATFORM_KICK else C.PLATFORM_TWITCH
+
 fun platformPrefIsCombined(platform: String?): Boolean = platform == C.PLATFORM_BOTH
 
 fun <T> appendDeduplicated(

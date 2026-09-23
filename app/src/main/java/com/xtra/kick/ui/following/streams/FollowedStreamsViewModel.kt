@@ -19,7 +19,6 @@ import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 import com.xtra.kick.util.tokenPrefs
-import com.xtra.kick.util.platformPrefIsCombined
 
 class FollowedStreamsViewModel(
     applicationContext: Context,
@@ -47,7 +46,7 @@ class FollowedStreamsViewModel(
             networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
             kickRepository = kickRepository,
             kickToken = applicationContext.tokenPrefs().getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
-            combinePlatforms = platformPrefIsCombined(applicationContext.prefs().getString(C.PLATFORM, C.PLATFORM_TWITCH)),
+            combinePlatforms = true,
         )
     }.flow.cachedIn(viewModelScope)
 

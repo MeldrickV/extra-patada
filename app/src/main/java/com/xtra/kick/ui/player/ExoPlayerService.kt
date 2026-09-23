@@ -892,6 +892,7 @@ class ExoPlayerService : BasePlaybackService() {
 
     private suspend fun loadStream(restorePauseState: Boolean = false, restart: Boolean = false) {
         channelLogin?.let { channelLogin ->
+            val isKick = channelId?.startsWith(C.KICK_USER_PREFIX) == true
             var streamProxy = if (useStreamProxy) {
                 streamProxyList?.getOrNull(currentStreamProxy).also {
                     if (it == null) {
@@ -900,7 +901,7 @@ class ExoPlayerService : BasePlaybackService() {
                 }
             } else null
             if (restart || qualities.isNullOrEmpty()) {
-                val proxyUrl = if (useCustomProxy) {
+                val proxyUrl = if (useCustomProxy && !isKick) {
                     customProxyList?.getOrNull(currentCustomProxy)?.let { proxy ->
                         proxy.url?.let { proxyUrl ->
                             (proxyUrl.toUri().takeIf { it.host != null } ?: "https://$proxyUrl".toUri()).let { uri ->
@@ -968,7 +969,7 @@ class ExoPlayerService : BasePlaybackService() {
                 player?.let { player ->
                     proxyMediaPlaylist = false
                     val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP)
-                    val customProxyUrl = if (useCustomProxy) {
+                    val customProxyUrl = if (useCustomProxy && !isKick) {
                         url
                     } else null
                     val proxyTimeout = prefs().getString(C.PROXY_TIMEOUT, "3000")?.toIntOrNull() ?: 3000
@@ -976,8 +977,8 @@ class ExoPlayerService : BasePlaybackService() {
                     val proxyPort = streamProxy?.port
                     val proxyUser = streamProxy?.username
                     val proxyPassword = streamProxy?.password
-                    val proxyMultivariantPlaylist = streamProxy?.proxyMultivariantPlaylist == true && !proxyHost.isNullOrBlank() && proxyPort != null
-                    val proxyMediaPlaylist = streamProxy?.proxyMediaPlaylist == true && !proxyHost.isNullOrBlank() && proxyPort != null
+                    val proxyMultivariantPlaylist = streamProxy?.proxyMultivariantPlaylist == true && !isKick && !proxyHost.isNullOrBlank() && proxyPort != null
+                    val proxyMediaPlaylist = streamProxy?.proxyMediaPlaylist == true && !isKick && !proxyHost.isNullOrBlank() && proxyPort != null
                     player.setMediaSource(
                         HlsMediaSource.Factory(
                             DefaultDataSource.Factory(

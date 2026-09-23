@@ -25,7 +25,7 @@ class StreamsDataSource(
     private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
-    private val combinePlatforms: Boolean,
+    private val platform: String,
 ) : PagingSource<Int, Stream>() {
     private var api: String? = null
     private var offset: String? = null
@@ -36,7 +36,22 @@ class StreamsDataSource(
     private var twitchOffset: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        return if (combinePlatforms) {
+        if (platform == C.PLATFORM_KICK) {
+            if (!offset.isNullOrBlank()) {
+                return try {
+                    loadFromApi(params)
+                } catch (e: Exception) {
+                    LoadResult.Error(e)
+                }
+            }
+            return try {
+                api = C.KICK
+                loadFromApi(params)
+            } catch (e: Exception) {
+                LoadResult.Error(e)
+            }
+        }
+        return if (platform == C.PLATFORM_BOTH) {
             try {
                 api = C.PLATFORM_BOTH
                 loadFromApi(params)
@@ -51,23 +66,18 @@ class StreamsDataSource(
             }
         } else {
             try {
-                api = C.KICK
+                api = C.GQL
                 loadFromApi(params)
             } catch (e: Exception) {
                 try {
-                    api = C.GQL
+                    api = C.GQL_PERSISTED_QUERY
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.HELIX
                         loadFromApi(params)
                     } catch (e: Exception) {
-                        try {
-                            api = C.HELIX
-                            loadFromApi(params)
-                        } catch (e: Exception) {
-                            LoadResult.Error(e)
-                        }
+                        LoadResult.Error(e)
                     }
                 }
             }

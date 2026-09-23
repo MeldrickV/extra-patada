@@ -106,7 +106,7 @@ class FollowedStreamsDataSource(
             C.KICK -> if (!kickToken.isNullOrBlank()) kickLoad(params) else throw Exception()
             C.GQL -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlQueryLoad(params) else throw Exception()
             C.GQL_PERSISTED_QUERY -> if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) gqlLoad(params) else throw Exception()
-            C.PLATFORM_BOTH -> if (!kickToken.isNullOrBlank()) kickBothLoad(params) else throw Exception()
+            C.PLATFORM_BOTH -> kickBothLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
@@ -167,9 +167,10 @@ class FollowedStreamsDataSource(
         val kickTarget = (max + 1) / 2
         if (!kickFetched) {
             kickFetched = true
-            val followed = runCatching {
-                kickRepository.getFollowedChannels(kickToken.orEmpty(), kickTarget.coerceAtLeast(1), null)
-            }.getOrNull() ?: emptyList()
+            if (!kickToken.isNullOrBlank()) {
+                val followed = runCatching {
+                    kickRepository.getFollowedChannels(kickToken.orEmpty(), kickTarget.coerceAtLeast(1), null)
+                }.getOrNull() ?: emptyList()
             for (item in followed) {
                 if (list.size >= kickTarget) {
                     break
@@ -194,6 +195,7 @@ class FollowedStreamsDataSource(
                         viewerCount = livestream.viewerCount,
                     )
                 )
+            }
             }
         }
         if (list.size < max && !twitchExhausted) {

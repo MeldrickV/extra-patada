@@ -17,6 +17,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.util.DebugLogger
 import com.xtra.kick.util.C
 import com.xtra.kick.util.NetworkUtils
+import com.xtra.kick.util.PlatformState
 import com.xtra.kick.util.coil.CacheControlCacheStrategy
 import com.xtra.kick.util.prefs
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -39,6 +40,7 @@ class XtraApp : Application(), SingletonImageLoader.Factory {
         super.onCreate()
         INSTANCE = this
         xtraModule = XtraModule(this)
+        PlatformState.refresh(this)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             val conscrypt = Conscrypt.newProvider()
             Security.insertProviderAt(conscrypt, 1)
