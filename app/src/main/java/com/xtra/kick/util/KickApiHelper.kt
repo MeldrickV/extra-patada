@@ -37,6 +37,10 @@ object KickApiHelper {
         return "$WEBSITE_BASE_URL/api/v1/video/$uuid"
     }
 
+    fun channelMessagesUrl(channelId: Long): String {
+        return "$WEBSITE_BASE_URL/api/v2/channels/$channelId/messages"
+    }
+
     fun followedChannelsUrl(): String {
         return "$WEBSITE_BASE_URL/api/v2/channels/followed"
     }

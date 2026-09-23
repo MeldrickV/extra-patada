@@ -479,7 +479,13 @@ class DownloadViewModel(
                     try {
                         val url = clipId?.let { kickRepository.getClip(it)?.clipUrl }
                         if (!url.isNullOrBlank()) {
-                            _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
+                            val master = fetchPlaylistText(url, networkLibrary)
+                            val parsed = master?.let { parseMasterVariants(it) }
+                            _qualities.value = if (!parsed.isNullOrEmpty()) {
+                                sortedQualities(parsed)
+                            } else {
+                                listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
+                            }
                         } else {
                             _qualities.value = qualities
                         }

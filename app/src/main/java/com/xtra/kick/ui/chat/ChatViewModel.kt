@@ -37,7 +37,7 @@ import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
-import com.xtra.kick.util.KickApiHelper
+import com.xtra.kick.ui.common.IntegrityDialog
 import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.chat.ChatReadIRCSocket
@@ -115,6 +115,7 @@ class ChatViewModel(
 
     private var chatReplayManager: ChatReplayManager? = null
     private var chatReplayManagerLocal: ChatReplayManagerLocal? = null
+    private var kickChatReplayManager: KickChatReplayManager? = null
 
     val recentEmotes by lazy { playerRepository.loadRecentEmotesFlow() }
     val hasRecentEmotes = MutableStateFlow(false)
@@ -196,7 +197,7 @@ class ChatViewModel(
     }
 
     fun startReplay(channelId: String?, channelLogin: String?, chatUrl: String? = null, videoId: String? = null, createdAt: String?, startTime: Int = 0, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?) {
-        if (chatReplayManager == null && chatReplayManagerLocal == null) {
+        if (chatReplayManager == null && chatReplayManagerLocal == null && kickChatReplayManager == null) {
             messageLimit = applicationContext.prefs().getInt(C.CHAT_LIMIT, 600)
             startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin)
             if (videoId != null) {
@@ -218,7 +219,7 @@ class ChatViewModel(
     }
 
     fun resumeReplay(channelId: String?, channelLogin: String?, chatUrl: String?, videoId: String?, createdAt: String?, startTime: Int, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?) {
-        if (chatReplayManager?.isActive == false || chatReplayManagerLocal?.isActive == false) {
+        if (chatReplayManager?.isActive == false || chatReplayManagerLocal?.isActive == false || kickChatReplayManager?.isActive == false) {
             startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin)
         }
     }
@@ -1068,54 +1069,10 @@ class ChatViewModel(
         }
 
         private fun parseKickChatMessage(event: JSONObject): ChatMessage? {
-            val sender = event.optJSONObject("sender")
-            val identity = sender?.optJSONObject("identity")
-            val content = event.optString("content").takeIf { it.isNotBlank() } ?: return null
-            val emotes = parseKickEmotes(content)
-            return ChatMessage(
-                type = ChatMessage.USER_MESSAGE,
-                id = event.optString("id").takeIf { it.isNotBlank() },
-                userId = sender?.opt("id")?.toString(),
-                userLogin = sender?.optString("slug")?.takeIf { it.isNotBlank() } ?: sender?.optString("username"),
-                userName = sender?.optString("username")?.takeIf { it.isNotBlank() } ?: sender?.optString("slug"),
-                message = content,
-                color = identity?.optString("color")?.takeIf { it.isNotBlank() },
-                emotes = emotes,
-                badges = identity?.optJSONArray("badges_v2")?.let { array ->
-                    buildList {
-                        for (i in 0 until array.length()) {
-                            val badge = array.optString(i).takeIf { it.isNotBlank() }
-                                ?: array.optJSONObject(i)?.optString("type")?.takeIf { it.isNotBlank() }
-                                ?: continue
-                            add(Badge(badge, "1"))
-                        }
-                    }.takeIf { it.isNotEmpty() }
-                },
-                timestamp = event.optString("created_at").takeIf { it.isNotBlank() }?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
-            )
-        }
-
-        private fun parseKickEmotes(content: String): List<TwitchEmote> {
-            val emotes = mutableListOf<TwitchEmote>()
-            Regex("""\[emote:(\d+):([^\]]+)\]""").findAll(content).forEach { match ->
-                val id = match.groupValues[1]
-                val name = match.groupValues[2]
-                val url = KickApiHelper.emoteUrl(id)
-                val emote = TwitchEmote(
-                    id = id,
-                    name = name,
-                    url1x = url,
-                    url2x = url,
-                    url3x = url,
-                    url4x = url,
-                    format = "png",
-                    isAnimated = false,
-                    begin = match.range.first,
-                    end = match.range.last + 1,
-                )
-                emotes.add(emote)
+            val message = KickChatUtils.parseKickMessage(event) ?: return null
+            message.emotes?.forEach { emote ->
                 synchronized(localTwitchEmotes) {
-                    if (localTwitchEmotes.none { it.id == id }) {
+                    if (localTwitchEmotes.none { it.id == emote.id }) {
                         localTwitchEmotes.add(emote)
                         while (localTwitchEmotes.size > 500) {
                             localTwitchEmotes.removeAt(0)
@@ -1123,7 +1080,7 @@ class ChatViewModel(
                     }
                 }
             }
-            return emotes
+            return message
         }
 
         override suspend fun onDisconnect(message: String, fullMsg: String?) {
@@ -2804,6 +2761,19 @@ class ChatViewModel(
                 listener = ChatReplayListener(),
             )
             readChatFile(chatUrl, channelId, channelLogin)
+        } else if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+            if (!videoId.isNullOrBlank()) {
+                kickChatReplayManager = KickChatReplayManager(
+                    kickRepository = kickRepository,
+                    channelLogin = channelLogin,
+                    videoStart = createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+                    startTime = startTime.times(1000L),
+                    getCurrentPosition = getCurrentPosition,
+                    getCurrentSpeed = getCurrentSpeed,
+                    coroutineScope = viewModelScope,
+                    listener = ChatReplayListener(),
+                )
+            }
         } else {
             if (!videoId.isNullOrBlank()) {
                 chatReplayManager = ChatReplayManager(
@@ -2825,19 +2795,21 @@ class ChatViewModel(
     }
 
     fun startReplayChatLoad() {
-        chatReplayManager?.start() ?: chatReplayManagerLocal?.startLoad()
+        chatReplayManager?.start() ?: kickChatReplayManager?.start() ?: chatReplayManagerLocal?.startLoad()
     }
 
     fun stopReplayChat() {
-        chatReplayManager?.stop() ?: chatReplayManagerLocal?.stop()
+        chatReplayManager?.stop()
+        kickChatReplayManager?.stop()
+        chatReplayManagerLocal?.stop()
     }
 
     fun updatePosition(position: Long) {
-        chatReplayManager?.updatePosition(position) ?: chatReplayManagerLocal?.updatePosition(position)
+        chatReplayManager?.updatePosition(position) ?: kickChatReplayManager?.updatePosition(position) ?: chatReplayManagerLocal?.updatePosition(position)
     }
 
     fun updateSpeed(speed: Float) {
-        chatReplayManager?.updateSpeed(speed) ?: chatReplayManagerLocal?.updateSpeed(speed)
+        chatReplayManager?.updateSpeed(speed) ?: kickChatReplayManager?.updateSpeed(speed) ?: chatReplayManagerLocal?.updateSpeed(speed)
     }
 
     private inner class ChatReplayListener : ChatReplayManager.Listener {

@@ -83,6 +83,8 @@ fun KickClip.toClip(
     channelLogin: String? = null,
     channelName: String? = null,
     channelImageURL: String? = null,
+    videoId: String? = null,
+    videoCreatedAt: String? = null,
 ): Clip {
     return Clip(
         id = id,
@@ -98,6 +100,10 @@ fun KickClip.toClip(
         createdAt = createdAt,
         viewCount = viewCount,
         durationSeconds = duration,
+        videoId = videoId,
+        videoOffsetSeconds = vodStartsAt.takeIf { it > 0 },
+        videoCreatedAt = videoCreatedAt,
+        videoAnimatedPreviewURL = thumbnailUrl,
         platform = C.KICK,
     )
 }

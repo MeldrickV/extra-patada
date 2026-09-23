@@ -53,7 +53,7 @@ class GamesViewModel(
                 kickRepository = kickRepository,
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
-                platform = platform,
+                platform = if (platform == C.PLATFORM_KICK) C.PLATFORM_KICK else C.PLATFORM_TWITCH,
             )
         }.flow
     }.cachedIn(viewModelScope)

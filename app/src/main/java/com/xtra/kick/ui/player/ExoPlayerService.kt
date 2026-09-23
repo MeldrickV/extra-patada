@@ -1503,7 +1503,7 @@ class ExoPlayerService : BasePlaybackService() {
                     val url = clip?.clipUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: clip?.videoUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                     if (url != null) {
-                        qualities = mutableListOf(VideoQuality(url = url))
+                        qualities = mutableListOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
                         setDefaultQuality()
                     }
                 } else {

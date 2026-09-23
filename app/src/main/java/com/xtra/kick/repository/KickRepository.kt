@@ -450,4 +450,33 @@ class KickRepository(
             profilePicture = (user ?: channel).optString("profile_picture").takeIf { it.isNotBlank() },
         )
     }
+
+    suspend fun getChannelMessages(channelId: Long, cursorUs: Long? = null): KickMessagesPage = withContext(Dispatchers.IO) {
+        val url = KickApiHelper.channelMessagesUrl(channelId).toHttpUrl().newBuilder()
+            .apply { cursorUs?.let { addQueryParameter("cursor", it.toString()) } }
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
+            headers.forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick channel messages request failed: ${it.code}")
+            }
+            val data = JSONObject(it.body.string()).optJSONObject("data") ?: JSONObject()
+            val array = data.optJSONArray("messages")
+            val messages = buildList {
+                if (array != null) {
+                    for (i in 0 until array.length()) {
+                        array.optJSONObject(i)?.let { add(it) }
+                    }
+                }
+            }
+            KickMessagesPage(messages, data.optLong("cursor").takeIf { cursor -> cursor > 0 })
+        }
+    }
 }
+
+data class KickMessagesPage(
+    val messages: List<JSONObject>,
+    val cursor: Long? = null,
+)

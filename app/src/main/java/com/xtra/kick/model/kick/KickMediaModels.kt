@@ -66,6 +66,7 @@ data class KickClip(
     @SerialName("clip_url") val clipUrl: String? = null,
     @SerialName("thumbnail_url") val thumbnailUrl: String? = null,
     @SerialName("video_url") val videoUrl: String? = null,
+    @SerialName("vod_starts_at") val vodStartsAt: Int = 0,
     val privacy: String? = null,
     val likes: Long = 0,
     val views: Int = 0,
