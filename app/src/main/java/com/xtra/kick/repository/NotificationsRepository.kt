@@ -15,10 +15,14 @@ class NotificationsRepository(
     private val notificationUsersDao: NotificationUsersDao,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
 ) {
 
-    suspend fun getNewStreams(networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>): List<Stream> = withContext(Dispatchers.IO) {
+    suspend fun getNewStreams(networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, kickToken: String? = null): List<Stream> = withContext(Dispatchers.IO) {
         val list = mutableListOf<Stream>()
+        if (!kickToken.isNullOrBlank()) {
+            runCatching { kickNotifications(kickToken) }.getOrDefault(emptyList()).let { list.addAll(it) }
+        }
         notificationUsersDao.getAll().map { it.channelId }.takeIf { it.isNotEmpty() }?.let {
             try {
                 gqlQueryLocal(networkLibrary, gqlHeaders, it)
@@ -156,6 +160,38 @@ class NotificationsRepository(
                     tags = it.tags,
                 )
             } else null
+        }
+        return list
+    }
+
+    private suspend fun kickNotifications(kickToken: String): List<Stream> {
+        val followed = kickRepository.getFollowedChannels(kickToken, 100, null)
+        val enabledIds = notificationUsersDao.getAll().map { it.channelId }.toSet()
+        val list = mutableListOf<Stream>()
+        for (item in followed) {
+            val slug = item.slug
+            if (slug.isNullOrBlank()) continue
+            val id = "user_${item.id}"
+            if (id !in enabledIds) continue
+            val channel = runCatching { kickRepository.getChannel(slug) }.getOrNull() ?: continue
+            val livestream = channel.livestream ?: continue
+            if (livestream.isLive != true) continue
+            list.add(
+                Stream(
+                    id = id,
+                    channelId = id,
+                    channelLogin = slug,
+                    channelName = channel.user?.username ?: item.username,
+                    channelImageURL = channel.user?.profilePicture ?: item.profilePicture,
+                    gameId = livestream.category?.id,
+                    gameSlug = livestream.category?.slug,
+                    gameName = livestream.category?.name,
+                    title = livestream.sessionTitle,
+                    thumbnailURL = channel.user?.profilePicture ?: item.profilePicture,
+                    createdAt = livestream.startedAt,
+                    viewerCount = livestream.viewerCount,
+                )
+            )
         }
         return list
     }

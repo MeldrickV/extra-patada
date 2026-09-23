@@ -1,6 +1,7 @@
 package com.xtra.kick.model.ui
 
 import android.os.Parcelable
+import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import kotlinx.parcelize.Parcelize
 
@@ -21,10 +22,13 @@ class Video(
     val durationSeconds: Int? = null,
     val type: String? = null,
     val animatedPreviewURL: String? = null,
+    val platform: String? = null,
 ) : Parcelable {
 
+    val isKick: Boolean
+        get() = platform == C.KICK || channelId?.startsWith(C.KICK_USER_PREFIX) == true
     val channelImage: String?
-        get() = TwitchApiHelper.getProfileImage(channelImageURL)
+        get() = if (isKick) channelImageURL else TwitchApiHelper.getProfileImage(channelImageURL)
     val thumbnail: String?
-        get() = TwitchApiHelper.getVideoThumbnail(thumbnailURL)
+        get() = if (isKick) thumbnailURL else TwitchApiHelper.getVideoThumbnail(thumbnailURL)
 }

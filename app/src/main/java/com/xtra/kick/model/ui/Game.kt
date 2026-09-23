@@ -1,6 +1,7 @@
 package com.xtra.kick.model.ui
 
 import android.os.Parcelable
+import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import kotlinx.parcelize.Parcelize
 
@@ -18,8 +19,11 @@ class Game(
     val vodDuration: Int? = null,
     var accountFollow: Boolean = false,
     val localFollow: Boolean = false,
+    val platform: String? = null,
 ) : Parcelable {
 
+    val isKick: Boolean
+        get() = platform == C.KICK
     val boxArt: String?
-        get() = TwitchApiHelper.getGameBoxArt(boxArtURL)
+        get() = if (isKick) boxArtURL else TwitchApiHelper.getGameBoxArt(boxArtURL)
 }

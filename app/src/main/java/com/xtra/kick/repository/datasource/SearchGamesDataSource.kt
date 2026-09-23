@@ -2,10 +2,12 @@ package com.xtra.kick.repository.datasource
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
+import com.xtra.kick.model.kick.toGame
 import com.xtra.kick.model.ui.Game
 import com.xtra.kick.model.ui.Tag
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 
 class SearchGamesDataSource(
@@ -14,6 +16,7 @@ class SearchGamesDataSource(
     private val graphQLRepository: GraphQLRepository,
     private val helixHeaders: Map<String, String>,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
 ) : PagingSource<Int, Game>() {
@@ -36,18 +39,23 @@ class SearchGamesDataSource(
                 }
             } else {
                 try {
-                    api = C.GQL
+                    api = C.KICK
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.GQL
                         loadFromApi(params)
                     } catch (e: Exception) {
                         try {
-                            api = C.HELIX
+                            api = C.GQL_PERSISTED_QUERY
                             loadFromApi(params)
                         } catch (e: Exception) {
-                            LoadResult.Error(e)
+                            try {
+                                api = C.HELIX
+                                loadFromApi(params)
+                            } catch (e: Exception) {
+                                LoadResult.Error(e)
+                            }
                         }
                     }
                 }
@@ -57,11 +65,21 @@ class SearchGamesDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Game> {
         return when (api) {
+            C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Game> {
+        val list = kickRepository.searchCategories(query).map { it.toGame() }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
+        )
     }
 
     private suspend fun gqlQueryLoad(params: LoadParams<Int>): LoadResult<Int, Game> {

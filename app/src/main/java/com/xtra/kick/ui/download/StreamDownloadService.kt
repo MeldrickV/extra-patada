@@ -197,7 +197,15 @@ class StreamDownloadService : LifecycleService() {
         }
     }
 
+    private suspend fun loadKickStreamUrl(channelLogin: String): String = withContext(Dispatchers.IO) {
+        runCatching { xtraModule.kickRepository.getChannel(channelLogin).playbackUrl }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Kick stream unavailable")
+    }
+
     private suspend fun downloadStream(currentOfflineVideo: OfflineVideo, currentDownloadProgress: DownloadProgress, downloadJob: DownloadJob, channelLogin: String) = withContext(Dispatchers.IO) {
+        val isKick = currentOfflineVideo.channelId?.startsWith(C.KICK_USER_PREFIX) == true
         val offlineCheck = max(prefs().getString(C.DOWNLOAD_STREAM_OFFLINE_CHECK, "10")?.toLongOrNull() ?: 10L, 2L) * 1000L
         val startWait = (prefs().getString(C.DOWNLOAD_STREAM_START_WAIT, "120")?.toLongOrNull())?.times(60000L)
         val endWait = (prefs().getString(C.DOWNLOAD_STREAM_END_WAIT, "15")?.toLongOrNull())?.times(60000L)
@@ -227,7 +235,11 @@ class StreamDownloadService : LifecycleService() {
         val quality = offlineVideo.quality
         var startTime = System.currentTimeMillis()
         var endTime = startWait?.let { System.currentTimeMillis() + it }
-        var playlistUrl = xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+        var playlistUrl = if (isKick) {
+            loadKickStreamUrl(channelLogin)
+        } else {
+            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+        }
         while (true) {
             val playlist = when {
                 networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
@@ -277,7 +289,7 @@ class StreamDownloadService : LifecycleService() {
                 }
             }
             if (!playlist.isNullOrBlank()) {
-                var proxyUrl = if (useCustomProxy) {
+                var proxyUrl = if (useCustomProxy && !isKick) {
                     customProxyList?.getOrNull(currentCustomProxy)?.let { proxy ->
                         proxy.url?.let { proxyUrl ->
                             (proxyUrl.toUri().takeIf { it.host != null } ?: "https://$proxyUrl".toUri()).let { uri ->
@@ -344,7 +356,7 @@ class StreamDownloadService : LifecycleService() {
                     }
                     result
                 } else {
-                    var streamProxy = if (useStreamProxy) {
+                    var streamProxy = if (useStreamProxy && !isKick) {
                         streamProxyList?.getOrNull(currentStreamProxy)
                     } else null
                     if (streamProxy != null) {
@@ -529,7 +541,11 @@ class StreamDownloadService : LifecycleService() {
                     }
                     endTime = endWait?.let { System.currentTimeMillis() + it }
                     if (continueDownloading) {
-                        playlistUrl = xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+                        playlistUrl = if (isKick) {
+                            loadKickStreamUrl(channelLogin)
+                        } else {
+                            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+                        }
                     }
                 }
             }

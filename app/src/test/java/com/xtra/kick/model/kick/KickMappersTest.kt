@@ -1,5 +1,6 @@
 package com.xtra.kick.model.kick
 
+import com.xtra.kick.util.C
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -37,8 +38,43 @@ class KickMappersTest {
         assertEquals("Games", ui.gameName)
         assertEquals("Live now", ui.title)
         assertEquals("thumb.jpg", ui.thumbnailURL)
-        assertEquals(1234, ui.viewerCount)
+        assertEquals(1234, ui.viewCount)
         assertEquals(listOf("speedrun"), ui.tags)
+    }
+
+    @Test
+    fun `kick mappers tag platform so image helpers pass raw urls`() {
+        val stream = KickLivestream(
+            id = "42",
+            metadata = KickLivestreamMetadata(category = KickCategory(id = "3", name = "Games")),
+            thumbnailUrl = "https://images.kick.com/stream-thumb.png",
+        )
+        val ui = stream.toStream()
+
+        assertEquals("kick", ui.platform)
+        assertTrue(ui.isKick)
+        assertEquals("https://images.kick.com/stream-thumb.png", ui.thumbnail)
+
+        val game = KickCategory(id = "1", name = "Games", imageUrl = "https://img.kick.com/cat.png").toGame()
+        assertEquals("kick", game.platform)
+        assertTrue(game.isKick)
+        assertEquals("https://img.kick.com/cat.png", game.boxArt)
+
+        val user = KickFollowedChannel(id = 99, username = "chan", slug = "chan").toUser()
+        assertEquals("kick", user.platform)
+        assertTrue(user.isKick)
+
+        val clip = KickClip(id = "clip-1", channelId = 123, channel = KickClipChannel(id = 123, username = "streamer", slug = "streamer", profilePicture = "pfp.png"))
+        val uiClip = clip.toClip()
+        assertEquals("kick", uiClip.platform)
+        assertTrue(uiClip.isKick)
+        assertEquals("pfp.png", uiClip.channelImage)
+
+        val video = KickChannelVideo(id = 1, slug = "v1", channelId = 123, video = KickVideoReference(id = 1, uuid = null))
+        val uiVideo = video.toVideo()
+        assertEquals("kick", uiVideo.platform)
+        assertTrue(uiVideo.isKick)
+        assertEquals(C.KICK, uiVideo.platform)
     }
 
     @Test

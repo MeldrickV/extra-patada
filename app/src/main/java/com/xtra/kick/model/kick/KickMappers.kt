@@ -6,6 +6,7 @@ import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.model.ui.Tag
 import com.xtra.kick.model.ui.User
 import com.xtra.kick.model.ui.Video
+import com.xtra.kick.util.C
 
 fun KickLivestream.toStream(): Stream {
     return Stream(
@@ -22,6 +23,7 @@ fun KickLivestream.toStream(): Stream {
         createdAt = startedAt,
         viewerCount = viewersCount,
         tags = metadata?.category?.tags?.takeIf { it.isNotEmpty() },
+        platform = C.KICK,
     )
 }
 
@@ -33,6 +35,7 @@ fun KickCategory.toGame(): Game {
         boxArtURL = imageUrl,
         viewerCount = viewersCount,
         tags = tags.takeIf { it.isNotEmpty() }?.map { Tag(name = it) },
+        platform = C.KICK,
     )
 }
 
@@ -43,6 +46,7 @@ fun KickFollowedChannel.toUser(): User {
         name = username,
         profileImageURL = profilePicture,
         accountFollow = true,
+        platform = C.KICK,
     )
 }
 
@@ -69,6 +73,7 @@ fun KickChannelVideo.toVideo(
         durationSeconds = (duration / 1000L).toInt(),
         type = "archive",
         animatedPreviewURL = thumbnail.src,
+        platform = C.KICK,
     )
 }
 
@@ -92,5 +97,6 @@ fun KickClip.toClip(
         createdAt = createdAt,
         viewCount = viewCount,
         durationSeconds = duration,
+        platform = C.KICK,
     )
 }

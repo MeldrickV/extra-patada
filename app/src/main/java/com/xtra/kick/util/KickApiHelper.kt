@@ -39,6 +39,10 @@ object KickApiHelper {
         return "$WEBSITE_BASE_URL/api/v2/channels/followed"
     }
 
+    fun emoteUrl(id: String): String {
+        return "https://files.kick.com/emotes/$id/fullsize"
+    }
+
     fun followChannelUrl(channel: Long): String {
         return "$WEBSITE_BASE_URL/api/v2/channels/$channel/follow"
     }

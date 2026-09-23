@@ -23,6 +23,7 @@ import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.NotificationsRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import com.xtra.kick.util.TwitchApiHelper
@@ -64,6 +65,7 @@ class PlayerViewModel(
     private val bookmarksRepository: BookmarksRepository,
     private val localChannelFollowsRepository: LocalChannelFollowsRepository,
     private val notificationsRepository: NotificationsRepository,
+    private val kickSession: KickSession,
 ) : ViewModel() {
 
     val integrity = MutableSharedFlow<String?>()
@@ -568,6 +570,17 @@ class PlayerViewModel(
             viewModelScope.launch {
                 try {
                     if (!channelId.isNullOrBlank()) {
+                        if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                            val token = kickSession.accessToken()
+                            if (!token.isNullOrBlank()) {
+                                val followedIds = runCatching {
+                                    kickSession.repository.getFollowedChannels(token, 100, null).mapNotNull { it.id }
+                                }.getOrDefault(emptyList())
+                                val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                                _isFollowing.value = id != null && id in followedIds
+                            }
+                            return@launch
+                        }
                         _isFollowing.value = if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                             graphQLRepository.loadQueryFollowingUser(
                                 networkLibrary = networkLibrary,
@@ -590,6 +603,32 @@ class PlayerViewModel(
         viewModelScope.launch {
             try {
                 if (!channelId.isNullOrBlank()) {
+                    if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                        val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                        val token = kickSession.accessToken()
+                        if (id == null || token.isNullOrBlank()) {
+                            follow.value = Pair(true, kickSession.followFailedMessage())
+                            return@launch
+                        }
+                        val success = runCatching { kickSession.repository.followChannel(token, id) }.getOrDefault(false)
+                        if (success) {
+                            _isFollowing.value = true
+                            follow.value = Pair(true, null)
+                            if (!disableNotifications) {
+                                notificationsRepository.saveUser(NotificationUser(channelId))
+                            }
+                            if (liveNotificationsEnabled) {
+                                startedAt.takeUnless { it.isNullOrBlank() }?.let {
+                                    Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 }
+                                }?.let {
+                                    notificationsRepository.saveList(listOf(ShownNotification(channelId, it)))
+                                }
+                            }
+                        } else {
+                            follow.value = Pair(true, kickSession.followFailedMessage())
+                        }
+                        return@launch
+                    }
                     if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                         val errorMessage = graphQLRepository.loadFollowUser(networkLibrary, gqlHeaders, channelId, disableNotifications).also { response ->
                             if (enableIntegrity) {
@@ -638,6 +677,23 @@ class PlayerViewModel(
         viewModelScope.launch {
             try {
                 if (!channelId.isNullOrBlank()) {
+                    if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                        val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                        val token = kickSession.accessToken()
+                        if (id == null || token.isNullOrBlank()) {
+                            follow.value = Pair(false, kickSession.followFailedMessage())
+                            return@launch
+                        }
+                        val success = runCatching { kickSession.repository.unfollowChannel(token, id) }.getOrDefault(false)
+                        if (success) {
+                            _isFollowing.value = false
+                            follow.value = Pair(false, null)
+                            notificationsRepository.deleteUser(NotificationUser(channelId))
+                        } else {
+                            follow.value = Pair(false, kickSession.followFailedMessage())
+                        }
+                        return@launch
+                    }
                     if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                         val errorMessage = graphQLRepository.loadUnfollowUser(networkLibrary, gqlHeaders, channelId).also { response ->
                             if (enableIntegrity) {
@@ -671,7 +727,7 @@ class PlayerViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                PlayerViewModel(xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.json, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.bookmarksRepository, xtraModule.localChannelFollowsRepository, xtraModule.notificationsRepository)
+                PlayerViewModel(xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.json, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.bookmarksRepository, xtraModule.localChannelFollowsRepository, xtraModule.notificationsRepository, KickSession(application, xtraModule.kickRepository))
             }
         }
     }

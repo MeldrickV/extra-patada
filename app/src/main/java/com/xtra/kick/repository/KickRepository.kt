@@ -2,7 +2,6 @@ package com.xtra.kick.repository
 
 import com.xtra.kick.model.kick.KickCategoriesData
 import com.xtra.kick.model.kick.KickCategoriesResponse
-import com.xtra.kick.model.kick.KickChannelLivestream
 import com.xtra.kick.model.kick.KickChannelResponse
 import com.xtra.kick.model.kick.KickChannelVideo
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
@@ -52,6 +51,69 @@ class KickRepository(
         }
     }
 
+    suspend fun getLivestreamsByCategory(categoryId: String, limit: Int, cursor: String?): KickLivestreamsData = withContext(Dispatchers.IO) {
+        val url = "${KickApiHelper.API_BASE_URL}/public/v2/livestreams".toHttpUrl().newBuilder()
+            .addQueryParameter("category_id", categoryId)
+            .addQueryParameter("page_size", limit.toString())
+            .apply { cursor?.let { addQueryParameter("cursor", it) } }
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
+            headers.forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick category livestreams request failed: ${it.code}")
+            }
+            val root = JSONObject(it.body.string())
+            val data = root.optJSONObject("data") ?: root
+            val items = data.optJSONArray("livestreams") ?: data.optJSONArray("streams") ?: JSONArray()
+            val list = buildList {
+                for (i in 0 until items.length()) {
+                    items.optJSONObject(i)?.let { obj -> parseLivestreamV2(obj)?.let { add(it) } }
+                }
+            }
+            val next = data.optString("next_cursor").takeIf { value -> value.isNotBlank() }
+            KickLivestreamsData(livestreams = list, nextCursor = next)
+        }
+    }
+
+    private fun parseLivestreamV2(obj: JSONObject): KickLivestream? {
+        val broadcaster = obj.optJSONObject("broadcaster")
+        val category = obj.optJSONObject("category")
+        val nullableCategory = category?.let {
+            KickCategory(
+                id = it.opt("id")?.toString()?.takeIf { id -> id != "null" },
+                name = it.optString("name").takeIf { name -> name.isNotBlank() },
+                slug = it.optString("slug").takeIf { name -> name.isNotBlank() },
+                tags = it.optJSONArray("tags")?.let { tags ->
+                    buildList { for (j in 0 until tags.length()) { tags.optString(j).takeIf { value -> value.isNotBlank() }?.let { value -> add(value) } } }
+                } ?: emptyList(),
+            )
+        }
+        return KickLivestream(
+            id = obj.optString("id").takeIf { value -> value.isNotBlank() },
+            streamer = KickStreamer(
+                user = KickStreamerUser(
+                    id = obj.optString("broadcaster_user_id").takeIf { value -> value.isNotBlank() }
+                        ?: broadcaster?.optString("id")?.takeIf { value -> value.isNotBlank() },
+                    username = broadcaster?.optString("username")?.takeIf { value -> value.isNotBlank() },
+                    profilePicture = broadcaster?.optString("profile_picture")?.takeIf { value -> value.isNotBlank() },
+                ),
+                channel = KickStreamerChannel(
+                    slug = broadcaster?.optString("slug")?.takeIf { value -> value.isNotBlank() }
+                        ?: obj.optString("slug")?.takeIf { value -> value.isNotBlank() },
+                ),
+            ),
+            metadata = KickLivestreamMetadata(
+                title = obj.optString("title").takeIf { value -> value.isNotBlank() },
+                category = nullableCategory,
+            ),
+            viewersCount = obj.optInt("viewer_count", 0),
+            thumbnailUrl = obj.optJSONObject("thumbnail")?.optString("url")?.takeIf { value -> value.isNotBlank() },
+            startedAt = obj.optString("created_at").takeIf { value -> value.isNotBlank() },
+        )
+    }
+
     suspend fun getCategories(limit: Int, cursor: String?): KickCategoriesData = withContext(Dispatchers.IO) {
         val url = KickApiHelper.PRIVATE_CATEGORIES_URL.toHttpUrl().newBuilder()
             .addQueryParameter("page_size", limit.toString())
@@ -78,10 +140,6 @@ class KickRepository(
             }
             json.decodeFromString<KickChannelResponse>(it.body.string())
         }
-    }
-
-    suspend fun getChannelLivestream(slug: String): KickChannelLivestream? {
-        return getChannel(slug).livestream
     }
 
     suspend fun getRealtimeConnectionInfo(clientId: String): KickRealtimeConnectionInfo = withContext(Dispatchers.IO) {
@@ -265,15 +323,72 @@ class KickRepository(
         }
     }
 
-    suspend fun getGlobalClips(): List<KickClip> = withContext(Dispatchers.IO) {
-        val response = okHttpClient.value.newCall(Request.Builder().url("${KickApiHelper.WEBSITE_BASE_URL}/api/v2/clips").apply {
+    suspend fun searchChannels(query: String): List<KickSearchChannel> = withContext(Dispatchers.IO) {
+        val url = "${KickApiHelper.WEBSITE_BASE_URL}/api/v2/search/channels".toHttpUrl().newBuilder()
+            .addQueryParameter("q", query)
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
             headers.forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
-                throw IllegalStateException("Kick clips request failed: ${it.code}")
+                throw IllegalStateException("Kick search channels request failed: ${it.code}")
             }
-            json.decodeFromString<KickChannelsClipsResponse>(it.body.string()).clips
+            val root = JSONArray(it.body.string())
+            buildList {
+                for (i in 0 until root.length()) {
+                    root.optJSONObject(i)?.let { obj ->
+                        val livestream = obj.optJSONObject("livestream")
+                        val category = livestream?.optJSONObject("category")
+                        add(KickSearchChannel(
+                            id = obj.optLong("id", 0),
+                            username = obj.optString("username").takeIf { name -> name.isNotBlank() },
+                            slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
+                            profilePicture = obj.optString("profile_picture").takeIf { name -> name.isNotBlank() },
+                            isLive = obj.optBoolean("is_live", livestream != null),
+                            title = livestream?.optString("session_title")?.takeIf { name -> name.isNotBlank() }
+                                ?: livestream?.optString("title")?.takeIf { name -> name.isNotBlank() },
+                            thumbnail = livestream?.optJSONObject("thumbnail")?.optString("url")?.takeIf { name -> name.isNotBlank() },
+                            startedAt = livestream?.optString("started_at")?.takeIf { name -> name.isNotBlank() },
+                            viewerCount = livestream?.optInt("viewer_count", 0) ?: 0,
+                            categoryId = category?.opt("id")?.toString()?.takeIf { id -> id != "null" },
+                            categorySlug = category?.optString("slug")?.takeIf { name -> name.isNotBlank() },
+                            categoryName = category?.optString("name")?.takeIf { name -> name.isNotBlank() },
+                        ))
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun searchCategories(query: String): List<KickCategory> = withContext(Dispatchers.IO) {
+        val url = "${KickApiHelper.PUBLIC_API_BASE_URL}/categories".toHttpUrl().newBuilder()
+            .addQueryParameter("q", query)
+            .addQueryParameter("page_size", "20")
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
+            headers.forEach { (key, value) -> header(key, value) }
+        }.build()).executeAsync()
+        response.use {
+            if (!it.isSuccessful) {
+                throw IllegalStateException("Kick categories search request failed: ${it.code}")
+            }
+            val root = JSONObject(it.body.string())
+            val data = root.optJSONArray("data") ?: return@use emptyList()
+            buildList {
+                for (i in 0 until data.length()) {
+                    data.optJSONObject(i)?.let { obj ->
+                        add(KickCategory(
+                            id = obj.opt("id")?.toString()?.takeIf { id -> id != "null" },
+                            slug = obj.optString("slug").takeIf { name -> name.isNotBlank() },
+                            name = obj.optString("name").takeIf { name -> name.isNotBlank() },
+                            imageUrl = obj.optString("cover").takeIf { name -> name.isNotBlank() }
+                                ?: obj.optString("banner").takeIf { name -> name.isNotBlank() },
+                            viewersCount = obj.optInt("viewer_count", 0),
+                        ))
+                    }
+                }
+            }
         }
     }
 
@@ -289,6 +404,37 @@ class KickRepository(
                 json.decodeFromString<KickSingleClipResponse>(it.body.string()).clip
             }
         }.getOrNull()
+    }
+
+    suspend fun sendChatMessage(token: String, content: String, broadcasterUserId: Long, replyToMessageId: String? = null): String? = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put("content", content)
+            .put("type", "user")
+            .put("broadcaster_user_id", broadcasterUserId)
+            .apply { replyToMessageId?.takeIf { it.isNotBlank() }?.let { put("reply_to_message_id", it) } }
+            .toString()
+        val response = okHttpClient.value.newCall(
+            Request.Builder()
+                .url("${KickApiHelper.PUBLIC_API_BASE_URL}/chat")
+                .apply {
+                    KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+                    header("Content-Type", "application/json")
+                }
+                .post(body.toRequestBody())
+                .build()
+        ).executeAsync()
+        response.use {
+            if (it.isSuccessful) {
+                null
+            } else {
+                runCatching {
+                    val root = JSONObject(it.body.string())
+                    root.optString("detail").takeIf { msg -> msg.isNotBlank() }
+                        ?: root.optJSONObject("error")?.optString("message")?.takeIf { msg -> msg.isNotBlank() }
+                        ?: root.optString("message").takeIf { msg -> msg.isNotBlank() }
+                }.getOrNull() ?: "Kick chat send failed: ${it.code}"
+            }
+        }
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {

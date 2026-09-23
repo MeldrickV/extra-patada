@@ -127,6 +127,7 @@
     <string name="no_browser_found">No browser app found</string>
     <string name="browser_workaround">Your system browser is no longer supported. Please press the button below for a workaround.</string>
     <string name="error">Error: %s</string>
+    <string name="kick_follow_failed">Could not update Kick follow status.</string>
     <string name="invalid_url">Invalid URL</string>
     <string name="sort_and_order">Sort by: %1$s. Order: %2$s</string>
     <string name="time_followed">Time followed</string>

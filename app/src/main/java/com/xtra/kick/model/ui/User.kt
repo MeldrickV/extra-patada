@@ -1,6 +1,7 @@
 package com.xtra.kick.model.ui
 
 import android.os.Parcelable
+import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import kotlinx.parcelize.Parcelize
 
@@ -20,8 +21,11 @@ class User(
     var followedAt: String? = null,
     var accountFollow: Boolean = false,
     val localFollow: Boolean = false,
+    val platform: String? = null,
 ) : Parcelable {
 
+    val isKick: Boolean
+        get() = platform == C.KICK || id?.startsWith(C.KICK_USER_PREFIX) == true
     val profileImage: String?
-        get() = TwitchApiHelper.getProfileImage(profileImageURL)
+        get() = if (isKick) profileImageURL else TwitchApiHelper.getProfileImage(profileImageURL)
 }
