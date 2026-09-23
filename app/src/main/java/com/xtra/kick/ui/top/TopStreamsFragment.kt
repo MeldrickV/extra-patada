@@ -153,7 +153,9 @@ class TopStreamsFragment : PagedListFragment(), Scrollable, StreamsSortDialog.On
                 if (isChecked) {
                     val newPlatform = if (checkedId == R.id.btnKick) C.PLATFORM_KICK else C.PLATFORM_TWITCH
                     if (PlatformState.flow.value != newPlatform) {
-                        pagingAdapter.submitData(PagingData.empty())
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            pagingAdapter.submitData(PagingData.empty())
+                        }
                         viewModel.setPlatform(newPlatform)
                     }
                 }
