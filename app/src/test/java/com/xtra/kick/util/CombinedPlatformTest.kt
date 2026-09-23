@@ -47,7 +47,8 @@ class CombinedPlatformTest {
     fun `append skips null keys without cap consumption`() {
         val seen = HashSet<String>()
         val target = mutableListOf<String>()
-        appendDeduplicated(seen, target, listOf("a", null, "b", null), { it }, 5)
-        assertEquals(listOf("a", "b"), target)
+        appendDeduplicated(seen, target, listOf("a", "b", "c"), { if (it == "b") null else it }, 5)
+        assertEquals(listOf("a", "c"), target)
+        assertEquals(setOf("a", "c"), seen)
     }
 }
