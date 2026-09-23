@@ -77,8 +77,9 @@ class KickChatReplayManager(
 
     private suspend fun ensureChatroomId(): Long? {
         chatroomId?.let { return it }
-        if (channelLogin.isNullOrBlank()) return null
-        chatroomId = runCatching { kickRepository.getChannel(channelLogin).chatroom?.id?.takeIf { it > 0 } }.getOrNull()
+        val login = channelLogin
+        if (login.isNullOrBlank()) return null
+        chatroomId = runCatching { kickRepository.getChannel(login).chatroom?.id?.takeIf { it > 0 } }.getOrNull()
         return chatroomId
     }
 

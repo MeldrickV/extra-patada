@@ -168,12 +168,11 @@ class FollowedStreamsDataSource(
         val kickTarget = (max + 1) / 2
         if (!kickFetched) {
             kickFetched = true
-            val followed = if (!kickToken.isNullOrBlank()) {
+            val followed = (if (!kickToken.isNullOrBlank()) {
                 runCatching {
                     kickRepository.getFollowedChannels(kickToken.orEmpty(), kickTarget.coerceAtLeast(1), null)
                 }.getOrNull()
-            } else null
-                ?.takeIf { it.isNotEmpty() }
+            } else null)?.takeIf { it.isNotEmpty() }
                 ?: localKickFollowed()
             for (item in followed) {
                 if (list.size >= kickTarget) {
@@ -456,12 +455,11 @@ class FollowedStreamsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
-        val followed = if (!kickToken.isNullOrBlank()) {
+        val followed = (if (!kickToken.isNullOrBlank()) {
             runCatching {
                 kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset)
             }.getOrNull()
-        } else null
-            ?.takeIf { it.isNotEmpty() }
+        } else null)?.takeIf { it.isNotEmpty() }
             ?: localKickFollowed()
         val list = mutableListOf<Stream>()
         for (item in followed) {
@@ -494,7 +492,7 @@ class FollowedStreamsDataSource(
         )
     }
 
-    private fun localKickFollowed(): List<KickFollowedChannel> {
+    private suspend fun localKickFollowed(): List<KickFollowedChannel> {
         return localChannelFollowsRepository.getAll().mapNotNull { pin ->
             pin.userId?.removePrefix(C.KICK_USER_PREFIX)?.toLongOrNull()?.let { id ->
                 KickFollowedChannel(
