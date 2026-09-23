@@ -37,6 +37,8 @@ import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickApiHelper
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.chat.ChatReadIRCSocket
 import com.xtra.kick.util.chat.ChatReadWebSocket
@@ -1056,10 +1058,21 @@ class ChatViewModel(
 
     private inner class KickChatListener : KickChatWebSocket.Listener {
         override suspend fun onChatMessage(event: JSONObject) {
+            parseKickChatMessage(event)?.let { onMessage(it) }
+        }
+
+        override suspend fun onHistory(messages: List<JSONObject>) {
+            messages.forEach { event ->
+                parseKickChatMessage(event)?.let { onMessage(it) }
+            }
+        }
+
+        private fun parseKickChatMessage(event: JSONObject): ChatMessage? {
             val sender = event.optJSONObject("sender")
             val identity = sender?.optJSONObject("identity")
-            val content = event.optString("content").takeIf { it.isNotBlank() } ?: return
-            val message = ChatMessage(
+            val content = event.optString("content").takeIf { it.isNotBlank() } ?: return null
+            val emotes = parseKickEmotes(content)
+            return ChatMessage(
                 type = ChatMessage.USER_MESSAGE,
                 id = event.optString("id").takeIf { it.isNotBlank() },
                 userId = sender?.opt("id")?.toString(),
@@ -1067,9 +1080,50 @@ class ChatViewModel(
                 userName = sender?.optString("username")?.takeIf { it.isNotBlank() } ?: sender?.optString("slug"),
                 message = content,
                 color = identity?.optString("color")?.takeIf { it.isNotBlank() },
+                emotes = emotes,
+                badges = identity?.optJSONArray("badges_v2")?.let { array ->
+                    buildList {
+                        for (i in 0 until array.length()) {
+                            val badge = array.optString(i).takeIf { it.isNotBlank() }
+                                ?: array.optJSONObject(i)?.optString("type")?.takeIf { it.isNotBlank() }
+                                ?: continue
+                            add(Badge(badge, "1"))
+                        }
+                    }.takeIf { it.isNotEmpty() }
+                },
                 timestamp = event.optString("created_at").takeIf { it.isNotBlank() }?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
             )
-            onMessage(message)
+        }
+
+        private fun parseKickEmotes(content: String): List<TwitchEmote> {
+            val emotes = mutableListOf<TwitchEmote>()
+            Regex("""\[emote:(\d+):([^\]]+)\]""").findAll(content).forEach { match ->
+                val id = match.groupValues[1]
+                val name = match.groupValues[2]
+                val url = KickApiHelper.emoteUrl(id)
+                val emote = TwitchEmote(
+                    id = id,
+                    name = name,
+                    url1x = url,
+                    url2x = url,
+                    url3x = url,
+                    url4x = url,
+                    format = "png",
+                    isAnimated = false,
+                    begin = match.range.first,
+                    end = match.range.last + 1,
+                )
+                emotes.add(emote)
+                synchronized(localTwitchEmotes) {
+                    if (localTwitchEmotes.none { it.id == id }) {
+                        localTwitchEmotes.add(emote)
+                        while (localTwitchEmotes.size > 500) {
+                            localTwitchEmotes.removeAt(0)
+                        }
+                    }
+                }
+            }
+            return emotes
         }
 
         override suspend fun onDisconnect(message: String, fullMsg: String?) {
@@ -2009,10 +2063,11 @@ class ChatViewModel(
     }
 
     fun send(message: CharSequence, replyId: String?, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, accountId: String?, channelId: String?, channelLogin: String?, useApiCommands: Boolean, useApiChatMessages: Boolean, enableIntegrity: Boolean) {
+        val channelIsKick = channelId?.startsWith(C.KICK_USER_PREFIX) == true
         if (replyId != null) {
             sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, replyId)
         } else {
-            if (useApiCommands) {
+            if (useApiCommands && !channelIsKick) {
                 if (message.toString().startsWith("/")) {
                     try {
                         sendCommand(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, channelLogin, useApiChatMessages, enableIntegrity)
@@ -2035,6 +2090,22 @@ class ChatViewModel(
     private fun sendMessage(message: CharSequence, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, accountId: String?, channelId: String?, useApiChatMessages: Boolean, enableIntegrity: Boolean, replyId: String? = null) {
         try {
             viewModelScope.launch {
+                if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    val broadcasterUserId = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                    if (broadcasterUserId != null) {
+                        val token = KickSession(applicationContext, kickRepository).accessToken()
+                        if (token.isNullOrBlank()) {
+                            onMessage(ChatMessage(systemMsg = "Kick chat: not logged in"))
+                        } else {
+                            kickRepository.sendChatMessage(token, message.toString(), broadcasterUserId, replyId)?.let {
+                                onMessage(ChatMessage(systemMsg = it))
+                            }
+                        }
+                    } else {
+                        onMessage(ChatMessage(systemMsg = "Kick chat: invalid channel id"))
+                    }
+                    return@launch
+                }
                 if (useApiChatMessages) {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
                         graphQLRepository.sendMessage(networkLibrary, gqlHeaders, channelId, message.toString(), replyId).also { response ->

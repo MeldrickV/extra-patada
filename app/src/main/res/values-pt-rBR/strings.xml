@@ -580,4 +580,5 @@
     <string name="kick_redirect_uri">URI de redirecionamento do Kick</string>
     <string name="kick_login_error">Falha no login do Kick</string>
     <string name="kick_login_state_mismatch">Estado não corresponde, tente novamente</string>
+    <string name="kick_follow_failed">Não foi possível atualizar o status de seguir no Kick.</string>
 </resources>

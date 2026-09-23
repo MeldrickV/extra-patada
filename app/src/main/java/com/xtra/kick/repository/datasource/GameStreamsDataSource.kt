@@ -4,9 +4,11 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.graphql.type.Language
 import com.xtra.kick.graphql.type.StreamSort
+import com.xtra.kick.model.kick.toStream
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 
 class GameStreamsDataSource(
@@ -22,6 +24,7 @@ class GameStreamsDataSource(
     private val graphQLRepository: GraphQLRepository,
     private val helixHeaders: Map<String, String>,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
 ) : PagingSource<Int, Stream>() {
@@ -36,6 +39,12 @@ class GameStreamsDataSource(
                 LoadResult.Error(e)
             }
         } else {
+            if (gameId?.toLongOrNull() != null) {
+                try {
+                    api = C.KICK
+                    return loadFromApi(params)
+                } catch (e: Exception) {}
+            }
             try {
                 api = C.GQL
                 loadFromApi(params)
@@ -57,11 +66,27 @@ class GameStreamsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Stream> {
         return when (api) {
+            C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank() && (gqlSort == "VIEWER_COUNT" || gqlSort == null) && tags.isNullOrEmpty() && gqlQueryLanguages.isNullOrEmpty() && gqlLanguages.isNullOrEmpty()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        val response = kickRepository.getLivestreamsByCategory(gameId!!, params.loadSize, offset)
+        val list = response.livestreams.map { it.toStream() }.takeIf { streams ->
+            streams.any { it.channelId != null || it.channelLogin != null }
+        } ?: emptyList()
+        offset = response.nextCursor
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = if (!offset.isNullOrBlank()) {
+                (params.key ?: 1) + 1
+            } else null
+        )
     }
 
     private suspend fun gqlQueryLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {

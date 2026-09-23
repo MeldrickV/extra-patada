@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.xtra.kick.model.ui.User
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 
 class SearchChannelsDataSource(
@@ -13,6 +14,7 @@ class SearchChannelsDataSource(
     private val graphQLRepository: GraphQLRepository,
     private val helixHeaders: Map<String, String>,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
 ) : PagingSource<Int, User>() {
@@ -35,18 +37,23 @@ class SearchChannelsDataSource(
                 }
             } else {
                 try {
-                    api = C.GQL
+                    api = C.KICK
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.GQL_PERSISTED_QUERY
+                        api = C.GQL
                         loadFromApi(params)
                     } catch (e: Exception) {
                         try {
-                            api = C.HELIX
+                            api = C.GQL_PERSISTED_QUERY
                             loadFromApi(params)
                         } catch (e: Exception) {
-                            LoadResult.Error(e)
+                            try {
+                                api = C.HELIX
+                                loadFromApi(params)
+                            } catch (e: Exception) {
+                                LoadResult.Error(e)
+                            }
                         }
                     }
                 }
@@ -56,11 +63,29 @@ class SearchChannelsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, User> {
         return when (api) {
+            C.KICK -> kickLoad(params)
             C.GQL -> gqlQueryLoad(params)
             C.GQL_PERSISTED_QUERY -> gqlLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, User> {
+        val list = kickRepository.searchChannels(query).map {
+            User(
+                id = "user_${it.id}",
+                login = it.slug,
+                name = it.username,
+                profileImageURL = it.profilePicture,
+                isLive = it.isLive,
+            )
+        }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
+        )
     }
 
     private suspend fun gqlQueryLoad(params: LoadParams<Int>): LoadResult<Int, User> {

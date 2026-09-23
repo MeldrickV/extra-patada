@@ -14,6 +14,7 @@ import com.xtra.kick.R
 import com.xtra.kick.XtraApp
 import com.xtra.kick.XtraModule
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 
@@ -28,10 +29,12 @@ class LiveNotificationWorker(
 
     override suspend fun doWork(): Result {
         xtraModule = (context as XtraApp).xtraModule
+        val kickToken = KickSession(context, xtraModule.kickRepository).accessToken()
         val streams = xtraModule.notificationsRepository.getNewStreams(
             networkLibrary = context.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
             gqlHeaders = TwitchApiHelper.getGQLHeaders(context, true),
             helixHeaders = TwitchApiHelper.getHelixHeaders(context),
+            kickToken = kickToken,
         )
         if (streams.isNotEmpty()) {
             val channelId = context.getString(R.string.notification_live_channel_id)

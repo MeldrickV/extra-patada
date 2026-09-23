@@ -122,3 +122,18 @@ data class KickRealtimeConnectionInfo(
     val url: String,
     val token: String,
 )
+
+data class KickSearchChannel(
+    val id: Long,
+    val username: String? = null,
+    val slug: String? = null,
+    val profilePicture: String? = null,
+    val isLive: Boolean = false,
+    val title: String? = null,
+    val thumbnail: String? = null,
+    val startedAt: String? = null,
+    val viewerCount: Int = 0,
+    val categoryId: String? = null,
+    val categorySlug: String? = null,
+    val categoryName: String? = null,
+)

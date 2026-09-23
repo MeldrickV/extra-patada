@@ -11,6 +11,7 @@ import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
+import kotlin.math.min
 
 class ChannelVideosDataSource(
     private val channelId: String?,
@@ -197,10 +198,13 @@ class ChannelVideosDataSource(
                 )
             }
         } ?: emptyList()
+        val page = params.key ?: 0
+        val start = page * params.loadSize
+        val pageItems = if (start < list.size) list.subList(start, min(start + params.loadSize, list.size)) else emptyList()
         return LoadResult.Page(
-            data = list,
+            data = pageItems,
             prevKey = null,
-            nextKey = null
+            nextKey = if (start + pageItems.size < list.size) page + 1 else null
         )
     }
 

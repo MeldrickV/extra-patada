@@ -581,4 +581,5 @@
     <string name="kick_redirect_uri">URI pengalihan Kick</string>
     <string name="kick_login_error">Masuk Kick gagal</string>
     <string name="kick_login_state_mismatch">Keadaan tidak cocok, coba lagi</string>
+    <string name="kick_follow_failed">Tidak dapat memperbarui status mengikuti di Kick.</string>
 </resources>

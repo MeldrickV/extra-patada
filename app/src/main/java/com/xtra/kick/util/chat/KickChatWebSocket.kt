@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 import javax.net.ssl.X509TrustManager
@@ -25,6 +26,7 @@ class KickChatWebSocket(
     private var webSocket: WebSocket? = null
     private val clientId = UUID.randomUUID().toString()
     private var coroutineScope: CoroutineScope? = null
+    private var reconnectJob: Job? = null
 
     fun connect(coroutineScope: CoroutineScope): Job {
         this.coroutineScope = coroutineScope
@@ -58,15 +60,36 @@ class KickChatWebSocket(
 
     suspend fun disconnect(job: Job?) = withContext(Dispatchers.IO) {
         job?.cancel()
+        reconnectJob?.cancel()
         webSocket?.disconnect()
+    }
+
+    private suspend fun refreshSubscription() {
+        val ws = webSocket ?: return
+        val token = kickRepository.getRealtimeAuthToken(clientId)
+        ws.write("""{"connect":{"token":"$token","name":"js"},"id":1}""")
+        ws.write("""{"subscribe":{"channel":"chatrooms.$chatroomId.v2","flag":1},"id":2}""")
+        ws.write("""{"history":{"channel":"chatrooms.$chatroomId.v2","limit":25},"id":3}""")
+    }
+
+    private fun scheduleReconnect(ttlSeconds: Long) {
+        reconnectJob?.cancel()
+        if (ttlSeconds <= 0) {
+            return
+        }
+        val scope = coroutineScope ?: return
+        reconnectJob = scope.launch(Dispatchers.IO) {
+            delay((ttlSeconds - 5).coerceAtLeast(60).seconds)
+            if (isActive) {
+                runCatching { refreshSubscription() }
+            }
+        }
     }
 
     private inner class WebSocketListener : WebSocket.Listener {
         override suspend fun onConnect(webSocket: WebSocket) {
             try {
-                val token = kickRepository.getRealtimeAuthToken(clientId)
-                webSocket.write("""{"connect":{"token":"$token","name":"js"},"id":1}""")
-                webSocket.write("""{"subscribe":{"channel":"chatrooms.$chatroomId.v2","flag":1},"id":2}""")
+                refreshSubscription()
                 listener.onConnect()
             } catch (e: CancellationException) {
                 throw e
@@ -91,6 +114,25 @@ class KickChatWebSocket(
     private suspend fun handleFrame(frame: String) {
         try {
             val root = JSONObject(frame)
+            val connect = root.optJSONObject("connect")
+            if (connect != null) {
+                scheduleReconnect(connect.optLong("ttl"))
+                return
+            }
+            val history = root.optJSONObject("history")
+            if (history != null) {
+                val events = buildList {
+                    val messages = history.optJSONArray("messages") ?: JSONArray()
+                    for (i in 0 until messages.length()) {
+                        val item = messages.optJSONObject(i) ?: continue
+                        parseChatEvent(item.optString("message").takeIf { it.isNotBlank() }?.let { JSONObject(it) } ?: item.optJSONObject("message"))?.let { add(it) }
+                    }
+                }
+                if (events.isNotEmpty()) {
+                    listener.onHistory(events)
+                }
+                return
+            }
             val push = root.optJSONObject("push") ?: return
             val channel = push.optString("channel")
             if (!channel.startsWith("chatrooms.")) {
@@ -98,19 +140,26 @@ class KickChatWebSocket(
             }
             val pub = push.optJSONObject("pub") ?: return
             val data = pub.optJSONObject("data") ?: return
-            if (data.optString("event") != "App\\Events\\ChatMessageEvent") {
-                return
-            }
-            val payload = data.optString("data").takeIf { it.isNotBlank() }?.let { JSONObject(it) } ?: return
-            listener.onChatMessage(payload)
+            parseChatEvent(data)?.let { listener.onChatMessage(it) }
         } catch (e: Exception) {
             listener.onDisconnect(e.toString(), e.stackTraceToString())
         }
     }
 
+    private fun parseChatEvent(payload: JSONObject?): JSONObject? {
+        if (payload == null || payload.optString("event") != "App\\Events\\ChatMessageEvent") {
+            return null
+        }
+        val data = payload.optString("data").takeIf { it.isNotBlank() }?.let {
+            runCatching { JSONObject(it) }.getOrNull()
+        } ?: return null
+        return data.optString("content").takeIf { it.isNotBlank() }?.let { data }
+    }
+
     interface Listener {
         suspend fun onConnect() {}
         suspend fun onChatMessage(event: JSONObject) {}
+        suspend fun onHistory(messages: List<JSONObject>) {}
         suspend fun onDisconnect(message: String, fullMsg: String?) {}
     }
 }

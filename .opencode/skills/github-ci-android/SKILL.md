@@ -1,7 +1,7 @@
 ---
 name: github-ci-android
 description: >-
-  Cómo validar Xtra for Kick usando GitHub Actions (build, lint, unit tests e instrumented tests) en
+  Cómo validar Xtra for Kick usando GitHub Actions (build, lint y unit tests JVM) en
   lugar de compilar localmente. USAR siempre que haya que verificar cambios, leer logs de CI, o tocar
   los workflows .github/workflows. Prohibido compilar/testear en la máquina local.
 ---

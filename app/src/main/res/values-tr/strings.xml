@@ -581,4 +581,5 @@
     <string name="kick_redirect_uri">Kick yönlendirme URI\'si</string>
     <string name="kick_login_error">Kick oturumu açılamadı</string>
     <string name="kick_login_state_mismatch">Durum eşleşmiyor, lütfen tekrar deneyin</string>
+    <string name="kick_follow_failed">Kick takip durumu güncellenemedi.</string>
 </resources>

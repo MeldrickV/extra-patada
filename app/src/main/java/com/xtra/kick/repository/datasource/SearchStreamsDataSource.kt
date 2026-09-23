@@ -5,6 +5,7 @@ import androidx.paging.PagingState
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 
 class SearchStreamsDataSource(
@@ -13,6 +14,7 @@ class SearchStreamsDataSource(
     private val graphQLRepository: GraphQLRepository,
     private val helixHeaders: Map<String, String>,
     private val helixRepository: HelixRepository,
+    private val kickRepository: KickRepository,
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
 ) : PagingSource<Int, Stream>() {
@@ -35,14 +37,19 @@ class SearchStreamsDataSource(
                 }
             } else {
                 try {
-                    api = C.GQL
+                    api = C.KICK
                     loadFromApi(params)
                 } catch (e: Exception) {
                     try {
-                        api = C.HELIX
+                        api = C.GQL
                         loadFromApi(params)
                     } catch (e: Exception) {
-                        LoadResult.Error(e)
+                        try {
+                            api = C.HELIX
+                            loadFromApi(params)
+                        } catch (e: Exception) {
+                            LoadResult.Error(e)
+                        }
                     }
                 }
             }
@@ -51,10 +58,35 @@ class SearchStreamsDataSource(
 
     private suspend fun loadFromApi(params: LoadParams<Int>): LoadResult<Int, Stream> {
         return when (api) {
+            C.KICK -> kickLoad()
             C.GQL -> gqlQueryLoad(params)
             C.HELIX -> if (!helixHeaders[C.HEADER_TOKEN].isNullOrBlank()) helixLoad(params) else throw Exception()
             else -> throw Exception()
         }
+    }
+
+    private suspend fun kickLoad(): LoadResult<Int, Stream> {
+        val list = kickRepository.searchChannels(query).mapNotNull { it.takeIf { channel -> channel.isLive }?.let { channel ->
+            Stream(
+                id = "search_${channel.id}",
+                channelId = "user_${channel.id}",
+                channelLogin = channel.slug,
+                channelName = channel.username,
+                channelImageURL = channel.profilePicture,
+                gameId = channel.categoryId,
+                gameSlug = channel.categorySlug,
+                gameName = channel.categoryName,
+                title = channel.title,
+                thumbnailURL = channel.thumbnail,
+                createdAt = channel.startedAt,
+                viewerCount = channel.viewerCount,
+            )
+        } }
+        return LoadResult.Page(
+            data = list,
+            prevKey = null,
+            nextKey = null
+        )
     }
 
     private suspend fun gqlQueryLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {

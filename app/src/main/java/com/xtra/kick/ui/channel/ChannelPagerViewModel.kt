@@ -22,6 +22,7 @@ import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.NotificationsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ class ChannelPagerViewModel(
     private val notificationsRepository: NotificationsRepository,
     private val graphQLRepository: GraphQLRepository,
     private val helixRepository: HelixRepository,
+    private val kickSession: KickSession,
     private val httpEngine: Lazy<HttpEngine?>,
     private val cronetEngine: Lazy<CronetEngine?>,
     private val cronetExecutor: Lazy<ExecutorService>,
@@ -240,7 +242,7 @@ class ChannelPagerViewModel(
 
     fun updateNotifications(networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>) {
         viewModelScope.launch {
-            notificationsRepository.getNewStreams(networkLibrary, gqlHeaders, helixHeaders)
+            notificationsRepository.getNewStreams(networkLibrary, gqlHeaders, helixHeaders, kickSession.accessToken())
         }
     }
 
@@ -249,6 +251,18 @@ class ChannelPagerViewModel(
             viewModelScope.launch {
                 try {
                     if (!channelId.isNullOrBlank()) {
+                        if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                            val token = kickSession.accessToken()
+                            if (!token.isNullOrBlank()) {
+                                val followedIds = runCatching {
+                                    kickSession.repository.getFollowedChannels(token, 100, null).mapNotNull { it.id }
+                                }.getOrDefault(emptyList())
+                                val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                                _isFollowing.value = id != null && id in followedIds
+                                _notificationsEnabled.value = notificationsRepository.getUserById(channelId) != null
+                            }
+                            return@launch
+                        }
                         if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                             val follower = graphQLRepository.loadQueryFollowingUser(
                                 networkLibrary = networkLibrary,
@@ -274,6 +288,31 @@ class ChannelPagerViewModel(
         viewModelScope.launch {
             try {
                 if (!channelId.isNullOrBlank()) {
+                    if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                        val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                        val token = kickSession.accessToken()
+                        if (id == null || token.isNullOrBlank()) {
+                            follow.value = Pair(true, kickSession.followFailedMessage())
+                            return@launch
+                        }
+                        val success = runCatching { kickSession.repository.followChannel(token, id) }.getOrDefault(false)
+                        if (success) {
+                            _isFollowing.value = true
+                            follow.value = Pair(true, null)
+                            if (!disableNotifications) {
+                                notificationsRepository.saveUser(NotificationUser(channelId))
+                                _notificationsEnabled.value = true
+                            }
+                            if (liveNotificationsEnabled) {
+                                kickStreamStartedAt(channelLogin)?.let {
+                                    notificationsRepository.saveList(listOf(ShownNotification(channelId, it)))
+                                }
+                            }
+                        } else {
+                            follow.value = Pair(true, kickSession.followFailedMessage())
+                        }
+                        return@launch
+                    }
                     if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                         val errorMessage = graphQLRepository.loadFollowUser(networkLibrary, gqlHeaders, channelId, disableNotifications).also { response ->
                             if (enableIntegrity) {
@@ -326,6 +365,24 @@ class ChannelPagerViewModel(
         viewModelScope.launch {
             try {
                 if (!channelId.isNullOrBlank()) {
+                    if (channelId.startsWith(C.KICK_USER_PREFIX)) {
+                        val id = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                        val token = kickSession.accessToken()
+                        if (id == null || token.isNullOrBlank()) {
+                            follow.value = Pair(false, kickSession.followFailedMessage())
+                            return@launch
+                        }
+                        val success = runCatching { kickSession.repository.unfollowChannel(token, id) }.getOrDefault(false)
+                        if (success) {
+                            _isFollowing.value = false
+                            follow.value = Pair(false, null)
+                            notificationsRepository.deleteUser(NotificationUser(channelId))
+                            _notificationsEnabled.value = false
+                        } else {
+                            follow.value = Pair(false, kickSession.followFailedMessage())
+                        }
+                        return@launch
+                    }
                     if (setting == 0 && !gqlHeaders[C.HEADER_TOKEN].isNullOrBlank() && userId != channelId) {
                         val errorMessage = graphQLRepository.loadUnfollowUser(networkLibrary, gqlHeaders, channelId).also { response ->
                             if (enableIntegrity) {
@@ -354,6 +411,13 @@ class ChannelPagerViewModel(
 
             }
         }
+    }
+
+    private suspend fun kickStreamStartedAt(channelLogin: String?): Long? {
+        if (channelLogin.isNullOrBlank()) return null
+        return runCatching { kickSession.repository.getChannel(channelLogin).livestream?.startedAt }
+            .getOrNull()
+            ?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } }
     }
 
     fun updateLocalUser(networkLibrary: String?, filesDir: String, user: User) {
@@ -458,7 +522,7 @@ class ChannelPagerViewModel(
                 val savedStateHandle = createSavedStateHandle()
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                ChannelPagerViewModel(xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.notificationsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
+                ChannelPagerViewModel(xtraModule.localChannelFollowsRepository, xtraModule.offlineVideosRepository, xtraModule.bookmarksRepository, xtraModule.notificationsRepository, xtraModule.graphQLRepository, xtraModule.helixRepository, KickSession(application, xtraModule.kickRepository), xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, savedStateHandle)
             }
         }
     }
