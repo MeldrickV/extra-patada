@@ -974,14 +974,19 @@ object ChatAdapterUtils {
     }
 
     private fun loadCoil(fragment: Fragment, image: Image, emoteQuality: String, onLoaded: (Drawable) -> Unit) {
+        val url = image.localData ?: when (emoteQuality) {
+            "4" -> image.url4x ?: image.url3x ?: image.url2x ?: image.url1x
+            "3" -> image.url3x ?: image.url2x ?: image.url1x
+            "2" -> image.url2x ?: image.url1x
+            else -> image.url1x
+        }
+        enqueueCoil(fragment, image, url, onLoaded, kickEmoteStaticUrl(url as? String ?: image.url1x))
+    }
+
+    private fun enqueueCoil(fragment: Fragment, image: Image, url: Any?, onLoaded: (Drawable) -> Unit, staticUrl: String?) {
         fragment.requireContext().imageLoader.enqueue(
             ImageRequest.Builder(fragment.requireContext()).apply {
-                data(image.localData ?: when (emoteQuality) {
-                    "4" -> image.url4x ?: image.url3x ?: image.url2x ?: image.url1x
-                    "3" -> image.url3x ?: image.url2x ?: image.url1x
-                    "2" -> image.url2x ?: image.url1x
-                    else -> image.url1x
-                })
+                data(url)
                 if (image.thirdParty) {
                     httpHeaders(NetworkHeaders.Builder().apply {
                         add("User-Agent", "Xtra/" + BuildConfig.VERSION_NAME)
@@ -991,9 +996,18 @@ object ChatAdapterUtils {
                     onSuccess = {
                         onLoaded((it.asDrawable(fragment.resources)))
                     },
+                    onError = {
+                        if (staticUrl != null) {
+                            enqueueCoil(fragment, image, staticUrl, onLoaded, null)
+                        }
+                    },
                 )
             }.build()
         )
+    }
+
+    private fun kickEmoteStaticUrl(url: String?): String? {
+        return url?.takeIf { it.contains("files.kick.com/emotes/") }?.replace("/fullsize", "/static")
     }
 
     private fun loadGlide(fragment: Fragment, image: Image, emoteQuality: String, onLoaded: (Drawable) -> Unit) {
