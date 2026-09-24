@@ -63,6 +63,7 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -506,7 +507,7 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                                     )
                                     binding.pinnedMessage.isVisible = true
                                     pinnedJob = viewLifecycleOwner.lifecycleScope.launch {
-                                        while (coroutineContext.isActive) {
+                                        while (isActive) {
                                             val remaining = pinned.finishAt - System.currentTimeMillis()
                                             if (remaining <= 0) {
                                                 binding.pinnedMessageHeadline.text = getString(R.string.pin_ended)
