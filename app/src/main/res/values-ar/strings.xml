@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">عدم تطابق الحالة، حاول مرة أخرى</string>
     <string name="kick_follow_failed">تعذر تحديث حالة المتابعة في Kick.</string>
     <string name="platform_setting">المنصة</string>
+    <string name="pinned_by">مثبّت بواسطة %1$s · %2$s</string>
+    <string name="pin_ended">انتهت صلاحية الرسالة المثبتة</string>
+    <string name="kick_gifts">الهدايا</string>
+    <string name="kick_gifts_week">أسبوع</string>
+    <string name="kick_gifts_month">شهر</string>
+    <string name="kick_gifts_empty">لا توجد إسهامات هدايا بعد</string>
 </resources>

@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">Состояние не совпадает, повторите попытку</string>
     <string name="kick_follow_failed">Не удалось обновить статус подписки Kick.</string>
     <string name="platform_setting">Платформа</string>
+    <string name="pinned_by">Закреплено %1$s · %2$s</string>
+    <string name="pin_ended">Время закреплённого сообщения истекло</string>
+    <string name="kick_gifts">Подарки</string>
+    <string name="kick_gifts_week">Неделя</string>
+    <string name="kick_gifts_month">Месяц</string>
+    <string name="kick_gifts_empty">Пока нет подарков</string>
 </resources>

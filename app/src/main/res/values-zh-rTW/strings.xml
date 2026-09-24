@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">狀態不符，請重試</string>
     <string name="kick_follow_failed">無法更新 Kick 追蹤狀態。</string>
     <string name="platform_setting">平台</string>
+    <string name="pinned_by">%1$s 置頂 · %2$s</string>
+    <string name="pin_ended">置頂訊息已過期</string>
+    <string name="kick_gifts">禮物</string>
+    <string name="kick_gifts_week">週</string>
+    <string name="kick_gifts_month">月</string>
+    <string name="kick_gifts_empty">暫無禮物</string>
 </resources>

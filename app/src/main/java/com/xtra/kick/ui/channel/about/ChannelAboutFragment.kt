@@ -261,7 +261,7 @@ class ChannelAboutFragment : BaseNetworkFragment(), IntegrityDialog.Listener {
         }
         binding.kickGiftsTabs.removeAllViews()
         listOf(
-            Triple(R.string.kick_gifts_all_time, 0, boards.giftsEnabled),
+            Triple(R.string.all_time, 0, boards.giftsEnabled),
             Triple(R.string.kick_gifts_week, 1, boards.giftsWeekEnabled),
             Triple(R.string.kick_gifts_month, 2, boards.giftsMonthEnabled),
         ).forEach { (labelRes, id, enabled) ->

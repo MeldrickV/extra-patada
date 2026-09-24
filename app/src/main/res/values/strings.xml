@@ -28,7 +28,6 @@
     <string name="pinned_by">Pinned by %1$s · %2$s</string>
     <string name="pin_ended">Pinned message expired</string>
     <string name="kick_gifts">Gifts</string>
-    <string name="kick_gifts_all_time">All time</string>
     <string name="kick_gifts_week">Week</string>
     <string name="kick_gifts_month">Month</string>
     <string name="kick_gifts_empty">No gift contributions yet</string>

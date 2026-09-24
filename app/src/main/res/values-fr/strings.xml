@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">Incohérence d\'état, veuillez réessayer</string>
     <string name="kick_follow_failed">Impossible de mettre à jour l\'état de suivi de Kick.</string>
     <string name="platform_setting">Plateforme</string>
+    <string name="pinned_by">Épinglé par %1$s · %2$s</string>
+    <string name="pin_ended">Le message épinglé a expiré</string>
+    <string name="kick_gifts">Cadeaux</string>
+    <string name="kick_gifts_week">Semaine</string>
+    <string name="kick_gifts_month">Mois</string>
+    <string name="kick_gifts_empty">Aucun cadeau pour le moment</string>
 </resources>
