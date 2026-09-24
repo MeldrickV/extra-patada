@@ -506,7 +506,7 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                                     )
                                     binding.pinnedMessage.isVisible = true
                                     pinnedJob = viewLifecycleOwner.lifecycleScope.launch {
-                                        while (isActive) {
+                                        while (coroutineContext.isActive) {
                                             val remaining = pinned.finishAt - System.currentTimeMillis()
                                             if (remaining <= 0) {
                                                 binding.pinnedMessageHeadline.text = getString(R.string.pin_ended)
