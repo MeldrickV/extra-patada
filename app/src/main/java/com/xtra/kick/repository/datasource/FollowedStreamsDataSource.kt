@@ -510,7 +510,11 @@ class FollowedStreamsDataSource(
             if (remaining <= 0) break
             val page = runCatching { kickRepository.getLivestreams(min(remaining, 100), cursor) }.getOrNull() ?: break
             page.livestreams.forEach { livestream ->
-                livestream.streamer?.channel?.slug?.let { slug -> map.putIfAbsent(slug, livestream) }
+                livestream.streamer?.channel?.slug?.let { slug ->
+                    if (!map.containsKey(slug)) {
+                        map[slug] = livestream
+                    }
+                }
             }
             cursor = page.nextCursor
             remaining -= page.livestreams.size
