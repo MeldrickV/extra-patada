@@ -45,6 +45,8 @@ class ChannelClipsViewModel(
 
     val period: String
         get() = filter.value?.period ?: VideosSortDialog.PERIOD_WEEK
+    val sort: String
+        get() = filter.value?.sort ?: VideosSortDialog.SORT_TIME
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val flow = filter.flatMapLatest {
@@ -95,6 +97,15 @@ class ChannelClipsViewModel(
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
                 kickRepository = kickRepository,
+                kickPeriodDays = if (args.channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                    when (period) {
+                        VideosSortDialog.PERIOD_DAY -> 1
+                        VideosSortDialog.PERIOD_WEEK -> 7
+                        VideosSortDialog.PERIOD_MONTH -> 30
+                        else -> null
+                    }
+                } else null,
+                kickSortByViews = args.channelId?.startsWith(C.KICK_USER_PREFIX) == true && sort == VideosSortDialog.SORT_VIEWS,
             )
         }.flow
     }.cachedIn(viewModelScope)
@@ -111,12 +122,13 @@ class ChannelClipsViewModel(
         channelSortRepository.delete(item)
     }
 
-    fun setFilter(period: String?) {
-        filter.value = Filter(period)
+    fun setFilter(period: String?, sort: String?) {
+        filter.value = Filter(period, sort)
     }
 
     class Filter(
         val period: String?,
+        val sort: String?,
     )
 
     companion object {

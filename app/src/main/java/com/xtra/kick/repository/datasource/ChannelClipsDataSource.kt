@@ -11,6 +11,9 @@ import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 class ChannelClipsDataSource(
     private val channelId: String?,
@@ -26,9 +29,12 @@ class ChannelClipsDataSource(
     private val enableIntegrity: Boolean,
     private val networkLibrary: String?,
     private val kickRepository: KickRepository,
+    private val kickPeriodDays: Int?,
+    private val kickSortByViews: Boolean,
 ) : PagingSource<Int, Clip>() {
     private var api: String? = null
     private var offset: String? = null
+    private var kickAllClips: List<Clip>? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, Clip> {
         return if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
@@ -208,29 +214,53 @@ class ChannelClipsDataSource(
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Clip> {
         val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
         val channelName = channel?.user?.username
-        val channelImageURL = channel?.user?.profilePicture
+        val channelImageURL = channel?.user?.resolvedProfilePicture
         val videosByLivestreamId = runCatching { kickRepository.getChannelVideos(channelLogin!!) }.getOrNull()
             .orEmpty()
             .mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }
             .toMap()
-        val list = kickRepository.getChannelClips(channelLogin!!).map { clip ->
-            val video = clip.livestreamId?.let { videosByLivestreamId[it] }
-            clip.toClip(
-                channelId = channelId,
-                channelLogin = channelLogin,
-                channelName = channelName,
-                channelImageURL = channelImageURL,
-                videoId = video?.video?.uuid?.takeIf { it.isNotBlank() },
-                videoCreatedAt = video?.startTime,
-            )
+        val all = kickAllClips ?: run {
+            val fetched = buildList {
+                var cursor: String? = null
+                for (attempt in 0 until 4) {
+                    val page = runCatching { kickRepository.getChannelClipsPage(channelLogin!!, cursor) }.getOrNull() ?: break
+                    addAll(page.clips)
+                    cursor = page.cursor
+                    if (cursor.isNullOrBlank()) break
+                }
+            }
+            val seen = HashSet<String>()
+            val unique = fetched.filter { seen.add(it.id) }
+            val mapped = unique.map { clip ->
+                val video = clip.livestreamId?.let { videosByLivestreamId[it] }
+                clip.toClip(
+                    channelId = channelId,
+                    channelLogin = channelLogin,
+                    channelName = channelName,
+                    channelImageURL = channelImageURL,
+                    videoId = video?.video?.uuid?.takeIf { it.isNotBlank() },
+                    videoCreatedAt = video?.startTime,
+                )
+            }
+            val minCreated = kickPeriodDays?.let { Clock.System.now() - it.days }
+            val filtered = mapped.filter { clip ->
+                val created = clip.createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds() }
+                created == null || minCreated == null || created >= minCreated.toEpochMilliseconds()
+            }
+            val sorted = if (kickSortByViews) {
+                filtered.sortedByDescending { it.viewCount ?: 0 }
+            } else {
+                filtered.sortedByDescending { it.createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds() } ?: 0L }
+            }
+            sorted.also { kickAllClips = it }
         }
         val page = params.key ?: 0
         val start = page * params.loadSize
-        val pageItems = if (start < list.size) list.subList(start, min(start + params.loadSize, list.size)) else emptyList()
+        val pageItems = if (start < all.size) all.subList(start, min(start + params.loadSize, all.size)) else emptyList()
         return LoadResult.Page(
             data = pageItems,
             prevKey = null,
-            nextKey = if (start + pageItems.size < list.size) page + 1 else null
+            nextKey = if (start + pageItems.size < all.size) page + 1 else null
         )
     }
 

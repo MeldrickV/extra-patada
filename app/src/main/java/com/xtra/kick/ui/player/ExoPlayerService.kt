@@ -1409,7 +1409,7 @@ class ExoPlayerService : BasePlaybackService() {
             channel?.let {
                 channelLogin = it.slug ?: channelLogin
                 channelName = it.user?.username ?: channelName
-                channelImage = it.user?.profilePicture ?: channelImage
+                channelImage = it.user?.resolvedProfilePicture ?: channelImage
                 updateMetadata()
                 updateNotification()
                 serviceListener?.updateVideoInfo()

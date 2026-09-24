@@ -12,7 +12,7 @@ object KickChatUtils {
     fun parseKickMessage(event: JSONObject): ChatMessage? {
         val sender = event.optJSONObject("sender")
         val identity = sender?.optJSONObject("identity")
-        val content = event.optString("content").takeIf { it.isNotBlank() } ?: return null
+        val content = normalizeRichContent(event.optString("content").takeIf { it.isNotBlank() } ?: return null)
         val emotes = parseKickEmotes(content)
         return ChatMessage(
             type = ChatMessage.USER_MESSAGE,
@@ -65,5 +65,19 @@ object KickChatUtils {
             emotes.add(emote)
         }
         return emotes
+    }
+
+    private fun normalizeRichContent(content: String): String {
+        return Regex("""<img[^>]*src="[^"]*emotes/(\d+)/fullsize"[^>]*alt="([^"]*)"[^>]*>""")
+            .replace(content) { match ->
+                val id = match.groupValues[1]
+                val name = match.groupValues[2]
+                "[emote:$id:${name.takeIf { it.isNotBlank() } ?: id}]"
+            }
+            .replace(Regex("""<a[^>]*href="([^"]*)"[^>]*>(.*?)</a>""")) { match ->
+                val label = match.groupValues[2]
+                if (label.startsWith("[")) label else match.groupValues[1]
+            }
+            .replace(Regex("""<[^>]*>"""), "")
     }
 }

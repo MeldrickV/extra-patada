@@ -121,8 +121,8 @@ class KickChatWebSocket(
             }
             val history = root.optJSONObject("history")
             if (history != null) {
+                val messages = history.optJSONArray("messages") ?: JSONArray()
                 val events = buildList {
-                    val messages = history.optJSONArray("messages") ?: JSONArray()
                     for (i in 0 until messages.length()) {
                         val item = messages.optJSONObject(i) ?: continue
                         parseChatEvent(item.optString("message").takeIf { it.isNotBlank() }?.let { JSONObject(it) } ?: item.optJSONObject("message"))?.let { add(it) }
@@ -130,6 +130,14 @@ class KickChatWebSocket(
                 }
                 if (events.isNotEmpty()) {
                     listener.onHistory(events)
+                }
+                for (i in 0 until messages.length()) {
+                    val item = messages.optJSONObject(i) ?: continue
+                    val payload = item.optString("message").takeIf { it.isNotBlank() }?.let { runCatching { JSONObject(it) }.getOrNull() } ?: item.optJSONObject("message") ?: continue
+                    when (payload.optString("event")) {
+                        "App\\Events\\PinnedMessageCreatedEvent" -> parseEventData(payload)?.let { listener.onPinnedMessage(it) }
+                        "App\\Events\\PinnedMessageDeletedEvent" -> listener.onPinnedMessageDeleted()
+                    }
                 }
                 return
             }
@@ -139,8 +147,12 @@ class KickChatWebSocket(
                 return
             }
             val pub = push.optJSONObject("pub") ?: return
-            val data = pub.optJSONObject("data") ?: return
-            parseChatEvent(data)?.let { listener.onChatMessage(it) }
+            val payload = pub.optJSONObject("data") ?: return
+            when (payload.optString("event")) {
+                "App\\Events\\ChatMessageEvent" -> parseChatEvent(payload)?.let { listener.onChatMessage(it) }
+                "App\\Events\\PinnedMessageCreatedEvent" -> parseEventData(payload)?.let { listener.onPinnedMessage(it) }
+                "App\\Events\\PinnedMessageDeletedEvent" -> listener.onPinnedMessageDeleted()
+            }
         } catch (e: Exception) {
             listener.onDisconnect(e.toString(), e.stackTraceToString())
         }
@@ -156,10 +168,21 @@ class KickChatWebSocket(
         return data.optString("content").takeIf { it.isNotBlank() }?.let { data }
     }
 
+    private fun parseEventData(payload: JSONObject?): JSONObject? {
+        if (payload == null) {
+            return null
+        }
+        return payload.optString("data").takeIf { it.isNotBlank() }?.let {
+            runCatching { JSONObject(it) }.getOrNull()
+        }
+    }
+
     interface Listener {
         suspend fun onConnect() {}
         suspend fun onChatMessage(event: JSONObject) {}
         suspend fun onHistory(messages: List<JSONObject>) {}
+        suspend fun onPinnedMessage(event: JSONObject) {}
+        suspend fun onPinnedMessageDeleted() {}
         suspend fun onDisconnect(message: String, fullMsg: String?) {}
     }
 }

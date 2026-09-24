@@ -86,10 +86,16 @@ class ChannelClipsFragment : PagedListFragment(), Scrollable, Sortable, VideosSo
                 val sortValues = args.channelId?.let { viewModel.getChannelSort(it) } ?: viewModel.getChannelSort("default")
                 viewModel.setFilter(
                     period = sortValues?.clipPeriod,
+                    sort = sortValues?.clipSort,
                 )
                 viewModel.sortText.value = getString(
                     R.string.sort_and_period,
-                    getString(R.string.view_count),
+                    getString(
+                        when (viewModel.sort) {
+                            VideosSortDialog.SORT_VIEWS -> R.string.view_count
+                            else -> R.string.upload_date
+                        }
+                    ),
                     getString(
                         when (viewModel.period) {
                             VideosSortDialog.PERIOD_DAY -> R.string.today
@@ -115,7 +121,7 @@ class ChannelClipsFragment : PagedListFragment(), Scrollable, Sortable, VideosSo
         sortBar.root.setOnClickListener {
             viewLifecycleOwner.lifecycleScope.launch {
                 VideosSortDialog.newInstance(
-                    sort = VideosSortDialog.SORT_VIEWS,
+                    sort = viewModel.sort,
                     period = viewModel.period,
                     saved = args.channelId?.let { viewModel.getChannelSort(it) } != null
                 ).show(childFragmentManager, null)
@@ -136,16 +142,18 @@ class ChannelClipsFragment : PagedListFragment(), Scrollable, Sortable, VideosSo
                 if (changed) {
                     binding.scrollTop.visibility = View.GONE
                     pagingAdapter.submitData(PagingData.empty())
-                    viewModel.setFilter(period)
+                    viewModel.setFilter(period, sort)
                     viewModel.sortText.value = getString(R.string.sort_and_period, sortText, periodText)
                 }
                 if (saveSort) {
                     args.channelId?.let { id ->
                         val item = viewModel.getChannelSort(id)?.apply {
                             clipPeriod = period
+                            clipSort = sort
                         } ?: ChannelSort(
                             id = id,
-                            clipPeriod = period
+                            clipPeriod = period,
+                            clipSort = sort
                         )
                         viewModel.saveChannelSort(item)
                     }
@@ -153,9 +161,11 @@ class ChannelClipsFragment : PagedListFragment(), Scrollable, Sortable, VideosSo
                 if (saveDefault) {
                     val item = viewModel.getChannelSort("default")?.apply {
                         clipPeriod = period
+                        clipSort = sort
                     } ?: ChannelSort(
                         id = "default",
-                        clipPeriod = period
+                        clipPeriod = period,
+                        clipSort = sort
                     )
                     viewModel.saveChannelSort(item)
                 }

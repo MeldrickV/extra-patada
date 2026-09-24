@@ -100,7 +100,11 @@ data class KickChannelUser(
     val id: Long = 0,
     val username: String? = null,
     @SerialName("profile_picture") val profilePicture: String? = null,
-)
+    @SerialName("profile_pic") val profilePic: String? = null,
+) {
+    val resolvedProfilePicture: String?
+        get() = profilePicture ?: profilePic
+}
 
 @Serializable
 data class KickChatroom(

@@ -82,9 +82,12 @@ class VideosSortDialog : BottomSheetDialogFragment(), SelectLanguagesDialog.OnSe
             val args = requireArguments()
             when (parentFragment) {
                 is ChannelClipsFragment -> {
-                    sort.visibility = View.GONE
+                    val kickChannel = parentFragment?.arguments?.getString(C.CHANNEL_ID)?.startsWith(C.KICK_USER_PREFIX) == true
                     sortType.visibility = View.GONE
                     selectLanguages.visibility = View.GONE
+                    if (!kickChannel) {
+                        sort.visibility = View.GONE
+                    }
                     saveSort.text = getString(R.string.save_sort_channel)
                     saveSortLayout.isVisible = parentFragment?.arguments?.getString(C.CHANNEL_ID).isNullOrBlank() == false
                 }

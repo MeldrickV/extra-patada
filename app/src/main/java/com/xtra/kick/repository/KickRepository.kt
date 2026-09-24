@@ -5,7 +5,9 @@ import com.xtra.kick.model.kick.KickCategoriesResponse
 import com.xtra.kick.model.kick.KickCategory
 import com.xtra.kick.model.kick.KickChannelResponse
 import com.xtra.kick.model.kick.KickChannelVideo
+import com.xtra.kick.model.kick.KickChannelLeaderboards
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
+import com.xtra.kick.model.kick.KickClipsPage
 import com.xtra.kick.model.kick.KickClip
 import com.xtra.kick.model.kick.KickFollowedChannel
 import com.xtra.kick.model.kick.KickLivestreamsData
@@ -272,15 +274,37 @@ class KickRepository(
     }
 
     suspend fun getChannelClips(slug: String): List<KickClip> = withContext(Dispatchers.IO) {
-        val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelClipsUrl(slug)).apply {
+        getChannelClipsPage(slug, null).clips
+    }
+
+    suspend fun getChannelClipsPage(slug: String, cursor: String?): KickClipsPage = withContext(Dispatchers.IO) {
+        val url = KickApiHelper.channelClipsUrl(slug).toHttpUrl().newBuilder()
+            .apply { cursor?.takeIf { it.isNotBlank() }?.let { addQueryParameter("cursor", it) } }
+            .build()
+        val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
             headers.forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
                 throw IllegalStateException("Kick channel clips request failed: ${it.code}")
             }
-            json.decodeFromString<KickChannelsClipsResponse>(it.body.string()).clips
+            val parsed = json.decodeFromString<KickChannelsClipsResponse>(it.body.string())
+            KickClipsPage(clips = parsed.clips, cursor = parsed.nextCursor)
         }
+    }
+
+    suspend fun getChannelLeaderboards(slug: String): KickChannelLeaderboards? = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelLeaderboardsUrl(slug)).apply {
+                headers.forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick channel leaderboards request failed: ${it.code}")
+                }
+                json.decodeFromString<KickChannelLeaderboards>(it.body.string())
+            }
+        }.getOrNull()
     }
 
     private suspend fun searchEnriched(query: String): JSONObject = withContext(Dispatchers.IO) {

@@ -55,6 +55,30 @@ data class KickVideoResponse(
 @Serializable
 data class KickChannelsClipsResponse(
     val clips: List<KickClip> = emptyList(),
+    @SerialName("nextCursor") val nextCursor: String? = null,
+)
+
+@Serializable
+data class KickClipsPage(
+    val clips: List<KickClip> = emptyList(),
+    val cursor: String? = null,
+)
+
+@Serializable
+data class KickChannelLeaderboards(
+    @SerialName("gifts") val gifts: List<KickGiftLeaderboardEntry> = emptyList(),
+    @SerialName("gifts_enabled") val giftsEnabled: Boolean = false,
+    @SerialName("gifts_week") val giftsWeek: List<KickGiftLeaderboardEntry> = emptyList(),
+    @SerialName("gifts_week_enabled") val giftsWeekEnabled: Boolean = false,
+    @SerialName("gifts_month") val giftsMonth: List<KickGiftLeaderboardEntry> = emptyList(),
+    @SerialName("gifts_month_enabled") val giftsMonthEnabled: Boolean = false,
+)
+
+@Serializable
+data class KickGiftLeaderboardEntry(
+    @SerialName("user_id") val userId: Long = 0,
+    val username: String = "",
+    val quantity: Int = 0,
 )
 
 @Serializable
