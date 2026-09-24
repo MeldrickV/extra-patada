@@ -10,4 +10,5 @@ class ChannelSort(
     var videoSort: String? = null,
     var videoType: String? = null,
     var clipPeriod: String? = null,
+    var clipSort: String? = null,
 )

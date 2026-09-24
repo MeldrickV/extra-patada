@@ -583,4 +583,10 @@
     <string name="kick_login_state_mismatch">Keadaan tidak cocok, coba lagi</string>
     <string name="kick_follow_failed">Tidak dapat memperbarui status mengikuti di Kick.</string>
     <string name="platform_setting">Platform</string>
+    <string name="pinned_by">Disemat oleh %1$s · %2$s</string>
+    <string name="pin_ended">Pesan yang disematkan kedaluwarsa</string>
+    <string name="kick_gifts">Hadiah</string>
+    <string name="kick_gifts_week">Minggu</string>
+    <string name="kick_gifts_month">Bulan</string>
+    <string name="kick_gifts_empty">Belum ada hadiah</string>
 </resources>

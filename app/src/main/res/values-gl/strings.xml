@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">O estado non coincide, téntao de novo</string>
 <string name="kick_follow_failed">Non se puido actualizar o estado de seguimento de Kick.</string>
     <string name="platform_setting">Plataforma</string>
+    <string name="pinned_by">Fixado por %1$s · %2$s</string>
+    <string name="pin_ended">O mensaxe fixado expirou</string>
+    <string name="kick_gifts">Agasallos</string>
+    <string name="kick_gifts_week">Semana</string>
+    <string name="kick_gifts_month">Mes</string>
+    <string name="kick_gifts_empty">Aínda non hai agasallos</string>
 </resources>	

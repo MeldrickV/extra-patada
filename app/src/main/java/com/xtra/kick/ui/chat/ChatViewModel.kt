@@ -17,6 +17,7 @@ import com.xtra.kick.XtraApp
 import com.xtra.kick.model.chat.Badge
 import com.xtra.kick.model.chat.ChannelPointReward
 import com.xtra.kick.model.chat.ChatMessage
+import com.xtra.kick.model.chat.PinnedKickMessage
 import com.xtra.kick.model.chat.Chatter
 import com.xtra.kick.model.chat.CheerEmote
 import com.xtra.kick.model.chat.Emote
@@ -131,6 +132,7 @@ class ChatViewModel(
     val raid = MutableStateFlow<Raid?>(null)
     val raidClicked = MutableStateFlow<Raid?>(null)
     var raidClosed = false
+    val pinnedMessage = MutableStateFlow<PinnedKickMessage?>(null)
     val poll = MutableStateFlow<Poll?>(null)
     var pollClosed = false
     val pollSecondsLeft = MutableStateFlow<Int?>(null)
@@ -1083,11 +1085,35 @@ class ChatViewModel(
             return message
         }
 
+        override suspend fun onPinnedMessage(event: JSONObject) {
+            pinnedMessage.value = parsePinnedKickMessage(event)
+        }
+
+        override suspend fun onPinnedMessageDeleted() {
+            pinnedMessage.value = null
+        }
+
         override suspend fun onDisconnect(message: String, fullMsg: String?) {
             if (started) {
                 onMessage(ChatMessage(systemMsg = "Kick chat disconnected"))
             }
         }
+    }
+
+    private fun parsePinnedKickMessage(event: JSONObject): PinnedKickMessage? {
+        val message = event.optJSONObject("message") ?: return null
+        val sender = message.optJSONObject("sender")
+        val identity = sender?.optJSONObject("identity")
+        val pinnedBy = event.optJSONObject("pinned_by")
+        val finish = event.optString("finish_at").takeIf { it.isNotBlank() }?.let { Instant.parseOrNull(it)?.toEpochMilliseconds() }
+            ?: (System.currentTimeMillis() + event.optLong("duration", 0) * 1000)
+        return PinnedKickMessage(
+            userName = sender?.optString("username")?.takeIf { it.isNotBlank() } ?: sender?.optString("slug"),
+            userColor = identity?.optString("color")?.takeIf { it.isNotBlank() },
+            message = message.optString("content").takeIf { it.isNotBlank() },
+            pinnedBy = pinnedBy?.optString("username")?.takeIf { it.isNotBlank() } ?: pinnedBy?.optString("slug"),
+            finishAt = finish,
+        )
     }
 
     fun startLiveChat(channelId: String?, channelLogin: String) {

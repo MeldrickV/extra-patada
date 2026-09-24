@@ -29,8 +29,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
+import com.google.android.material.button.MaterialButton
 import com.xtra.kick.R
 import com.xtra.kick.databinding.FragmentAboutBinding
+import com.xtra.kick.model.kick.KickChannelLeaderboards
 import com.xtra.kick.ui.channel.ChannelPagerFragmentArgs
 import com.xtra.kick.ui.channel.about.ChannelAboutViewModel.Companion.ChannelAboutViewModelFactory
 import com.xtra.kick.ui.common.BaseNetworkFragment
@@ -50,6 +52,7 @@ class ChannelAboutFragment : BaseNetworkFragment(), IntegrityDialog.Listener {
     private val args: ChannelPagerFragmentArgs by navArgs()
     private val viewModel: ChannelAboutViewModel by viewModels { ChannelAboutViewModelFactory }
     private var panelAdapter: ChannelPanelAdapter? = null
+    private var kickGiftsTab = 0
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAboutBinding.inflate(inflater, container, false)
@@ -188,6 +191,26 @@ class ChannelAboutFragment : BaseNetworkFragment(), IntegrityDialog.Listener {
                     }
                 }
             }
+            if (args.channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                viewModel.loadKickLeaderboards(args.channelLogin)
+            }
+            viewLifecycleOwner.lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    viewModel.kickLeaderboards.collectLatest { boards ->
+                        if (boards == null || (!boards.giftsEnabled && !boards.giftsWeekEnabled && !boards.giftsMonthEnabled)) {
+                            kickGiftsSection.isVisible = false
+                        } else {
+                            kickGiftsSection.isVisible = true
+                            kickGiftsTab = when {
+                                kickGiftsTab == 1 && !boards.giftsWeekEnabled -> if (boards.giftsEnabled) 0 else 2
+                                kickGiftsTab == 2 && !boards.giftsMonthEnabled -> if (boards.giftsEnabled) 0 else 1
+                                else -> kickGiftsTab
+                            }
+                            renderKickGifts(boards)
+                        }
+                    }
+                }
+            }
         }
         viewModel.loadAbout(
             channelId = args.channelId,
@@ -220,6 +243,41 @@ class ChannelAboutFragment : BaseNetworkFragment(), IntegrityDialog.Listener {
                     enableIntegrity = requireContext().prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 )
             }
+        }
+    }
+
+    private fun renderKickGifts(boards: KickChannelLeaderboards) {
+        val entries = when (kickGiftsTab) {
+            1 -> boards.giftsWeek
+            2 -> boards.giftsMonth
+            else -> boards.gifts
+        }
+        binding.kickGiftsList.text = if (entries.isEmpty()) {
+            getString(R.string.kick_gifts_empty)
+        } else {
+            entries.take(20).mapIndexed { index, entry ->
+                "${index + 1}. @${entry.username} — ${entry.quantity}"
+            }.joinToString("\n")
+        }
+        binding.kickGiftsTabs.removeAllViews()
+        listOf(
+            Triple(R.string.all_time, 0, boards.giftsEnabled),
+            Triple(R.string.kick_gifts_week, 1, boards.giftsWeekEnabled),
+            Triple(R.string.kick_gifts_month, 2, boards.giftsMonthEnabled),
+        ).forEach { (labelRes, id, enabled) ->
+            binding.kickGiftsTabs.addView(
+                MaterialButton(requireContext(), null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+                    isAllCaps = false
+                    text = getString(labelRes)
+                    isChecked = kickGiftsTab == id
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    setOnClickListener {
+                        kickGiftsTab = id
+                        renderKickGifts(boards)
+                    }
+                    isEnabled = enabled
+                }
+            )
         }
     }
 

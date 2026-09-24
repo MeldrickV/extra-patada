@@ -29,6 +29,10 @@ object KickApiHelper {
         return "$WEBSITE_BASE_URL/api/v2/channels/$slug/clips"
     }
 
+    fun channelLeaderboardsUrl(slug: String): String {
+        return "$WEBSITE_BASE_URL/api/v2/channels/$slug/leaderboards"
+    }
+
     fun clipUrl(id: String): String {
         return "$WEBSITE_BASE_URL/api/v2/clips/$id"
     }

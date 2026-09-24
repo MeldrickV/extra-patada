@@ -25,6 +25,12 @@
     <string name="connection_error">Error connecting to the server. Please try again.</string>
     <string name="sort">Sort</string>
     <string name="upload_date">Upload date</string>
+    <string name="pinned_by">Pinned by %1$s · %2$s</string>
+    <string name="pin_ended">Pinned message expired</string>
+    <string name="kick_gifts">Gifts</string>
+    <string name="kick_gifts_week">Week</string>
+    <string name="kick_gifts_month">Month</string>
+    <string name="kick_gifts_empty">No gift contributions yet</string>
     <string name="today">Today</string>
     <string name="this_week">This week</string>
     <string name="this_month">This month</string>

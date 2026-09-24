@@ -583,4 +583,10 @@
     <string name="kick_login_state_mismatch">Durum eşleşmiyor, lütfen tekrar deneyin</string>
     <string name="kick_follow_failed">Kick takip durumu güncellenemedi.</string>
     <string name="platform_setting">Platform</string>
+    <string name="pinned_by">%2$s · %1$s tarafından sabitlendi</string>
+    <string name="pin_ended">Sabitlenen mesajın süresi doldu</string>
+    <string name="kick_gifts">Hediyeler</string>
+    <string name="kick_gifts_week">Hafta</string>
+    <string name="kick_gifts_month">Ay</string>
+    <string name="kick_gifts_empty">Henüz hediye yok</string>
 </resources>

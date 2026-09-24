@@ -162,6 +162,45 @@
         app:layout_constraintBottom_toBottomOf="parent" />
 
     <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/pinnedMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/chatStatus"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:visibility="visible">
+
+        <TextView
+            android:id="@+id/pinnedMessageHeadline"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/pinnedMessageText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/pinnedMessageHeadline"
+            app:layout_constraintBottom_toBottomOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/chatStatus"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">ステートが一致しません。もう一度お試しください</string>
     <string name="kick_follow_failed">Kickのフォローステータスを更新できませんでした。</string>
     <string name="platform_setting">プラットフォーム</string>
+    <string name="pinned_by">%1$s がピン留め · %2$s</string>
+    <string name="pin_ended">ピン留めメッセージの期限が切れました</string>
+    <string name="kick_gifts">ギフト</string>
+    <string name="kick_gifts_week">週</string>
+    <string name="kick_gifts_month">月</string>
+    <string name="kick_gifts_empty">まだギフトがありません</string>
 </resources>

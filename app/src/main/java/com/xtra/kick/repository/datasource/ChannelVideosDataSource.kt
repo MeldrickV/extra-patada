@@ -191,7 +191,7 @@ class ChannelVideosDataSource(
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Video> {
         val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
         val channelName = channel?.user?.username
-        val channelImageURL = channel?.user?.profilePicture
+        val channelImageURL = channel?.user?.resolvedProfilePicture
         val list = kickRepository.getChannelVideos(channelLogin!!)?.mapNotNull { it ->
             if (it.isLive) {
                 it.video.uuid?.takeIf { uuid -> uuid.isNotBlank() }?.let { uuid ->

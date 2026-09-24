@@ -63,7 +63,10 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.max
@@ -75,6 +78,7 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
     private val binding get() = _binding!!
     private val viewModel: ChatViewModel by viewModels { ChatViewModelFactory }
     private var adapter: ChatAdapter? = null
+    private var pinnedJob: Job? = null
 
     private var isChatTouched = false
     private var showChatStatus = false
@@ -484,6 +488,41 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                                         )
                                     )
                                     viewModel.raidClicked.value = null
+                                }
+                            }
+                        }
+                    }
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        repeatOnLifecycle(Lifecycle.State.STARTED) {
+                            viewModel.pinnedMessage.collectLatest { pinned ->
+                                pinnedJob?.cancel()
+                                if (pinned == null) {
+                                    binding.pinnedMessage.isVisible = false
+                                } else {
+                                    binding.pinnedMessageText.text = pinned.message
+                                    binding.pinnedMessageHeadline.text = getString(
+                                        R.string.pinned_by,
+                                        pinned.userName ?: "?",
+                                        formatKickRemaining(pinned.finishAt - System.currentTimeMillis())
+                                    )
+                                    binding.pinnedMessage.isVisible = true
+                                    pinnedJob = viewLifecycleOwner.lifecycleScope.launch {
+                                        while (isActive) {
+                                            val remaining = pinned.finishAt - System.currentTimeMillis()
+                                            if (remaining <= 0) {
+                                                binding.pinnedMessageHeadline.text = getString(R.string.pin_ended)
+                                                delay(1500)
+                                                viewModel.pinnedMessage.value = null
+                                                break
+                                            }
+                                            binding.pinnedMessageHeadline.text = getString(
+                                                R.string.pinned_by,
+                                                pinned.userName ?: "?",
+                                                formatKickRemaining(remaining)
+                                            )
+                                            delay(1000)
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1292,6 +1331,18 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
 
         override fun terminateToken(text: CharSequence): CharSequence {
             return "${if (text.startsWith(':')) text.substring(1) else text} "
+        }
+    }
+
+    private fun formatKickRemaining(ms: Long): String {
+        val totalSeconds = (ms / 1000).coerceAtLeast(0)
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            "%d:%02d:%02d".format(hours, minutes, seconds)
+        } else {
+            "%d:%02d".format(minutes, seconds)
         }
     }
 

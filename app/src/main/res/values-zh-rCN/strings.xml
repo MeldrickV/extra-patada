@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">状态不匹配，请重试</string>
     <string name="kick_follow_failed">无法更新 Kick 关注状态。</string>
     <string name="platform_setting">平台</string>
+    <string name="pinned_by">%1$s 置顶 · %2$s</string>
+    <string name="pin_ended">置顶消息已过期</string>
+    <string name="kick_gifts">礼物</string>
+    <string name="kick_gifts_week">周</string>
+    <string name="kick_gifts_month">月</string>
+    <string name="kick_gifts_empty">暂无礼物</string>
 </resources>

@@ -510,6 +510,10 @@ object ChatAdapterUtils {
                         id = emote.id,
                         name = emote.name,
                         localData = emote.localData,
+                        url1x = emote.url1x,
+                        url2x = emote.url2x,
+                        url3x = emote.url3x,
+                        url4x = emote.url4x,
                         format = emote.format,
                         isAnimated = emote.isAnimated,
                         begin = realBegin,
@@ -517,7 +521,21 @@ object ChatAdapterUtils {
                         setId = emote.setId,
                         ownerId = emote.ownerId
                     )
-                } ?: TwitchEmote(id = it.id, begin = realBegin, end = realEnd)
+                } ?: TwitchEmote(
+                    id = it.id,
+                    name = it.name,
+                    localData = it.localData,
+                    url1x = it.url1x,
+                    url2x = it.url2x,
+                    url3x = it.url3x,
+                    url4x = it.url4x,
+                    format = it.format,
+                    isAnimated = it.isAnimated,
+                    begin = realBegin,
+                    end = realEnd,
+                    setId = it.setId,
+                    ownerId = it.ownerId
+                )
             }?.sortedBy { it.begin }?.toMutableList()
             val personalEmotes = if (showPersonalEmotes) {
                 stvUser?.emoteSetId?.let { setId ->
@@ -664,6 +682,10 @@ object ChatAdapterUtils {
                             id = emote.id,
                             name = emote.name,
                             localData = emote.localData,
+                            url1x = emote.url1x,
+                            url2x = emote.url2x,
+                            url3x = emote.url3x,
+                            url4x = emote.url4x,
                             format = emote.format,
                             isAnimated = emote.isAnimated,
                             begin = builderIndex,
@@ -671,7 +693,19 @@ object ChatAdapterUtils {
                             setId = emote.setId,
                             ownerId = emote.ownerId
                         )
-                    } ?: TwitchEmote(id = twitchEmote.id)
+                    } ?: TwitchEmote(
+                        id = twitchEmote.id,
+                        name = twitchEmote.name,
+                        localData = twitchEmote.localData,
+                        url1x = twitchEmote.url1x,
+                        url2x = twitchEmote.url2x,
+                        url3x = twitchEmote.url3x,
+                        url4x = twitchEmote.url4x,
+                        format = twitchEmote.format,
+                        isAnimated = twitchEmote.isAnimated,
+                        setId = twitchEmote.setId,
+                        ownerId = twitchEmote.ownerId
+                    )
                     if (imageClick != null) {
                         builder.setSpan(object : ClickableSpan() {
                             override fun onClick(widget: View) {

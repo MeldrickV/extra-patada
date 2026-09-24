@@ -582,4 +582,10 @@
     <string name="kick_login_state_mismatch">Status stimmt nicht überein, bitte erneut versuchen</string>
     <string name="kick_follow_failed">Kick-Follow-Status konnte nicht aktualisiert werden.</string>
     <string name="platform_setting">Plattform</string>
+    <string name="pinned_by">Angepinnt von %1$s · %2$s</string>
+    <string name="pin_ended">Angeheftete Nachricht abgelaufen</string>
+    <string name="kick_gifts">Geschenke</string>
+    <string name="kick_gifts_week">Woche</string>
+    <string name="kick_gifts_month">Monat</string>
+    <string name="kick_gifts_empty">Noch keine Geschenke</string>
 </resources>
