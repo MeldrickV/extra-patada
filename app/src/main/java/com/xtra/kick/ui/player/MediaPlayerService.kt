@@ -829,7 +829,15 @@ class MediaPlayerService : BasePlaybackService() {
                         val frameRates = Regex("FRAME-RATE=([\\d.]+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toFloatOrNull() }.toMutableList()
                         val bitrates = Regex("BANDWIDTH=(\\d+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toIntOrNull() }.toMutableList()
                         val codecs = Regex("CODECS=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-                        val urls = Regex("https://.*\\.m3u8").findAll(playlist).map(MatchResult::value).toMutableList()
+                        val urls = Regex("\\S+\\.m3u8").findAll(playlist).map(MatchResult::value).map { uri ->
+                            // Variant URIs can be relative (e.g. Kick VOD masters): resolve them
+                            // against the fetched playlist URL, keep absolute ones untouched.
+                            if (uri.startsWith("http")) {
+                                uri
+                            } else {
+                                runCatching { java.net.URL(java.net.URL(url), uri).toString() }.getOrNull() ?: uri
+                            }
+                        }.toMutableList()
                         val list = stableVariantIds.mapIndexedNotNull { index, variantId ->
                             urls.getOrNull(index)?.let { url ->
                                 VideoQuality(variantId, resolutions.getOrNull(index)?.substringAfter('x')?.toIntOrNull(), frameRates.getOrNull(index), bitrates.getOrNull(index), codecs.getOrNull(index), url)
@@ -1098,12 +1106,22 @@ class MediaPlayerService : BasePlaybackService() {
                         }
                     }
                     if (!playlist.isNullOrBlank()) {
-                        val stableVariantIds = Regex("STABLE-VARIANT-ID=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
+                        val stableVariantIds = Regex("STABLE-VARIANT-ID=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList().ifEmpty {
+                            Regex("NAME=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
+                        }
                         val resolutions = Regex("RESOLUTION=(\\d+x\\d+)").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
                         val frameRates = Regex("FRAME-RATE=([\\d.]+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toFloatOrNull() }.toMutableList()
                         val bitrates = Regex("BANDWIDTH=(\\d+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toIntOrNull() }.toMutableList()
                         val codecs = Regex("CODECS=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-                        val urls = Regex("https://.*\\.m3u8").findAll(playlist).map(MatchResult::value).toMutableList()
+                        val urls = Regex("\\S+\\.m3u8").findAll(playlist).map(MatchResult::value).map { uri ->
+                            // Variant URIs can be relative (e.g. Kick VOD masters): resolve them
+                            // against the fetched playlist URL, keep absolute ones untouched.
+                            if (uri.startsWith("http")) {
+                                uri
+                            } else {
+                                runCatching { java.net.URL(java.net.URL(url), uri).toString() }.getOrNull() ?: uri
+                            }
+                        }.toMutableList()
                         playlist.lines().filter { it.startsWith("#EXT-X-SESSION-DATA") }.let { list ->
                             if (list.isNotEmpty()) {
                                 val url = urls.firstOrNull()?.takeIf { it.contains("/index-") }
