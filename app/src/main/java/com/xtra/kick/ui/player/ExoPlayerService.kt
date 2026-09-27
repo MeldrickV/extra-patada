@@ -19,6 +19,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.http.HttpEngine
 import android.net.http.ProxyOptions
+import android.net.wifi.WifiManager
 import android.os.Binder
 import android.os.Build
 import android.os.Bundle
@@ -147,6 +148,7 @@ class ExoPlayerService : BasePlaybackService() {
     private var updateQualities = false
     private var created = false
     private var consecutivePlayerErrors = 0
+    private var wifiLock: WifiManager.WifiLock? = null
 
     interface Listener {
         fun started()
@@ -748,6 +750,14 @@ class ExoPlayerService : BasePlaybackService() {
             }.build()
             this.player = player
             player.addListener(playerListener)
+            val wifiManager = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+            wifiLock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "ExoPlayer:WifiLock")
+            } else {
+                @Suppress("DEPRECATION")
+                wifiManager.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "ExoPlayer:WifiLock")
+            }
+            wifiLock?.acquire()
             val session = MediaSession(this, "ExoPlayerService")
             this.session = session
             session.setCallback(sessionCallback)
@@ -2540,6 +2550,7 @@ class ExoPlayerService : BasePlaybackService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        wifiLock?.release()
         player?.release()
         session?.release()
         bitmapLoadJob?.cancel()
