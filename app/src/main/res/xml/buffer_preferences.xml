@@ -62,7 +62,7 @@
         app:useSimpleSummaryProvider="true" />
 
     <EditTextPreference
-        android:defaultValue="5000"
+        android:defaultValue="8000"
         android:key="player_live_target_offset"
         android:singleLine="true"
         android:title="@string/live_target_offset"
