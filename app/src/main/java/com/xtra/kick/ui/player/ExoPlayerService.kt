@@ -27,6 +27,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Base64
+import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.annotation.OptIn
@@ -60,6 +61,7 @@ import androidx.media3.exoplayer.hls.playlist.HlsPlaylistParserFactory
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.ParsingLoadable
+import com.xtra.kick.BuildConfig
 import com.xtra.kick.R
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoPosition
@@ -144,6 +146,7 @@ class ExoPlayerService : BasePlaybackService() {
     private var backupQualities: List<String>? = null
     private var updateQualities = false
     private var created = false
+    private var consecutivePlayerErrors = 0
 
     interface Listener {
         fun started()
@@ -445,10 +448,20 @@ class ExoPlayerService : BasePlaybackService() {
                                         }
                                     }
                                     else -> {
-                                        serviceListener?.toast(R.string.player_error, Toast.LENGTH_SHORT)
+                                        consecutivePlayerErrors += 1
+                                        Log.e("XtraPlayer", "onPlayerError (stream): code=${error.errorCode} name=${error.errorCodeName} message=${error.message} cause=${error.cause}")
+                                        serviceListener?.toast(
+                                            if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
+                                            Toast.LENGTH_SHORT
+                                        )
                                         lifecycleScope.launch {
                                             delay(1500.milliseconds)
-                                            restartPlayer()
+                                            if (consecutivePlayerErrors >= 3) {
+                                                consecutivePlayerErrors = 0
+                                                restartPlayer()
+                                            } else {
+                                                player?.prepare()
+                                            }
                                         }
                                     }
                                 }
@@ -552,7 +565,11 @@ class ExoPlayerService : BasePlaybackService() {
                                         serviceListener?.toast(R.string.video_subscribers_only, Toast.LENGTH_LONG)
                                     }
                                     else -> {
-                                        serviceListener?.toast(R.string.player_error, Toast.LENGTH_SHORT)
+                                        Log.e("XtraPlayer", "onPlayerError (video): code=${error.errorCode} name=${error.errorCodeName} message=${error.message} cause=${error.cause}")
+                                        serviceListener?.toast(
+                                            if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
+                                            Toast.LENGTH_SHORT
+                                        )
                                         lifecycleScope.launch {
                                             delay(1500.milliseconds)
                                             player?.prepare()
@@ -574,6 +591,9 @@ class ExoPlayerService : BasePlaybackService() {
                 }
 
                 override fun onPlaybackStateChanged(playbackState: Int) {
+                    if (playbackState == Player.STATE_READY) {
+                        consecutivePlayerErrors = 0
+                    }
                     updatePlaybackState()
                     updateNotification()
                 }
@@ -1278,7 +1298,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 setLiveConfiguration(MediaItem.LiveConfiguration.Builder().apply {
                                     prefs().getString(C.PLAYER_LIVE_MIN_SPEED, "")?.toFloatOrNull()?.let { setMinPlaybackSpeed(it) }
                                     prefs().getString(C.PLAYER_LIVE_MAX_SPEED, "")?.toFloatOrNull()?.let { setMaxPlaybackSpeed(it) }
-                                    prefs().getString(C.PLAYER_LIVE_TARGET_OFFSET, "5000")?.toLongOrNull()?.let { setTargetOffsetMs(it) }
+                                    prefs().getString(C.PLAYER_LIVE_TARGET_OFFSET, "8000")?.toLongOrNull()?.let { setTargetOffsetMs(it) }
                                 }.build())
                             }.build()
                         )
