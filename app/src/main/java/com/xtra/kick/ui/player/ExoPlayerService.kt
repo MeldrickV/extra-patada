@@ -1644,8 +1644,6 @@ class ExoPlayerService : BasePlaybackService() {
                             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                                 setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
                                 clearOverridesOfType(androidx.media3.common.C.TRACK_TYPE_VIDEO)
-                                setMaxVideoSize(Format.NO_VALUE, Format.NO_VALUE)
-                                setMaxVideoFrameRate(Format.NO_VALUE)
                             }.build()
                         }
                         VideoQuality.AUDIO_ONLY_QUALITY -> {
@@ -1682,18 +1680,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 }
                                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                                     setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
-                                    if (player.isCurrentMediaItemLive && quality.resolution != null) {
-                                        // For live streams, cap at the chosen rendition but let ABR
-                                        // downgrade on bandwidth dips instead of pinning it: pinning
-                                        // max quality causes rebuffer loops on the 2s AWS IVS segments.
-                                        clearOverridesOfType(androidx.media3.common.C.TRACK_TYPE_VIDEO)
-                                        quality.resolution.let { height ->
-                                            if (height > 0) {
-                                                setMaxVideoSize((height * 16) / 9, height)
-                                            }
-                                        }
-                                        quality.frameRate?.let { setMaxVideoFrameRate(floor(it).toInt()) }
-                                    } else if (!player.currentTracks.isEmpty) {
+                                    if (!player.currentTracks.isEmpty) {
                                         player.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }?.let { trackGroup ->
                                             if (trackGroup.mediaTrackGroup.length > 0) {
                                                 if (quality.resolution != null) {
