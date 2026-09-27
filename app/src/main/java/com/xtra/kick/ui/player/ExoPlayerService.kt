@@ -448,19 +448,34 @@ class ExoPlayerService : BasePlaybackService() {
                                         }
                                     }
                                     else -> {
-                                        consecutivePlayerErrors += 1
-                                        Log.e("XtraPlayer", "onPlayerError (stream): code=${error.errorCode} name=${error.errorCodeName} message=${error.message} cause=${error.cause}")
-                                        serviceListener?.toast(
-                                            if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
-                                            Toast.LENGTH_SHORT
-                                        )
-                                        lifecycleScope.launch {
-                                            delay(1500.milliseconds)
-                                            if (consecutivePlayerErrors >= 3) {
-                                                consecutivePlayerErrors = 0
-                                                restartPlayer()
-                                            } else {
-                                                player?.prepare()
+                                        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
+                                            && player?.isCurrentMediaItemLive == true) {
+                                            // Position fell outside the live sliding window (e.g. the pinned
+                                            // top rendition stalled past the IVS window): re-sync to the live
+                                            // edge instead of retrying the stale position, keeping the pin.
+                                            consecutivePlayerErrors = 0
+                                            Log.e("XtraPlayer", "behind live window, re-syncing to live edge: code=${error.errorCode} name=${error.errorCodeName}")
+                                            serviceListener?.toast(
+                                                if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
+                                                Toast.LENGTH_SHORT
+                                            )
+                                            player?.seekToDefaultPosition()
+                                            player?.prepare()
+                                        } else {
+                                            consecutivePlayerErrors += 1
+                                            Log.e("XtraPlayer", "onPlayerError (stream): code=${error.errorCode} name=${error.errorCodeName} message=${error.message} cause=${error.cause}")
+                                            serviceListener?.toast(
+                                                if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
+                                                Toast.LENGTH_SHORT
+                                            )
+                                            lifecycleScope.launch {
+                                                delay(1500.milliseconds)
+                                                if (consecutivePlayerErrors >= 3) {
+                                                    consecutivePlayerErrors = 0
+                                                    restartPlayer()
+                                                } else {
+                                                    player?.prepare()
+                                                }
                                             }
                                         }
                                     }
