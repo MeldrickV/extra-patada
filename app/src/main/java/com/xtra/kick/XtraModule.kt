@@ -23,6 +23,7 @@ import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.repository.RecentSearchesRepository
 import com.xtra.kick.repository.SavedFiltersRepository
 import kotlinx.serialization.json.Json
+import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.chromium.net.CronetEngine
@@ -32,6 +33,7 @@ import org.chromium.net.RequestFinishedInfo
 import java.security.KeyStore
 import java.security.cert.CertificateFactory
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
@@ -97,6 +99,16 @@ class XtraModule(application: Application) {
                 sslContext.init(null, arrayOf(trustManager.value), null)
                 sslSocketFactory(sslContext.socketFactory, trustManager.value)
             }
+        }.build()
+    }
+
+    val hlsOkHttpClient = lazy {
+        okHttpClient.value.newBuilder().apply {
+            connectTimeout(15, TimeUnit.SECONDS)
+            readTimeout(30, TimeUnit.SECONDS)
+            writeTimeout(15, TimeUnit.SECONDS)
+            connectionPool(ConnectionPool(8, 5, TimeUnit.MINUTES))
+            retryOnConnectionFailure(true)
         }.build()
     }
 
