@@ -529,7 +529,7 @@ class ExoPlayerService : BasePlaybackService() {
                                                                         CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
                                                                     }
                                                                     else -> {
-                                                                        OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                                                        OkHttpDataSource.Factory(xtraModule.hlsOkHttpClient.value, null, null, null, null) { false }
                                                                     }
                                                                 }
                                                             )
@@ -697,10 +697,10 @@ class ExoPlayerService : BasePlaybackService() {
                 setLoadControl(
                     DefaultLoadControl.Builder().apply {
                         setBufferDurationsMs(
-                            prefs().getString(C.PLAYER_BUFFER_MIN, "15000")?.toIntOrNull() ?: 15000,
-                            prefs().getString(C.PLAYER_BUFFER_MAX, "50000")?.toIntOrNull() ?: 50000,
-                            prefs().getString(C.PLAYER_BUFFER_PLAYBACK, "2000")?.toIntOrNull() ?: 2000,
-                            prefs().getString(C.PLAYER_BUFFER_REBUFFER, "2000")?.toIntOrNull() ?: 2000
+                            prefs().getString(C.PLAYER_BUFFER_MIN, "30000")?.toIntOrNull() ?: 30000,
+                            prefs().getString(C.PLAYER_BUFFER_MAX, "120000")?.toIntOrNull() ?: 120000,
+                            prefs().getString(C.PLAYER_BUFFER_PLAYBACK, "5000")?.toIntOrNull() ?: 5000,
+                            prefs().getString(C.PLAYER_BUFFER_REBUFFER, "8000")?.toIntOrNull() ?: 8000
                         )
                     }.build()
                 )
@@ -821,7 +821,7 @@ class ExoPlayerService : BasePlaybackService() {
                                                         CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
                                                     }
                                                     else -> {
-                                                        OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                                        OkHttpDataSource.Factory(xtraModule.hlsOkHttpClient.value, null, null, null, null) { false }
                                                     }
                                                 }
                                             )
@@ -1253,7 +1253,7 @@ class ExoPlayerService : BasePlaybackService() {
                                             }.build()
                                         } else null
                                         OkHttpDataSource.Factory(
-                                            xtraModule.okHttpClient.value,
+                                            xtraModule.hlsOkHttpClient.value,
                                             customProxyClient,
                                             customProxyUrl,
                                             multivariantPlaylistProxyClient,
@@ -1278,7 +1278,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 setLiveConfiguration(MediaItem.LiveConfiguration.Builder().apply {
                                     prefs().getString(C.PLAYER_LIVE_MIN_SPEED, "")?.toFloatOrNull()?.let { setMinPlaybackSpeed(it) }
                                     prefs().getString(C.PLAYER_LIVE_MAX_SPEED, "")?.toFloatOrNull()?.let { setMaxPlaybackSpeed(it) }
-                                    prefs().getString(C.PLAYER_LIVE_TARGET_OFFSET, "2000")?.toLongOrNull()?.let { setTargetOffsetMs(it) }
+                                    prefs().getString(C.PLAYER_LIVE_TARGET_OFFSET, "5000")?.toLongOrNull()?.let { setTargetOffsetMs(it) }
                                 }.build())
                             }.build()
                         )
@@ -1383,7 +1383,7 @@ class ExoPlayerService : BasePlaybackService() {
                                         CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
                                     }
                                     else -> {
-                                        OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                        OkHttpDataSource.Factory(xtraModule.hlsOkHttpClient.value, null, null, null, null) { false }
                                     }
                                 }
                             )
@@ -1562,7 +1562,7 @@ class ExoPlayerService : BasePlaybackService() {
                                             CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
                                         }
                                         else -> {
-                                            OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                            OkHttpDataSource.Factory(xtraModule.hlsOkHttpClient.value, null, null, null, null) { false }
                                         }
                                     }
                                 )
@@ -1581,7 +1581,7 @@ class ExoPlayerService : BasePlaybackService() {
                                             CronetDataSource.Factory(xtraModule.cronetEngine.value, xtraModule.cronetExecutor.value, null, 0, false, false, null, null, null) { false }
                                         }
                                         else -> {
-                                            OkHttpDataSource.Factory(xtraModule.okHttpClient.value, null, null, null, null) { false }
+                                            OkHttpDataSource.Factory(xtraModule.hlsOkHttpClient.value, null, null, null, null) { false }
                                         }
                                     }
                                 )
@@ -1644,6 +1644,8 @@ class ExoPlayerService : BasePlaybackService() {
                             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                                 setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
                                 clearOverridesOfType(androidx.media3.common.C.TRACK_TYPE_VIDEO)
+                                setMaxVideoSize(Format.NO_VALUE, Format.NO_VALUE)
+                                setMaxVideoFrameRate(Format.NO_VALUE)
                             }.build()
                         }
                         VideoQuality.AUDIO_ONLY_QUALITY -> {
@@ -1680,7 +1682,18 @@ class ExoPlayerService : BasePlaybackService() {
                                 }
                                 player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                                     setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
-                                    if (!player.currentTracks.isEmpty) {
+                                    if (player.isCurrentMediaItemLive && quality.resolution != null) {
+                                        // For live streams, cap at the chosen rendition but let ABR
+                                        // downgrade on bandwidth dips instead of pinning it: pinning
+                                        // max quality causes rebuffer loops on the 2s AWS IVS segments.
+                                        clearOverridesOfType(androidx.media3.common.C.TRACK_TYPE_VIDEO)
+                                        quality.resolution.let { height ->
+                                            if (height > 0) {
+                                                setMaxVideoSize((height * 16) / 9, height)
+                                            }
+                                        }
+                                        quality.frameRate?.let { setMaxVideoFrameRate(floor(it).toInt()) }
+                                    } else if (!player.currentTracks.isEmpty) {
                                         player.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }?.let { trackGroup ->
                                             if (trackGroup.mediaTrackGroup.length > 0) {
                                                 if (quality.resolution != null) {
