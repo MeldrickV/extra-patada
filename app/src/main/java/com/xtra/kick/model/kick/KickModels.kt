@@ -117,6 +117,7 @@ data class KickChannelLivestream(
     val id: Long = 0,
     @SerialName("session_title") val sessionTitle: String? = null,
     @SerialName("is_live") val isLive: Boolean = false,
+    @SerialName("start_time") val startTime: String? = null,
     val category: KickCategory? = null,
     @SerialName("viewer_count") val viewerCount: Int = 0,
     @SerialName("started_at") val startedAt: String? = null,

@@ -23,6 +23,7 @@ class KickChatReplayManager(
     private val listener: ChatReplayManager.Listener,
 ) {
     private val list = mutableListOf<VideoChatMessage>()
+    private val seenIds = HashSet<String>()
     private var chatroomId: Long? = null
     private var seedPosition = 0L
     private var started = false
@@ -40,6 +41,7 @@ class KickChatReplayManager(
             lastCheckedPosition = currentPosition
             playbackSpeed = getCurrentSpeed()
             list.clear()
+            seenIds.clear()
             coroutineScope.launch {
                 listener.clearMessages()
             }
@@ -55,6 +57,7 @@ class KickChatReplayManager(
 
     private fun load(position: Long) {
         isLoading = true
+        seenIds.clear()
         loadJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val chatroomId = ensureChatroomId()
@@ -84,7 +87,6 @@ class KickChatReplayManager(
     }
 
     private suspend fun fetch(chatroomId: Long, fromMs: Long): Pair<List<VideoChatMessage>, Long> {
-        val seen = HashSet<String>()
         val result = mutableListOf<VideoChatMessage>()
         val startMs = videoStart ?: 0L
         val floorMs = fromMs - FETCH_WINDOW_MS
@@ -101,7 +103,7 @@ class KickChatReplayManager(
             }
             messages.forEach { message ->
                 val timestamp = message.timestamp ?: return@forEach
-                if (timestamp in startMs..fromMs && seen.add(message.id ?: timestamp.toString())) {
+                if (timestamp in startMs..fromMs && seenIds.add(message.id ?: timestamp.toString())) {
                     result.add(
                         VideoChatMessage(
                             id = message.id,
@@ -131,44 +133,94 @@ class KickChatReplayManager(
         return result to (cursorUs ?: 0L)
     }
 
+    /**
+     * Fetches the window ending at the given player position and merges unseen messages
+     * into the buffer (no clearing). Returns true when at least one new message arrived.
+     */
+    private suspend fun fetchMore(position: Long): Boolean {
+        val chatroomId = chatroomId ?: return false
+        val fromMs = (videoStart ?: 0L).plus(position).coerceAtLeast(0L)
+        seedPosition = fromMs
+        return try {
+            val fetched = fetch(chatroomId, fromMs).first
+            if (fetched.isEmpty()) {
+                false
+            } else {
+                list.addAll(fetched)
+                list.sortBy { it.offsetSeconds }
+                true
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     private fun startJob() {
         messageJob?.cancel()
         messageJob = coroutineScope.launch {
-            val messages = list.toList()
-            for (message in messages) {
-                val messageOffset = message.offsetSeconds?.times(1000L)
-                if (messageOffset != null) {
-                    var currentPosition: Long
-                    while (
-                        (getCurrentPosition() ?: 0).let { position ->
-                            lastCheckedPosition = position
-                            currentPosition = position + startTime
-                            currentPosition < messageOffset
-                        }
-                    ) {
-                        val timeLeft = (messageOffset - currentPosition).div(playbackSpeed ?: 1f).toLong()
-                        val delay = max(timeLeft, 1) // ExoPlayer getCurrentPosition freezes the app if it's called too rapidly
-                        delay(delay.milliseconds)
+            var index = 0
+            // Skip messages already behind on (re)start so seeks don't re-emit the buffer.
+            val startPosition = (getCurrentPosition() ?: 0) + startTime
+            while (true) {
+                val offset = list.getOrNull(index)?.offsetSeconds?.times(1000L) ?: break
+                if (offset > startPosition) break
+                index++
+            }
+            var idleDelayMs = FORWARD_IDLE_DELAY_MS
+            while (isActive) {
+                val message = list.getOrNull(index)
+                if (message == null) {
+                    // Caught up with the buffer: pull the next window forward so replay
+                    // keeps flowing instead of dying after the initial pages.
+                    val added = fetchMore(getCurrentPosition() ?: 0)
+                    if (added) {
+                        idleDelayMs = FORWARD_IDLE_DELAY_MS
+                        continue
                     }
+                    delay(idleDelayMs.milliseconds)
+                    idleDelayMs = (idleDelayMs * 2).coerceAtMost(MAX_IDLE_DELAY_MS)
+                    continue
+                }
+                idleDelayMs = FORWARD_IDLE_DELAY_MS
+                val messageOffset = message.offsetSeconds?.times(1000L)
+                if (messageOffset == null) {
+                    index++
+                    continue
+                }
+                var currentPosition: Long
+                while (
+                    (getCurrentPosition() ?: 0).let { position ->
+                        lastCheckedPosition = position
+                        currentPosition = position + startTime
+                        currentPosition < messageOffset
+                    }
+                ) {
                     if (!isActive) {
                         break
                     }
-                    listener.onChatMessage(
-                        ChatMessage(
-                            type = ChatMessage.USER_MESSAGE,
-                            id = message.id,
-                            userId = message.userId,
-                            userLogin = message.userLogin,
-                            userName = message.userName,
-                            message = message.message,
-                            color = message.color,
-                            emotes = message.emotes,
-                            badges = message.badges,
-                            bits = 0,
-                            fullMsg = message.fullMsg,
-                        )
-                    )
+                    val timeLeft = (messageOffset - currentPosition).div(playbackSpeed ?: 1f).toLong()
+                    val delay = max(timeLeft, 1) // ExoPlayer getCurrentPosition freezes the app if it's called too rapidly
+                    delay(delay.milliseconds)
                 }
+                if (!isActive) {
+                    break
+                }
+                listener.onChatMessage(
+                    ChatMessage(
+                        type = ChatMessage.USER_MESSAGE,
+                        id = message.id,
+                        userId = message.userId,
+                        userLogin = message.userLogin,
+                        userName = message.userName,
+                        message = message.message,
+                        color = message.color,
+                        emotes = message.emotes,
+                        badges = message.badges,
+                        bits = 0,
+                        fullMsg = message.fullMsg,
+                    )
+                )
+                index++
             }
         }
     }
@@ -204,5 +256,7 @@ class KickChatReplayManager(
         private const val FORWARD_BUFFER_MS = 15_000L
         private const val MAX_PAGES = 4
         private const val MESSAGE_BUFFER = 500
+        private const val FORWARD_IDLE_DELAY_MS = 15_000L
+        private const val MAX_IDLE_DELAY_MS = 60_000L
     }
 }
