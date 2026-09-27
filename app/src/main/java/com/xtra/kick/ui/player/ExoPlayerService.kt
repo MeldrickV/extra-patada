@@ -451,10 +451,12 @@ class ExoPlayerService : BasePlaybackService() {
                                         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
                                             && player?.isCurrentMediaItemLive == true) {
                                             // Position fell outside the live sliding window (e.g. the pinned
-                                            // top rendition stalled past the IVS window): re-sync to the live
-                                            // edge instead of retrying the stale position, keeping the pin.
+                                            // top rendition stalled past the IVS window): step down to the
+                                            // highest sustainable rendition when possible, then re-sync to
+                                            // the live edge instead of retrying the stale position.
                                             consecutivePlayerErrors = 0
                                             Log.e("XtraPlayer", "behind live window, re-syncing to live edge: code=${error.errorCode} name=${error.errorCodeName}")
+                                            stepDownPinnedLiveQuality()
                                             serviceListener?.toast(
                                                 if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
                                                 Toast.LENGTH_SHORT
@@ -1713,38 +1715,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 } else {
                                     player.prepare()
                                 }
-                                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
-                                    setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
-                                    if (!player.currentTracks.isEmpty) {
-                                        player.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }?.let { trackGroup ->
-                                            if (trackGroup.mediaTrackGroup.length > 0) {
-                                                if (quality.resolution != null) {
-                                                    val formats = mutableListOf<Pair<Int, Format>>()
-                                                    for (i in 0 until trackGroup.mediaTrackGroup.length) {
-                                                        formats.add(i to trackGroup.mediaTrackGroup.getFormat(i))
-                                                    }
-                                                    val list = formats
-                                                        .sortedWith(
-                                                            compareByDescending<Pair<Int, Format>> { it.second.bitrate }
-                                                                .thenByDescending { it.second.frameRate }
-                                                                .thenByDescending { it.second.height }
-                                                        )
-                                                    list.find {
-                                                        (quality.resolution == it.second.height
-                                                                && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.second.frameRate)
-                                                                && (quality.bitrate == null || quality.bitrate >= it.second.bitrate))
-                                                                || quality.resolution > it.second.height
-                                                                || it == list.last()
-                                                    }?.first?.let { index ->
-                                                        setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index))
-                                                    }
-                                                } else {
-                                                    setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, 0))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }.build()
+                                applyVideoPin(quality)
                             } else {
                                 player.currentMediaItem?.let {
                                     if (it.localConfiguration?.uri?.toString() != quality.url) {
@@ -1769,6 +1740,91 @@ class ExoPlayerService : BasePlaybackService() {
                 }
             }
         }
+    }
+
+    /**
+     * Pins the given video rendition with a hard track override (live and VOD).
+     * Never pins a rendition the decoder cannot handle: unsupported tracks are filtered
+     * out first, falling back to the unfiltered list only if nothing is advertised as
+     * supported (previous behavior as last resort).
+     */
+    private fun applyVideoPin(quality: VideoQuality) {
+        player?.let { player ->
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+                setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
+                if (!player.currentTracks.isEmpty) {
+                    player.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }?.let { trackGroup ->
+                        if (trackGroup.mediaTrackGroup.length > 0) {
+                            if (quality.resolution != null) {
+                                val formats = mutableListOf<Pair<Int, Format>>()
+                                for (i in 0 until trackGroup.mediaTrackGroup.length) {
+                                    if (trackGroup.isTrackSupported(i)) {
+                                        formats.add(i to trackGroup.mediaTrackGroup.getFormat(i))
+                                    }
+                                }
+                                if (formats.isEmpty()) {
+                                    for (i in 0 until trackGroup.mediaTrackGroup.length) {
+                                        formats.add(i to trackGroup.mediaTrackGroup.getFormat(i))
+                                    }
+                                }
+                                val list = formats
+                                    .sortedWith(
+                                        compareByDescending<Pair<Int, Format>> { it.second.bitrate }
+                                            .thenByDescending { it.second.frameRate }
+                                            .thenByDescending { it.second.height }
+                                    )
+                                list.find {
+                                    (quality.resolution == it.second.height
+                                            && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.second.frameRate)
+                                            && (quality.bitrate == null || quality.bitrate >= it.second.bitrate))
+                                            || quality.resolution > it.second.height
+                                            || it == list.last()
+                                }?.first?.let { index ->
+                                    setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index))
+                                }
+                            } else {
+                                setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, 0))
+                            }
+                        }
+                    }
+                }
+            }.build()
+        }
+    }
+
+    /**
+     * Steps a pinned live rendition down exactly one rung by bitrate and re-pins it,
+     * persisting the choice per device so it sticks across sessions. Returns false when
+     * there is no lower video rendition to step to. This never engages ABR hunting: the
+     * result is still a hard pin, just at the highest rendition proven sustainable so far.
+     */
+    private fun stepDownPinnedLiveQuality(): Boolean {
+        val player = player ?: return false
+        if (!player.isCurrentMediaItemLive) return false
+        val current = quality ?: return false
+        val renditions = qualities?.filter {
+            it.resolution != null
+                    && it.name != VideoQuality.AUTO_QUALITY
+                    && it.name != VideoQuality.SOURCE_QUALITY
+                    && it.name != VideoQuality.AUDIO_ONLY_QUALITY
+                    && it.name != VideoQuality.CHAT_ONLY_QUALITY
+        } ?: return false
+        val index = renditions.indexOfFirst { it.name == current.name }.takeIf { it >= 0 }
+            ?: renditions.indexOfFirst {
+                it.resolution == current.resolution && it.frameRate == current.frameRate
+            }.takeIf { it >= 0 }
+            ?: return false
+        val stepped = renditions.drop(index + 1).firstOrNull {
+            (it.bitrate ?: Int.MAX_VALUE) < (current.bitrate ?: Int.MAX_VALUE)
+                    || (it.resolution ?: 0) < (current.resolution ?: 0)
+        } ?: return false
+        previousQuality = current
+        quality = stepped
+        prefs().edit { putString(C.PLAYER_QUALITY, stepped.name) }
+        applyVideoPin(stepped)
+        Log.i("XtraPlayer", "stepped pinned live quality ${current.name} -> ${stepped.name} (highest sustainable)")
+        serviceListener?.toast("Calidad ajustada a ${stepped.name}: máxima sostenible", Toast.LENGTH_SHORT)
+        return true
     }
 
     fun toggleSubtitles(enabled: Boolean) {
