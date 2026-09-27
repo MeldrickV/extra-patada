@@ -49,6 +49,7 @@ data class KickVideoCategory(
 @Serializable
 data class KickVideoResponse(
     val source: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     val livestream: KickChannelLivestream? = null,
 )
 

@@ -14,6 +14,7 @@ import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.text.style.URLSpan
+import android.util.Log
 import android.util.Patterns
 import android.view.View
 import androidx.core.graphics.ColorUtils
@@ -999,6 +1000,8 @@ object ChatAdapterUtils {
                     onError = {
                         if (staticUrl != null) {
                             enqueueCoil(fragment, image, staticUrl, onLoaded, null)
+                        } else {
+                            Log.w("XtraChat", "coil image failed: ${if (url is String) url else url?.javaClass?.simpleName}")
                         }
                     },
                 )
@@ -1026,6 +1029,10 @@ object ChatAdapterUtils {
             .into(object : CustomTarget<Drawable>() {
                 override fun onResourceReady(resource: Drawable, transition: Transition<in Drawable>?) {
                     onLoaded(resource)
+                }
+
+                override fun onLoadFailed(errorDrawable: Drawable?) {
+                    Log.w("XtraChat", "glide image failed: ${image.url4x ?: image.url3x ?: image.url2x ?: image.url1x}")
                 }
 
                 override fun onLoadCleared(placeholder: Drawable?) {

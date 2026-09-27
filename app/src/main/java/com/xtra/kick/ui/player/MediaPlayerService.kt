@@ -932,6 +932,9 @@ class MediaPlayerService : BasePlaybackService() {
                     if (url != null) {
                         playlistUrl = url
                     }
+                    if (createdAt.isNullOrBlank()) {
+                        createdAt = video?.livestream?.startTime ?: video?.createdAt
+                    }
                 } else {
                     val result = try {
                         xtraModule.playerRepository.loadVideoPlaylistUrl(
