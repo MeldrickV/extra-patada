@@ -84,7 +84,7 @@ class VideosAdapter(
             with(binding) {
                 if (item != null) {
                     val context = fragment.requireContext()
-                    val position = item.id?.toLongOrNull()?.let { id -> positions?.find { it.id == id }?.position }
+                    val position = item.id?.let { id -> positions?.find { it.id == id }?.position }
                     val startFromBeginning = position != null && item.durationSeconds != null && item.durationSeconds > 0 && position >= (item.durationSeconds * 1000)
                     root.setOnClickListener {
                         (fragment.activity as MainActivity).startVideo(

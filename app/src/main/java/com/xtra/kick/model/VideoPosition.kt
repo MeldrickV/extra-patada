@@ -6,6 +6,6 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "video_positions")
 class VideoPosition(
     @PrimaryKey
-    val id: Long,
+    val id: String,
     val position: Long,
 )

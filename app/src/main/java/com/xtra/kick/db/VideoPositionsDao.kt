@@ -14,7 +14,7 @@ interface VideoPositionsDao {
     fun getAll(): Flow<List<VideoPosition>>
 
     @Query("SELECT * FROM video_positions WHERE id = :id")
-    fun getById(id: Long): VideoPosition?
+    fun getById(id: String): VideoPosition?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(position: VideoPosition)

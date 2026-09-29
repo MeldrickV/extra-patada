@@ -2040,7 +2040,7 @@ class PlayerRepository(
 
     fun loadVideoPositions() = videoPositions.getAll()
 
-    suspend fun getVideoPosition(id: Long) = withContext(Dispatchers.IO) {
+    suspend fun getVideoPosition(id: String) = withContext(Dispatchers.IO) {
         videoPositions.getById(id)
     }
 

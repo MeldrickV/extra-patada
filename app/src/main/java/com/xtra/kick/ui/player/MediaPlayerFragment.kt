@@ -458,6 +458,10 @@ class MediaPlayerFragment : PlayerFragment() {
         if (isResumed) {
             if (playbackService?.type == BasePlaybackService.STREAM) {
                 restartPlayer()
+            } else if (playbackService?.playerErrored == true) {
+                // prepareAsync() is a no-op while the player sits in the Error state:
+                // reload the video instead, resuming from the last saved position.
+                retry("refreshVideo")
             } else {
                 val position = playbackService?.player?.currentPosition?.toLong()
                 playbackService?.seekPosition = position
