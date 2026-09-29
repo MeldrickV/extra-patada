@@ -102,6 +102,7 @@
     <string name="chat_replay_unavailable">Chat replay is unavailable</string>
     <string name="video_subscribers_only">This video is only available to subscribers.</string>
     <string name="player_error">Player error, retrying…</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Picture-in-Picture</string>
     <string name="source_vod_start">Start: %s</string>
     <string name="source_vod_end">End: %s</string>

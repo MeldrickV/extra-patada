@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">Rekaman chat tidak tersedia</string>
     <string name="video_subscribers_only">Video ini hanya tersedia untuk subscriber</string>
     <string name="player_error">Pemutar eror. Mencoba kembali</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Picture-in-Picture</string>
     <string name="source_vod_start">Mulai: %s</string>
     <string name="source_vod_end">Selesai: %s</string>

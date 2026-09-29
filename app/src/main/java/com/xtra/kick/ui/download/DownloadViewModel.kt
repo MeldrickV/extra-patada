@@ -118,11 +118,9 @@ class DownloadViewModel(
 
     private fun sortedQualities(list: List<VideoQuality>): List<VideoQuality> {
         return list
-            .sortedWith(
-                compareByDescending<VideoQuality> { it.bitrate }
-                    .thenByDescending { it.frameRate }
-                    .thenByDescending { it.resolution }
-            )
+            .sortedByDescending { it.bitrate }
+            .sortedByDescending { it.frameRate }
+            .sortedByDescending { it.resolution }
             .toMutableList().apply {
                 find { it.name.equals("source", true) || it.name?.contains("source", true) == true }?.let { source ->
                     remove(source)
@@ -160,7 +158,7 @@ class DownloadViewModel(
                     val default = defaultQualityNames.map { VideoQuality(it, url = "") }
                     try {
                         val list = if (!channelLogin.isNullOrBlank()) {
-                            val url = playerRepository.loadStreamPlaylistUrl(applicationContext, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, enableIntegrity)
+                            val url = playerRepository.loadStreamPlaylistUrl(applicationContext, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, null, enableIntegrity)
                             val playlist = withContext(Dispatchers.IO) {
                                 when {
                                     networkLibrary == C.HTTP_ENGINE && httpEngine.value != null -> @SuppressLint("NewApi") {
@@ -401,11 +399,9 @@ class DownloadViewModel(
                                 }
                             }
                             _qualities.value = list
-                                .sortedWith(
-                                    compareByDescending<VideoQuality> { it.bitrate }
-                                        .thenByDescending { it.frameRate }
-                                        .thenByDescending { it.resolution }
-                                )
+                                .sortedByDescending { it.bitrate }
+                                .sortedByDescending { it.frameRate }
+                                .sortedByDescending { it.resolution }
                                 .toMutableList().apply {
                                     find { it.name.equals("source", true) }?.let { source ->
                                         remove(source)
@@ -440,11 +436,9 @@ class DownloadViewModel(
                                     VideoQuality(name, resolution, frameRate.toFloat(), url = url)
                                 }
                                 _qualities.value = list
-                                    .sortedWith(
-                                        compareByDescending<VideoQuality> { it.bitrate }
-                                            .thenByDescending { it.frameRate }
-                                            .thenByDescending { it.resolution }
-                                    )
+                                    .sortedByDescending { it.bitrate }
+                                    .sortedByDescending { it.frameRate }
+                                    .sortedByDescending { it.resolution }
                                     .toMutableList().apply {
                                         find { it.name.equals("source", true) }?.let { source ->
                                             remove(source)
@@ -503,11 +497,9 @@ class DownloadViewModel(
                         val list = playerRepository.loadClipQualities(networkLibrary, gqlHeaders, clipId, enableIntegrity)
                         if (list != null) {
                             _qualities.value = list
-                                .sortedWith(
-                                    compareByDescending<VideoQuality> { it.bitrate }
-                                        .thenByDescending { it.frameRate }
-                                        .thenByDescending { it.resolution }
-                                )
+                                .sortedByDescending { it.bitrate }
+                                .sortedByDescending { it.frameRate }
+                                .sortedByDescending { it.resolution }
                         }
                     } catch (e: Exception) {
                         if (e.message == C.FAILED_INTEGRITY_CHECK) {

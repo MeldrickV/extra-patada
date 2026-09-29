@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">聊天記錄無法重播</string>
     <string name="video_subscribers_only">此影片僅供訂閱者觀看</string>
     <string name="player_error">播放器錯誤。正在重試</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">子母畫面</string>
     <string name="source_vod_start">開始：%s</string>
     <string name="source_vod_end">結束：%s</string>

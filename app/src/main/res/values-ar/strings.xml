@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">إعادة تشغيل الدردشة غير متاحة</string>
     <string name="video_subscribers_only">هذا الفيديو متاح فقط للمشتركين</string>
     <string name="player_error">Player error. Retrying…</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">التشغيل في الخلفية</string>
     <string name="source_vod_start">البداية: %s</string>
     <string name="source_vod_end">النهاية: %s</string>
