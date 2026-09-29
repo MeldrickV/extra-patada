@@ -437,11 +437,9 @@ class MediaPlayerService : BasePlaybackService() {
                     } else {
                         qualities?.let { list ->
                             qualities = list
-                                .sortedWith(
-                                    compareByDescending<VideoQuality> { it.bitrate }
-                                        .thenByDescending { it.frameRate }
-                                        .thenByDescending { it.resolution }
-                                )
+                                .sortedByDescending { it.bitrate }
+                                .sortedByDescending { it.frameRate }
+                                .sortedByDescending { it.resolution }
                                 .toMutableList().apply {
                                     find { it.name.equals("source", true) }?.let { source ->
                                         remove(source)
@@ -543,7 +541,10 @@ class MediaPlayerService : BasePlaybackService() {
                                     val source = uri.getQueryParameter("allow_source") == null
                                     val audio = uri.getQueryParameter("allow_audio_only") == null
                                     val lowLatency = uri.getQueryParameter("fast_bread") == null
-                                    if (source || audio || lowLatency) {
+                                    val unavailable = uri.getQueryParameter("include_unavailable") == null
+                                    val supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264")
+                                    val codecs = !supportedCodecs.isNullOrBlank() && uri.getQueryParameter("supported_codecs") == null
+                                    if (source || audio || lowLatency || unavailable || codecs) {
                                         uri.buildUpon().apply {
                                             if (source) {
                                                 appendQueryParameter("allow_source", "true")
@@ -553,6 +554,12 @@ class MediaPlayerService : BasePlaybackService() {
                                             }
                                             if (lowLatency) {
                                                 appendQueryParameter("fast_bread", "true")
+                                            }
+                                            if (unavailable) {
+                                                appendQueryParameter("include_unavailable", "true")
+                                            }
+                                            if (codecs) {
+                                                appendQueryParameter("supported_codecs", supportedCodecs)
                                             }
                                         }.build()
                                     } else uri
@@ -847,11 +854,9 @@ class MediaPlayerService : BasePlaybackService() {
                             }
                         }
                         qualities = list
-                            .sortedWith(
-                                compareByDescending<VideoQuality> { it.bitrate }
-                                    .thenByDescending { it.frameRate }
-                                    .thenByDescending { it.resolution }
-                            )
+                            .sortedByDescending { it.bitrate }
+                            .sortedByDescending { it.frameRate }
+                            .sortedByDescending { it.resolution }
                             .toMutableList().apply {
                                 find { it.name.equals("source", true) }?.let { source ->
                                     remove(source)
@@ -907,6 +912,7 @@ class MediaPlayerService : BasePlaybackService() {
                 proxyPort = streamProxy?.port,
                 proxyUser = streamProxy?.username,
                 proxyPassword = streamProxy?.password,
+                proxyTimeout = prefs().getString(C.PROXY_TIMEOUT, "3000")?.toIntOrNull() ?: 3000,
                 enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false) && streamProxy == null
             )
             } catch (e: Exception) {
@@ -1060,11 +1066,9 @@ class MediaPlayerService : BasePlaybackService() {
                                             VideoQuality(name, resolution, frameRate.toFloat(), url = url)
                                         }
                                         qualities = list
-                                            .sortedWith(
-                                                compareByDescending<VideoQuality> { it.bitrate }
-                                                    .thenByDescending { it.frameRate }
-                                                    .thenByDescending { it.resolution }
-                                            )
+                                            .sortedByDescending { it.bitrate }
+                                            .sortedByDescending { it.frameRate }
+                                            .sortedByDescending { it.resolution }
                                             .toMutableList().apply {
                                                 find { it.name.equals("source", true) }?.let { source ->
                                                     remove(source)
@@ -1211,11 +1215,9 @@ class MediaPlayerService : BasePlaybackService() {
                             }
                         }
                         qualities = list
-                            .sortedWith(
-                                compareByDescending<VideoQuality> { it.bitrate }
-                                    .thenByDescending { it.frameRate }
-                                    .thenByDescending { it.resolution }
-                            )
+                            .sortedByDescending { it.bitrate }
+                            .sortedByDescending { it.frameRate }
+                            .sortedByDescending { it.resolution }
                             .toMutableList().apply {
                                 find { it.name.equals("source", true) }?.let { source ->
                                     remove(source)
@@ -1373,11 +1375,9 @@ class MediaPlayerService : BasePlaybackService() {
                             }
                         }
                         qualities = filtered
-                            .sortedWith(
-                                compareByDescending<VideoQuality> { it.bitrate }
-                                    .thenByDescending { it.frameRate }
-                                    .thenByDescending { it.resolution }
-                            )
+                            .sortedByDescending { it.bitrate }
+                            .sortedByDescending { it.frameRate }
+                            .sortedByDescending { it.resolution }
                             .toMutableList().apply {
                                 add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY))
                             }

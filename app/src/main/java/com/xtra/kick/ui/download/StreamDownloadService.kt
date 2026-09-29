@@ -238,7 +238,7 @@ class StreamDownloadService : LifecycleService() {
         var playlistUrl = if (isKick) {
             loadKickStreamUrl(channelLogin)
         } else {
-            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, null, false)
         }
         while (true) {
             val playlist = when {
@@ -297,7 +297,9 @@ class StreamDownloadService : LifecycleService() {
                                     val source = uri.getQueryParameter("allow_source") == null
                                     val audio = uri.getQueryParameter("allow_audio_only") == null
                                     val lowLatency = uri.getQueryParameter("fast_bread") == null
-                                    if (source || audio || lowLatency) {
+                                    val unavailable = uri.getQueryParameter("include_unavailable") == null
+                                    val codecs = !supportedCodecs.isNullOrBlank() && uri.getQueryParameter("supported_codecs") == null
+                                    if (source || audio || lowLatency || unavailable || codecs) {
                                         uri.buildUpon().apply {
                                             if (source) {
                                                 appendQueryParameter("allow_source", "true")
@@ -307,6 +309,12 @@ class StreamDownloadService : LifecycleService() {
                                             }
                                             if (lowLatency) {
                                                 appendQueryParameter("fast_bread", "true")
+                                            }
+                                            if (unavailable) {
+                                                appendQueryParameter("include_unavailable", "true")
+                                            }
+                                            if (codecs) {
+                                                appendQueryParameter("supported_codecs", supportedCodecs)
                                             }
                                         }.build()
                                     } else uri
@@ -318,7 +326,8 @@ class StreamDownloadService : LifecycleService() {
                 val qualities = if (proxyUrl != null) {
                     var result: List<VideoQuality>
                     while (true) {
-                        val newPlaylist = loadPlaylist(proxyUrl!!, networkLibrary, false, null, null, null, null)
+                        val proxyTimeout = prefs().getString(C.PROXY_TIMEOUT, "3000")?.toIntOrNull() ?: 3000
+                        val newPlaylist = loadPlaylist(proxyUrl!!, networkLibrary, false, null, null, null, null, proxyTimeout)
                         if (!newPlaylist.isNullOrBlank()) {
                             result = getQualities(newPlaylist).ifEmpty { getQualities(playlist) }
                             break
@@ -331,7 +340,9 @@ class StreamDownloadService : LifecycleService() {
                                             val source = uri.getQueryParameter("allow_source") == null
                                             val audio = uri.getQueryParameter("allow_audio_only") == null
                                             val lowLatency = uri.getQueryParameter("fast_bread") == null
-                                            if (source || audio || lowLatency) {
+                                            val unavailable = uri.getQueryParameter("include_unavailable") == null
+                                            val codecs = !supportedCodecs.isNullOrBlank() && uri.getQueryParameter("supported_codecs") == null
+                                            if (source || audio || lowLatency || unavailable || codecs) {
                                                 uri.buildUpon().apply {
                                                     if (source) {
                                                         appendQueryParameter("allow_source", "true")
@@ -341,6 +352,12 @@ class StreamDownloadService : LifecycleService() {
                                                     }
                                                     if (lowLatency) {
                                                         appendQueryParameter("fast_bread", "true")
+                                                    }
+                                                    if (unavailable) {
+                                                        appendQueryParameter("include_unavailable", "true")
+                                                    }
+                                                    if (codecs) {
+                                                        appendQueryParameter("supported_codecs", supportedCodecs)
                                                     }
                                                 }.build()
                                             } else uri
@@ -359,6 +376,7 @@ class StreamDownloadService : LifecycleService() {
                     var streamProxy = if (useStreamProxy && !isKick) {
                         streamProxyList?.getOrNull(currentStreamProxy)
                     } else null
+                    val proxyTimeout = prefs().getString(C.PROXY_TIMEOUT, "3000")?.toIntOrNull() ?: 3000
                     if (streamProxy != null) {
                         val proxyHost = streamProxy.host
                         val proxyPort = streamProxy.port
@@ -368,7 +386,7 @@ class StreamDownloadService : LifecycleService() {
                             var result: String
                             while (true) {
                                 val newPlaylistUrl = try {
-                                    xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, true, proxyHost, proxyPort, proxyUser, proxyPassword, false)
+                                    xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, true, proxyHost, proxyPort, proxyUser, proxyPassword, proxyTimeout, false)
                                 } catch (e: Exception) {
                                     null
                                 }
@@ -392,7 +410,7 @@ class StreamDownloadService : LifecycleService() {
                             if (streamProxy.proxyMultivariantPlaylist) {
                                 var result: List<VideoQuality>
                                 while (true) {
-                                    val newPlaylist = loadPlaylist(playlistUrl, networkLibrary, true, proxyHost, proxyPort, proxyUser, proxyPassword)
+                                    val newPlaylist = loadPlaylist(playlistUrl, networkLibrary, true, proxyHost, proxyPort, proxyUser, proxyPassword, proxyTimeout)
                                     if (!newPlaylist.isNullOrBlank()) {
                                         result = getQualities(newPlaylist).ifEmpty { getQualities(playlist) }
                                         break
@@ -407,7 +425,7 @@ class StreamDownloadService : LifecycleService() {
                                 }
                                 result
                             } else {
-                                val newPlaylist = loadPlaylist(playlistUrl, networkLibrary, false, null, null, null, null)
+                                val newPlaylist = loadPlaylist(playlistUrl, networkLibrary, false, null, null, null, null, null)
                                 if (!newPlaylist.isNullOrBlank()) {
                                     getQualities(newPlaylist).ifEmpty { getQualities(playlist) }
                                 } else {
@@ -544,7 +562,7 @@ class StreamDownloadService : LifecycleService() {
                         playlistUrl = if (isKick) {
                             loadKickStreamUrl(channelLogin)
                         } else {
-                            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, false)
+                            xtraModule.playerRepository.loadStreamPlaylistUrl(this@StreamDownloadService, networkLibrary, gqlHeaders, channelLogin, platform, playerType, supportedCodecs, false, null, null, null, null, null, false)
                         }
                     }
                 }
@@ -562,7 +580,7 @@ class StreamDownloadService : LifecycleService() {
         }
     }
 
-    private suspend fun loadPlaylist(playlistUrl: String, networkLibrary: String?, useProxy: Boolean, proxyHost: String?, proxyPort: Int?, proxyUser: String?, proxyPassword: String?): String? = withContext(Dispatchers.IO) {
+    private suspend fun loadPlaylist(playlistUrl: String, networkLibrary: String?, useProxy: Boolean, proxyHost: String?, proxyPort: Int?, proxyUser: String?, proxyPassword: String?, proxyTimeout: Int?): String? = withContext(Dispatchers.IO) {
         val useProxy = useProxy && !proxyHost.isNullOrBlank() && proxyPort != null
         try {
             when {
@@ -601,7 +619,7 @@ class StreamDownloadService : LifecycleService() {
                     }
                     if (httpEngine != null) {
                         val response = suspendCancellableCoroutine { continuation ->
-                            val timeout = NetworkUtils.HttpEngineTimeout(CRONET_TIMEOUT)
+                            val timeout = NetworkUtils.HttpEngineTimeout(proxyTimeout?.toLong() ?: CRONET_TIMEOUT)
                             val request = httpEngine.newUrlRequestBuilder(
                                 playlistUrl,
                                 xtraModule.cronetExecutor.value,
@@ -619,6 +637,12 @@ class StreamDownloadService : LifecycleService() {
                         } else null
                     } else {
                         okHttpClient.value.newBuilder().apply {
+                            if (proxyTimeout != null) {
+                                val proxyTimeout = proxyTimeout.toLong()
+                                connectTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                writeTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                readTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                            }
                             proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort!!)))
                             if (!proxyUser.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
                                 proxyAuthenticator { _, response ->
@@ -674,7 +698,7 @@ class StreamDownloadService : LifecycleService() {
                     }
                     if (cronetEngine != null) {
                         val response = suspendCancellableCoroutine { continuation ->
-                            val timeout = NetworkUtils.CronetTimeout(CRONET_TIMEOUT)
+                            val timeout = NetworkUtils.CronetTimeout(proxyTimeout?.toLong() ?: CRONET_TIMEOUT)
                             val request = cronetEngine.newUrlRequestBuilder(
                                 playlistUrl,
                                 NetworkUtils.ByteArrayCronetCallback(continuation, timeout),
@@ -692,6 +716,12 @@ class StreamDownloadService : LifecycleService() {
                         } else null
                     } else {
                         okHttpClient.value.newBuilder().apply {
+                            if (proxyTimeout != null) {
+                                val proxyTimeout = proxyTimeout.toLong()
+                                connectTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                writeTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                readTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                            }
                             proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort!!)))
                             if (!proxyUser.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
                                 proxyAuthenticator { _, response ->
@@ -708,6 +738,12 @@ class StreamDownloadService : LifecycleService() {
                 else -> {
                     val okHttpClient = if (useProxy) {
                         okHttpClient.value.newBuilder().apply {
+                            if (proxyTimeout != null) {
+                                val proxyTimeout = proxyTimeout.toLong()
+                                connectTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                writeTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                                readTimeout(proxyTimeout, TimeUnit.MILLISECONDS)
+                            }
                             proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(proxyHost, proxyPort)))
                             if (!proxyUser.isNullOrBlank() && !proxyPassword.isNullOrBlank()) {
                                 proxyAuthenticator { _, response ->
@@ -743,11 +779,9 @@ class StreamDownloadService : LifecycleService() {
             }
         }
         list
-            .sortedWith(
-                compareByDescending<VideoQuality> { it.bitrate }
-                    .thenByDescending { it.frameRate }
-                    .thenByDescending { it.resolution }
-            )
+            .sortedByDescending { it.bitrate }
+            .sortedByDescending { it.frameRate }
+            .sortedByDescending { it.resolution }
             .toMutableList().apply {
                 find { it.name.equals("source", true) }?.let { source ->
                     remove(source)

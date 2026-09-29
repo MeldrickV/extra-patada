@@ -83,6 +83,7 @@
     <string name="chat_replay_unavailable">La repetición del chat no está disponible</string>
     <string name="video_subscribers_only">Este video solo está disponible para suscriptores.</string>
     <string name="player_error">Error del reproductor. Reintentando</string>
+    <string name="quality_adjusted_sustainable">Calidad ajustada a %1$s: máxima sostenible</string>
     <string name="picture_in_picture">Imagen-en-imagen</string>
     <string name="source_vod_start">Comienzo: %s</string>
     <string name="source_vod_end">Fin: %s</string>

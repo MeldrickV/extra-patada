@@ -79,6 +79,7 @@
     <string name="chat_replay_unavailable">Sohbet tekrarı mevcut değil</string>
     <string name="video_subscribers_only">Bu video yalnızca aboneler tarafından izlenebilir</string>
     <string name="player_error">Oynatıcı hatası. Tekrar deneniyor</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Pencere İçinde Pencere</string>
     <string name="source_vod_start">Başlangıç: %s</string>
     <string name="source_vod_end">Bitiş: %s</string>

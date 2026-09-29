@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">Chat-Wiederholung ist nicht verfügbar</string>
     <string name="video_subscribers_only">Dieses Video ist nur für Abonnenten verfügbar</string>
     <string name="player_error">Abspielfehler. Erneuter Versuch</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Bild-in-Bild</string>
     <string name="source_vod_start">Start: %s</string>
     <string name="source_vod_end">Ende: %s</string>

@@ -116,7 +116,6 @@ class BookmarksAdapter(
                     }
                     val durationSeconds = item.duration?.let { duration -> duration.toIntOrNull() ?: TwitchApiHelper.getDuration(duration) }
                     val position = item.videoId?.let { id -> positions?.find { it.id == id }?.position }
-                    val startFromBeginning = position != null && durationSeconds != null && durationSeconds > 0 && position >= (durationSeconds * 1000)
                     val ignore = ignored?.find { it.userId == item.userId } != null
                     root.setOnClickListener {
                         (fragment.activity as MainActivity).startVideo(
@@ -136,12 +135,8 @@ class BookmarksAdapter(
                                 type = item.type,
                                 animatedPreviewURL = item.animatedPreviewURL,
                             ),
-                            if (startFromBeginning) {
-                                0
-                            } else {
-                                position
-                            },
-                            startFromBeginning
+                            position,
+                            false
                         )
                     }
                     root.setOnLongClickListener {

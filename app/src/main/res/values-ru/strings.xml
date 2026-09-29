@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">Повтор чата недоступен</string>
     <string name="video_subscribers_only">Видео только для подписчиков</string>
     <string name="player_error">Ошибка воспроизведения. Переподключение</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Картинка в картинке</string>
     <string name="source_vod_start">Начало: %s</string>
     <string name="source_vod_end">Конец: %s</string>

@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">La rediffusion du chat n\'est pas disponible</string>
     <string name="video_subscribers_only">Cette vidéo n\'est disponible que pour les abonnés</string>
     <string name="player_error">Erreur de lecteur. Nouvelle tentative</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">Image dans l\'image (PiP)</string>
     <string name="source_vod_start">Début : %s</string>
     <string name="source_vod_end">Fin : %s</string>

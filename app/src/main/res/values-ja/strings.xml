@@ -78,6 +78,7 @@
     <string name="chat_replay_unavailable">チャットのリプレイは利用できません</string>
     <string name="video_subscribers_only">この動画は、サブスクライバーのみ視聴可能です</string>
     <string name="player_error">プレーヤーエラーです。再試行しています</string>
+    <string name="quality_adjusted_sustainable">Adjusted to %1$s: highest sustainable quality</string>
     <string name="picture_in_picture">ピクチャー イン ピクチャー</string>
     <string name="source_vod_start">開始: %s</string>
     <string name="source_vod_end">終了: %s</string>

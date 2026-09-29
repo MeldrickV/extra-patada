@@ -147,6 +147,7 @@ class ExoPlayerService : BasePlaybackService() {
     private var hidden = false
     private var backupQualities: List<String>? = null
     private var updateQualities = false
+    private var ignorePlaylistUpdate = false
     private var created = false
     private var consecutivePlayerErrors = 0
     private var wifiLock: WifiManager.WifiLock? = null
@@ -210,7 +211,13 @@ class ExoPlayerService : BasePlaybackService() {
                     updateMetadata()
                     updateNotification()
                     if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED && !timeline.isEmpty && qualities?.find { it.name == VideoQuality.AUTO_QUALITY } != null) {
-                        updateQualities = quality?.name != VideoQuality.AUDIO_ONLY_QUALITY
+                        if (ignorePlaylistUpdate) {
+                            ignorePlaylistUpdate = false
+                        } else {
+                            if (type == STREAM) {
+                                updateQualities = quality?.name != VideoQuality.AUDIO_ONLY_QUALITY
+                            }
+                        }
                     }
                     if (qualities.isNullOrEmpty() || updateQualities) {
                         val playlist = (player?.currentManifest as? HlsManifest)?.multivariantPlaylist
@@ -223,11 +230,9 @@ class ExoPlayerService : BasePlaybackService() {
                         }
                         if (!list.isNullOrEmpty()) {
                             qualities = list
-                                .sortedWith(
-                                    compareByDescending<VideoQuality> { it.bitrate }
-                                        .thenByDescending { it.frameRate }
-                                        .thenByDescending { it.resolution }
-                                )
+                                .sortedByDescending { it.bitrate }
+                                .sortedByDescending { it.frameRate }
+                                .sortedByDescending { it.resolution }
                                 .toMutableList().apply {
                                     add(0, VideoQuality(VideoQuality.AUTO_QUALITY))
                                     find { it.name.equals("source", true) }?.let { source ->
@@ -522,11 +527,9 @@ class ExoPlayerService : BasePlaybackService() {
                                                 VideoQuality(name, resolution, frameRate.toFloat(), url = url)
                                             }
                                             qualities = list
-                                                .sortedWith(
-                                                    compareByDescending<VideoQuality> { it.bitrate }
-                                                        .thenByDescending { it.frameRate }
-                                                        .thenByDescending { it.resolution }
-                                                )
+                                                .sortedByDescending { it.bitrate }
+                                                .sortedByDescending { it.frameRate }
+                                                .sortedByDescending { it.resolution }
                                                 .toMutableList().apply {
                                                     find { it.name.equals("source", true) }?.let { source ->
                                                         remove(source)
@@ -545,6 +548,11 @@ class ExoPlayerService : BasePlaybackService() {
                                             val url = quality?.url
                                             if (url != null) {
                                                 player?.let { player ->
+                                                    if (quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {
+                                                        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+                                                            setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
+                                                        }.build()
+                                                    }
                                                     val playbackPosition = player.currentPosition
                                                     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                                                         setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
@@ -817,7 +825,16 @@ class ExoPlayerService : BasePlaybackService() {
                 STREAM -> {
                     started = true
                     serviceListener?.started()
-                    if (qualities.isNullOrEmpty()) {
+                    if (!qualities.isNullOrEmpty()) {
+                        if (quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {
+                            serviceListener?.changePlayerMode()
+                            player?.let { player ->
+                                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+                                    setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
+                                }.build()
+                            }
+                        }
+                    } else {
                         useCustomProxy = prefs().getBoolean(C.PLAYER_USE_CUSTOM_PROXY, true)
                         if (!useCustomProxy) {
                             useStreamProxy = prefs().getBoolean(C.PLAYER_USE_STREAM_PROXY, false)
@@ -846,6 +863,14 @@ class ExoPlayerService : BasePlaybackService() {
                     started = true
                     serviceListener?.started()
                     if (videoId != null) {
+                        if (!qualities.isNullOrEmpty() && quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {
+                            serviceListener?.changePlayerMode()
+                            player?.let { player ->
+                                player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
+                                    setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, true)
+                                }.build()
+                            }
+                        }
                         loadVideo(restorePauseState)
                         if (title == null) {
                             updateVideoInfo()
@@ -853,11 +878,9 @@ class ExoPlayerService : BasePlaybackService() {
                     } else {
                         qualities?.let { list ->
                             qualities = list
-                                .sortedWith(
-                                    compareByDescending<VideoQuality> { it.bitrate }
-                                        .thenByDescending { it.frameRate }
-                                        .thenByDescending { it.resolution }
-                                )
+                                .sortedByDescending { it.bitrate }
+                                .sortedByDescending { it.frameRate }
+                                .sortedByDescending { it.resolution }
                                 .toMutableList().apply {
                                     find { it.name.equals("source", true) }?.let { source ->
                                         remove(source)
@@ -973,7 +996,10 @@ class ExoPlayerService : BasePlaybackService() {
                                     val source = uri.getQueryParameter("allow_source") == null
                                     val audio = uri.getQueryParameter("allow_audio_only") == null
                                     val lowLatency = uri.getQueryParameter("fast_bread") == null
-                                    if (source || audio || lowLatency) {
+                                    val unavailable = uri.getQueryParameter("include_unavailable") == null
+                                    val supportedCodecs = prefs().getString(C.TOKEN_SUPPORTED_CODECS, "av1,h265,h264")
+                                    val codecs = !supportedCodecs.isNullOrBlank() && uri.getQueryParameter("supported_codecs") == null
+                                    if (source || audio || lowLatency || unavailable || codecs) {
                                         uri.buildUpon().apply {
                                             if (source) {
                                                 appendQueryParameter("allow_source", "true")
@@ -983,6 +1009,12 @@ class ExoPlayerService : BasePlaybackService() {
                                             }
                                             if (lowLatency) {
                                                 appendQueryParameter("fast_bread", "true")
+                                            }
+                                            if (unavailable) {
+                                                appendQueryParameter("include_unavailable", "true")
+                                            }
+                                            if (codecs) {
+                                                appendQueryParameter("supported_codecs", supportedCodecs)
                                             }
                                         }.build()
                                     } else uri
@@ -1378,6 +1410,7 @@ class ExoPlayerService : BasePlaybackService() {
                 proxyPort = streamProxy?.port,
                 proxyUser = streamProxy?.username,
                 proxyPassword = streamProxy?.password,
+                proxyTimeout = prefs().getString(C.PROXY_TIMEOUT, "3000")?.toIntOrNull() ?: 3000,
                 enableIntegrity = prefs().getBoolean(C.ENABLE_INTEGRITY, false) && streamProxy == null
             )
             } catch (e: Exception) {
@@ -1595,11 +1628,9 @@ class ExoPlayerService : BasePlaybackService() {
                             }
                         }
                         qualities = filtered
-                            .sortedWith(
-                                compareByDescending<VideoQuality> { it.bitrate }
-                                    .thenByDescending { it.frameRate }
-                                    .thenByDescending { it.resolution }
-                            )
+                            .sortedByDescending { it.bitrate }
+                            .sortedByDescending { it.frameRate }
+                            .sortedByDescending { it.resolution }
                             .toMutableList().apply {
                                 add(VideoQuality(VideoQuality.AUDIO_ONLY_QUALITY))
                             }
@@ -1699,6 +1730,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 restorePlaylist = false
                                 playlistUrl?.let { uri ->
                                     if (mediaItem.localConfiguration?.uri != uri.toUri()) {
+                                        ignorePlaylistUpdate = true
                                         val position = player.currentPosition
                                         player.setMediaItem(mediaItem.buildUpon().setUri(uri).build())
                                         player.prepare()
@@ -1722,6 +1754,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 val position = player.currentPosition
                                 if (qualities?.find { it.name == VideoQuality.AUTO_QUALITY } != null) {
                                     restorePlaylist = true
+                                    ignorePlaylistUpdate = true
                                 }
                                 player.setMediaItem(mediaItem.buildUpon().setUri(it).build())
                                 player.prepare()
@@ -1737,6 +1770,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 if (restorePlaylist) {
                                     restorePlaylist = false
                                     playlistUrl?.let { uri ->
+                                        ignorePlaylistUpdate = true
                                         val position = player.currentPosition
                                         player.setMediaItem(mediaItem.buildUpon().setUri(uri).build())
                                         player.prepare()
@@ -1798,11 +1832,9 @@ class ExoPlayerService : BasePlaybackService() {
                                     }
                                 }
                                 val list = formats
-                                    .sortedWith(
-                                        compareByDescending<Pair<Int, Format>> { it.second.bitrate }
-                                            .thenByDescending { it.second.frameRate }
-                                            .thenByDescending { it.second.height }
-                                    )
+                                    .sortedByDescending { it.second.bitrate }
+                                    .sortedByDescending { it.second.frameRate }
+                                    .sortedByDescending { it.second.height }
                                 list.find {
                                     (quality.resolution == it.second.height
                                             && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.second.frameRate)
@@ -1853,7 +1885,7 @@ class ExoPlayerService : BasePlaybackService() {
         prefs().edit { putString(C.PLAYER_QUALITY, stepped.name) }
         applyVideoPin(stepped)
         Log.i("XtraPlayer", "stepped pinned live quality ${current.name} -> ${stepped.name} (highest sustainable)")
-        serviceListener?.toast("Calidad ajustada a ${stepped.name}: máxima sostenible", Toast.LENGTH_SHORT)
+        serviceListener?.toast(getString(R.string.quality_adjusted_sustainable, stepped.name), Toast.LENGTH_SHORT)
         return true
     }
 
@@ -1977,6 +2009,7 @@ class ExoPlayerService : BasePlaybackService() {
                                 val position = player.currentPosition
                                 if (qualities?.find { it.name == VideoQuality.AUTO_QUALITY } != null) {
                                     restorePlaylist = true
+                                    ignorePlaylistUpdate = true
                                 }
                                 player.setMediaItem(mediaItem.buildUpon().setUri(url).build())
                                 player.prepare()
