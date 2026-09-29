@@ -1,4 +1,4 @@
-package com.xtra.kick.model.helix.follows
+package com.xtra.kick.model.helix.follow
 
 import com.xtra.kick.model.helix.Pagination
 import kotlinx.serialization.Serializable

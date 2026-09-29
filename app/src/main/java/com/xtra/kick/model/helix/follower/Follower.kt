@@ -1,15 +1,15 @@
-package com.xtra.kick.model.helix.follows
+package com.xtra.kick.model.helix.follower
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-class Follow(
-    @SerialName("broadcaster_id")
+class Follower(
+    @SerialName("user_id")
     val id: String? = null,
-    @SerialName("broadcaster_login")
+    @SerialName("user_login")
     val login: String? = null,
-    @SerialName("broadcaster_name")
+    @SerialName("user_name")
     val displayName: String? = null,
     @SerialName("followed_at")
     val followedAt: String? = null,
