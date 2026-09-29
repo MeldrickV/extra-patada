@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.work.runtime)
 
     implementation(libs.cronet.api)
+    implementation(libs.cronet.embedded)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.conscrypt)
