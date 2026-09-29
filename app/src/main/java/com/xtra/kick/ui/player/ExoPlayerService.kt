@@ -1,6 +1,7 @@
 package com.xtra.kick.ui.player
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -735,11 +736,27 @@ class ExoPlayerService : BasePlaybackService() {
             val player = ExoPlayer.Builder(this).apply {
                 setLoadControl(
                     DefaultLoadControl.Builder().apply {
+                        // Weak devices (Android TV sticks/projectors, 1-2 GB RAM): cap buffering so
+                        // the player doesn't pressure the heap into GC thrashing/OOM kills. The generous
+                        // values stay untouched on capable devices; user prefs are honored up to the cap.
+                        // This also keeps stream-start latency low there (was 5s/8s thresholds).
+                        val lowRam = (getSystemService(ACTIVITY_SERVICE) as ActivityManager).isLowRamDevice
+                        val memoryInfo = ActivityManager.MemoryInfo().also {
+                            (getSystemService(ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(it)
+                        }
+                        Log.i(
+                            "XtraPlayer",
+                            "buffers lowRam=$lowRam lowMemory=${memoryInfo.lowMemory} avail=${memoryInfo.availMem shr 20}MB total=${memoryInfo.totalMem shr 20}MB"
+                        )
                         setBufferDurationsMs(
-                            prefs().getString(C.PLAYER_BUFFER_MIN, "30000")?.toIntOrNull() ?: 30000,
-                            prefs().getString(C.PLAYER_BUFFER_MAX, "120000")?.toIntOrNull() ?: 120000,
-                            prefs().getString(C.PLAYER_BUFFER_PLAYBACK, "5000")?.toIntOrNull() ?: 5000,
-                            prefs().getString(C.PLAYER_BUFFER_REBUFFER, "8000")?.toIntOrNull() ?: 8000
+                            (prefs().getString(C.PLAYER_BUFFER_MIN, "30000")?.toIntOrNull() ?: 30000)
+                                .coerceAtMost(if (lowRam) 15000 else Int.MAX_VALUE),
+                            (prefs().getString(C.PLAYER_BUFFER_MAX, "120000")?.toIntOrNull() ?: 120000)
+                                .coerceAtMost(if (lowRam) 60000 else Int.MAX_VALUE),
+                            (prefs().getString(C.PLAYER_BUFFER_PLAYBACK, "5000")?.toIntOrNull() ?: 5000)
+                                .coerceAtMost(if (lowRam) 2500 else Int.MAX_VALUE),
+                            (prefs().getString(C.PLAYER_BUFFER_REBUFFER, "8000")?.toIntOrNull() ?: 8000)
+                                .coerceAtMost(if (lowRam) 4000 else Int.MAX_VALUE)
                         )
                     }.build()
                 )

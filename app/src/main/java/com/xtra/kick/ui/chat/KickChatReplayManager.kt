@@ -256,7 +256,7 @@ class KickChatReplayManager(
         private const val FORWARD_BUFFER_MS = 15_000L
         private const val MAX_PAGES = 4
         private const val MESSAGE_BUFFER = 500
-        private const val FORWARD_IDLE_DELAY_MS = 15_000L
-        private const val MAX_IDLE_DELAY_MS = 60_000L
+        private const val FORWARD_IDLE_DELAY_MS = 30_000L
+        private const val MAX_IDLE_DELAY_MS = 180_000L
     }
 }
