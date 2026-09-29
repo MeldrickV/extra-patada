@@ -925,7 +925,7 @@ class MainActivity : AppCompatActivity() {
             qualities = qualities,
         ))
         if (ignoreSavedPosition && prefs.getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
-            video.id?.toLongOrNull()?.let { id ->
+            video.id?.let { id ->
                 viewModel.saveVideoPosition(id, offset ?: 0)
             }
         }

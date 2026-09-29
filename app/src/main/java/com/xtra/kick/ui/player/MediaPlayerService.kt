@@ -94,6 +94,7 @@ class MediaPlayerService : BasePlaybackService() {
 
     var seekPosition: Long? = null
     var startPlayer = true
+    var playerErrored = false
     private var customProxyList: List<CustomProxy>? = null
     private var streamProxyList: List<StreamProxy>? = null
     private var backupQualities: List<String>? = null
@@ -308,6 +309,7 @@ class MediaPlayerService : BasePlaybackService() {
                     .build()
             )
             player.setOnPreparedListener { player ->
+                playerErrored = false
                 seekPosition?.let {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         player?.seekTo(it, MediaPlayer.SEEK_CLOSEST)
@@ -349,6 +351,7 @@ class MediaPlayerService : BasePlaybackService() {
                 playerListener?.onError(player, width, height)
             }
             player.setOnErrorListener { player, what, extra ->
+                playerErrored = true
                 updatePlaybackState(true)
                 updateNotification()
                 playerListener?.onError(player, what, extra)
@@ -919,7 +922,7 @@ class MediaPlayerService : BasePlaybackService() {
     private suspend fun loadVideo(restorePauseState: Boolean = false) {
         videoId?.let { videoId ->
             val playbackPosition = if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
-                videoId.toLongOrNull()?.let { xtraModule.playerRepository.getVideoPosition(it)?.position }
+                xtraModule.playerRepository.getVideoPosition(videoId)?.position
             } else {
                 null
             } ?: savedPosition ?: 0
@@ -1977,7 +1980,7 @@ class MediaPlayerService : BasePlaybackService() {
                 if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                     when (type) {
                         VIDEO -> {
-                            videoId?.toLongOrNull()?.let {
+                            videoId?.let {
                                 runBlocking {
                                     xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, player.currentPosition.toLong()))
                                 }
@@ -2042,7 +2045,7 @@ class MediaPlayerService : BasePlaybackService() {
                     if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                         when (type) {
                             VIDEO -> {
-                                videoId?.toLongOrNull()?.let {
+                                videoId?.let {
                                     runBlocking {
                                         xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, currentPosition))
                                     }

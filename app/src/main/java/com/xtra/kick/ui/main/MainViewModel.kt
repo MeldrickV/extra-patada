@@ -191,13 +191,13 @@ class MainViewModel(
         }
     }
 
-    fun saveVideoPosition(id: Long, position: Long) {
+    fun saveVideoPosition(id: String, position: Long) {
         viewModelScope.launch {
             playerRepository.saveVideoPosition(VideoPosition(id, position))
         }
     }
 
-    suspend fun savePosition(id: Long, position: Long) {
+    suspend fun savePosition(id: String, position: Long) {
         playerRepository.saveVideoPosition(VideoPosition(id, position))
     }
 

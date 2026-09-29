@@ -115,7 +115,7 @@ class BookmarksAdapter(
                         )
                     }
                     val durationSeconds = item.duration?.let { duration -> duration.toIntOrNull() ?: TwitchApiHelper.getDuration(duration) }
-                    val position = item.videoId?.toLongOrNull()?.let { id -> positions?.find { it.id == id }?.position }
+                    val position = item.videoId?.let { id -> positions?.find { it.id == id }?.position }
                     val startFromBeginning = position != null && durationSeconds != null && durationSeconds > 0 && position >= (durationSeconds * 1000)
                     val ignore = ignored?.find { it.userId == item.userId } != null
                     root.setOnClickListener {

@@ -324,6 +324,12 @@ class XtraModule(application: Application) {
                 },
                 Migration(40, 41) { db ->
                     db.execSQL("ALTER TABLE sort_channel ADD COLUMN clipSort TEXT DEFAULT null")
+                },
+                Migration(41, 42) { db ->
+                    db.execSQL("CREATE TABLE IF NOT EXISTS video_positions1 (id TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (id))")
+                    db.execSQL("INSERT OR IGNORE INTO video_positions1 (id, position) SELECT CAST(id AS TEXT), position FROM video_positions")
+                    db.execSQL("DROP TABLE video_positions")
+                    db.execSQL("ALTER TABLE video_positions1 RENAME TO video_positions")
                 }
             )
         }.build()

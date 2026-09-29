@@ -1393,7 +1393,7 @@ class ExoPlayerService : BasePlaybackService() {
     private suspend fun loadVideo(restorePauseState: Boolean = false) {
         videoId?.let { videoId ->
             val playbackPosition = if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
-                videoId.toLongOrNull()?.let { xtraModule.playerRepository.getVideoPosition(it)?.position }
+                xtraModule.playerRepository.getVideoPosition(videoId)?.position
             } else {
                 null
             } ?: savedPosition ?: 0
@@ -2486,7 +2486,7 @@ class ExoPlayerService : BasePlaybackService() {
                 if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                     when (type) {
                         VIDEO -> {
-                            videoId?.toLongOrNull()?.let {
+                            videoId?.let {
                                 runBlocking {
                                     xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, player.currentPosition))
                                 }
@@ -2518,7 +2518,7 @@ class ExoPlayerService : BasePlaybackService() {
                     if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                         when (type) {
                             VIDEO -> {
-                                videoId?.toLongOrNull()?.let {
+                                videoId?.let {
                                     runBlocking {
                                         xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, currentPosition))
                                     }
