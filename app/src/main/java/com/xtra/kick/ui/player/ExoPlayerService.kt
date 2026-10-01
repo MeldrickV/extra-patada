@@ -204,6 +204,18 @@ class ExoPlayerService : BasePlaybackService() {
                         if (qualities?.find { it.name == VideoQuality.AUTO_QUALITY } != null && quality?.name != VideoQuality.AUDIO_ONLY_QUALITY && !hidden) {
                             changeQuality(quality, persist = false)
                         }
+                        val forced = quality
+                        if (forced != null && forced.resolution != null && forced.name != VideoQuality.AUTO_QUALITY) {
+                            tracks.groups.filter { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }.forEach { group ->
+                                for (i in 0 until group.mediaTrackGroup.length) {
+                                    if (group.isTrackSelected(i)) {
+                                        group.getTrackFormat(i).let { format ->
+                                            Log.i("XtraPlayer", "playing ${format.height}x${format.width}@${format.frameRate} ${format.bitrate}bps ${format.sampleMimeType} (forced ${forced.name})")
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -247,6 +259,7 @@ class ExoPlayerService : BasePlaybackService() {
                                         add(VideoQuality(VideoQuality.CHAT_ONLY_QUALITY))
                                     }
                                 }
+                            Log.i("XtraPlayer", "qualities: " + (qualities?.joinToString { "${it.name}:${it.resolution}p@${it.frameRate}:${it.bitrate}" } ?: "none"))
                             setDefaultQuality()
                             serviceListener?.changePlayerMode()
                             if (quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {
@@ -1816,45 +1829,51 @@ class ExoPlayerService : BasePlaybackService() {
 
     /**
      * Pins the given video rendition with a hard track override (live and VOD).
-     * Never pins a rendition the decoder cannot handle: unsupported tracks are filtered
-     * out first, falling back to the unfiltered list only if nothing is advertised as
-     * supported (previous behavior as last resort).
+     * Searches across every video track group: multivariant playlists can expose several
+     * (e.g. source + transcodes), and pinning only the first one could lock a lower
+     * rendition than requested. Never pins a rendition the decoder cannot handle:
+     * unsupported tracks are filtered out first, falling back to the unfiltered list
+     * only if nothing is advertised as supported (previous behavior as last resort).
      */
     private fun applyVideoPin(quality: VideoQuality) {
         player?.let { player ->
             player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().apply {
                 setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
                 if (!player.currentTracks.isEmpty) {
-                    player.currentTracks.groups.find { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }?.let { trackGroup ->
-                        if (trackGroup.mediaTrackGroup.length > 0) {
-                            if (quality.resolution != null) {
-                                val formats = mutableListOf<Pair<Int, Format>>()
-                                for (i in 0 until trackGroup.mediaTrackGroup.length) {
-                                    if (trackGroup.isTrackSupported(i)) {
-                                        formats.add(i to trackGroup.mediaTrackGroup.getFormat(i))
-                                    }
-                                }
-                                if (formats.isEmpty()) {
-                                    for (i in 0 until trackGroup.mediaTrackGroup.length) {
-                                        formats.add(i to trackGroup.mediaTrackGroup.getFormat(i))
-                                    }
-                                }
-                                val list = formats
-                                    .sortedByDescending { it.second.bitrate }
-                                    .sortedByDescending { it.second.frameRate }
-                                    .sortedByDescending { it.second.height }
-                                list.find {
-                                    (quality.resolution == it.second.height
-                                            && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.second.frameRate)
-                                            && (quality.bitrate == null || quality.bitrate >= it.second.bitrate))
-                                            || quality.resolution > it.second.height
-                                            || it == list.last()
-                                }?.first?.let { index ->
-                                    setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, index))
-                                }
-                            } else {
-                                setOverrideForType(TrackSelectionOverride(trackGroup.mediaTrackGroup, 0))
+                    val videoGroups = player.currentTracks.groups.filter { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+                    val formats = mutableListOf<Triple<androidx.media3.common.TrackGroup, Int, Format>>()
+                    videoGroups.forEach { trackGroup ->
+                        for (i in 0 until trackGroup.mediaTrackGroup.length) {
+                            if (trackGroup.isTrackSupported(i)) {
+                                formats.add(Triple(trackGroup.mediaTrackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
                             }
+                        }
+                    }
+                    if (formats.isEmpty()) {
+                        videoGroups.firstOrNull()?.let { trackGroup ->
+                            for (i in 0 until trackGroup.mediaTrackGroup.length) {
+                                formats.add(Triple(trackGroup.mediaTrackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
+                            }
+                        }
+                    }
+                    if (quality.resolution != null) {
+                        val list = formats
+                            .sortedByDescending { it.third.bitrate }
+                            .sortedByDescending { it.third.frameRate }
+                            .sortedByDescending { it.third.height }
+                        list.find {
+                            (quality.resolution == it.third.height
+                                    && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.third.frameRate)
+                                    && (quality.bitrate == null || quality.bitrate >= it.third.bitrate))
+                                    || quality.resolution > it.third.height
+                                    || it == list.last()
+                        }?.let { match ->
+                            setOverrideForType(TrackSelectionOverride(match.first, match.second))
+                            Log.i("XtraPlayer", "pin ${quality.name} -> ${match.third.height}x${match.third.width}@${match.third.frameRate} ${match.third.bitrate}bps (${formats.indexOf(match) + 1}/${formats.size} tracks, ${videoGroups.size} groups)")
+                        } ?: Log.w("XtraPlayer", "pin ${quality.name}: no match among ${formats.size} tracks")
+                    } else {
+                        formats.firstOrNull()?.let { match ->
+                            setOverrideForType(TrackSelectionOverride(match.first, match.second))
                         }
                     }
                 }
