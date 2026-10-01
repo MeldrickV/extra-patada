@@ -150,6 +150,7 @@ class ExoPlayerService : BasePlaybackService() {
     private var ignorePlaylistUpdate = false
     private var created = false
     private var consecutivePlayerErrors = 0
+    private var consecutiveBehindWindowErrors = 0
     private var wifiLock: WifiManager.WifiLock? = null
 
     interface Listener {
@@ -459,12 +460,18 @@ class ExoPlayerService : BasePlaybackService() {
                                         if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW
                                             && player?.isCurrentMediaItemLive == true) {
                                             // Position fell outside the live sliding window (e.g. the pinned
-                                            // top rendition stalled past the IVS window): step down to the
-                                            // highest sustainable rendition when possible, then re-sync to
-                                            // the live edge instead of retrying the stale position.
+                                            // top rendition stalled past the IVS window): re-sync to the live
+                                            // edge instead of retrying the stale position. Only step down to
+                                            // a lower rendition after consecutive evictions with no healthy
+                                            // playback in between, so a single transient stall never
+                                            // permanently downgrades a forced quality.
                                             consecutivePlayerErrors = 0
+                                            consecutiveBehindWindowErrors += 1
                                             Log.e("XtraPlayer", "behind live window, re-syncing to live edge: code=${error.errorCode} name=${error.errorCodeName}")
-                                            stepDownPinnedLiveQuality()
+                                            if (consecutiveBehindWindowErrors >= 2) {
+                                                consecutiveBehindWindowErrors = 0
+                                                stepDownPinnedLiveQuality()
+                                            }
                                             serviceListener?.toast(
                                                 if (BuildConfig.DEBUG) "Player error (${error.errorCodeName}), retrying…" else getString(R.string.player_error),
                                                 Toast.LENGTH_SHORT
@@ -621,6 +628,7 @@ class ExoPlayerService : BasePlaybackService() {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_READY) {
                         consecutivePlayerErrors = 0
+                        consecutiveBehindWindowErrors = 0
                     }
                     updatePlaybackState()
                     updateNotification()
