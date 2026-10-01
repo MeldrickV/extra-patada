@@ -202,7 +202,7 @@ class ExoPlayerService : BasePlaybackService() {
                             toggleSubtitles(prefs().getBoolean(C.PLAYER_SUBTITLES_ENABLED, false))
                         }
                         if (qualities?.find { it.name == VideoQuality.AUTO_QUALITY } != null && quality?.name != VideoQuality.AUDIO_ONLY_QUALITY && !hidden) {
-                            changeQuality(quality)
+                            changeQuality(quality, persist = false)
                         }
                     }
                 }
@@ -250,7 +250,7 @@ class ExoPlayerService : BasePlaybackService() {
                             setDefaultQuality()
                             serviceListener?.changePlayerMode()
                             if (quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {
-                                changeQuality(quality)
+                                changeQuality(quality, persist = false)
                             }
                         }
                         if (reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
@@ -1726,7 +1726,7 @@ class ExoPlayerService : BasePlaybackService() {
         }
     }
 
-    fun changeQuality(selectedQuality: VideoQuality?) {
+    fun changeQuality(selectedQuality: VideoQuality?, persist: Boolean = true) {
         previousQuality = quality
         quality = selectedQuality
         quality?.let { quality ->
@@ -1806,7 +1806,7 @@ class ExoPlayerService : BasePlaybackService() {
                     val connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
                     val networkCapabilities = connectivityManager.getNetworkCapabilities(connectivityManager.activeNetwork)
                     val cellular = networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
-                    if ((!cellular && prefs().getString(C.PLAYER_DEFAULT_QUALITY, "saved") == "saved") || (cellular && prefs().getString(C.PLAYER_DEFAULT_CELLULAR_QUALITY, "saved") == "saved")) {
+                    if (persist && ((!cellular && prefs().getString(C.PLAYER_DEFAULT_QUALITY, "saved") == "saved") || (cellular && prefs().getString(C.PLAYER_DEFAULT_CELLULAR_QUALITY, "saved") == "saved"))) {
                         prefs().edit { putString(C.PLAYER_QUALITY, quality.name) }
                     }
                 }
@@ -1863,10 +1863,12 @@ class ExoPlayerService : BasePlaybackService() {
     }
 
     /**
-     * Steps a pinned live rendition down exactly one rung by bitrate and re-pins it,
-     * persisting the choice per device so it sticks across sessions. Returns false when
-     * there is no lower video rendition to step to. This never engages ABR hunting: the
-     * result is still a hard pin, just at the highest rendition proven sustainable so far.
+     * Steps a pinned live rendition down exactly one rung by bitrate and re-pins it.
+     * Returns false when there is no lower video rendition to step to. This never engages
+     * ABR hunting: the result is still a hard pin, just at the highest rendition proven
+     * sustainable so far. Deliberately session-scoped (never persisted): the user's own
+     * saved choice always wins on the next open, so a bad patch can never permanently
+     * degrade it.
      */
     private fun stepDownPinnedLiveQuality(): Boolean {
         val player = player ?: return false
@@ -1890,7 +1892,6 @@ class ExoPlayerService : BasePlaybackService() {
         } ?: return false
         previousQuality = current
         quality = stepped
-        prefs().edit { putString(C.PLAYER_QUALITY, stepped.name) }
         applyVideoPin(stepped)
         Log.i("XtraPlayer", "stepped pinned live quality ${current.name} -> ${stepped.name} (highest sustainable)")
         serviceListener?.toast(getString(R.string.quality_adjusted_sustainable, stepped.name), Toast.LENGTH_SHORT)
