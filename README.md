@@ -1,6 +1,6 @@
 # Xtra for Kick
 
-<img align="left" width="100" src="https://github.com/AndreyAsadchy/Xtra/blob/master/app/src/main/ic_launcher-web.png"/>
+<img align="left" width="100" src="https://github.com/MeldrickV/extra-patada/blob/main/app/src/main/ic_launcher-web.png"/>
 
 Xtra for Kick is an open-source Android player and browser for [Kick.com](https://kick.com).
 
