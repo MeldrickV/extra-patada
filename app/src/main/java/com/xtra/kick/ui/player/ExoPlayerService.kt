@@ -1834,9 +1834,10 @@ class ExoPlayerService : BasePlaybackService() {
      * rendition than requested. Matching is two-stage: first an exact height+fps match
      * (bitrate is deliberately ignored there, since the pinned and advertised values
      * can come from different playlist parses), then the legacy predicate as fallback.
-     * Never pins a rendition the decoder cannot handle: unsupported tracks are filtered
-     * out first, falling back to the unfiltered list only if nothing is advertised as
-     * supported (previous behavior as last resort).
+     * Tracks without any supporting decoder are filtered out, but tracks that merely
+     * exceed the advertised capabilities are kept: those are playable in practice and
+     * ExoPlayer itself still considers them, so dropping them would make top renditions
+     * such as 1080p60 unpinnable on mid-range decoders.
      */
     private fun applyVideoPin(quality: VideoQuality) {
         player?.let { player ->
@@ -1844,22 +1845,22 @@ class ExoPlayerService : BasePlaybackService() {
                 setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_VIDEO, false)
                 if (!player.currentTracks.isEmpty) {
                     val videoGroups = player.currentTracks.groups.filter { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
-                    val formats = mutableListOf<Triple<androidx.media3.common.TrackGroup, Int, Format>>()
+                    val formats = mutableListOf<Triple<androidx.media3.common.Tracks.Group, Int, Format>>()
                     videoGroups.forEach { trackGroup ->
                         for (i in 0 until trackGroup.mediaTrackGroup.length) {
-                            if (trackGroup.isTrackSupported(i)) {
-                                formats.add(Triple(trackGroup.mediaTrackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
+                            if (trackGroup.isTrackSupported(i, true)) {
+                                formats.add(Triple(trackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
                             }
                         }
                     }
                     if (formats.isEmpty()) {
                         videoGroups.firstOrNull()?.let { trackGroup ->
                             for (i in 0 until trackGroup.mediaTrackGroup.length) {
-                                formats.add(Triple(trackGroup.mediaTrackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
+                                formats.add(Triple(trackGroup, i, trackGroup.mediaTrackGroup.getFormat(i)))
                             }
                         }
                     }
-                    Log.i("XtraPlayer", "pin candidates for ${quality.name} (${quality.resolution}p@${quality.frameRate}:${quality.bitrate}): " + formats.joinToString { "${it.third.height}x${it.third.width}@${it.third.frameRate}:${it.third.bitrate}" })
+                    Log.i("XtraPlayer", "pin candidates for ${quality.name} (${quality.resolution}p@${quality.frameRate}:${quality.bitrate}): " + formats.joinToString { "${it.third.height}x${it.third.width}@${it.third.frameRate}:${it.third.bitrate}${if (it.first.isTrackSupported(it.second)) "" else "[exceeds-caps]"}" })
                     if (quality.resolution != null) {
                         val list = formats
                             .sortedByDescending { it.third.bitrate }
@@ -1876,12 +1877,12 @@ class ExoPlayerService : BasePlaybackService() {
                                     || it == list.last()
                         }
                         match?.let {
-                            setOverrideForType(TrackSelectionOverride(it.first, it.second))
+                            setOverrideForType(TrackSelectionOverride(it.first.mediaTrackGroup, it.second))
                             Log.i("XtraPlayer", "pin ${quality.name} -> ${it.third.height}x${it.third.width}@${it.third.frameRate} ${it.third.bitrate}bps (${formats.indexOf(it) + 1}/${formats.size} tracks, ${videoGroups.size} groups)")
                         } ?: Log.w("XtraPlayer", "pin ${quality.name}: no match among ${formats.size} tracks")
                     } else {
                         formats.firstOrNull()?.let { match ->
-                            setOverrideForType(TrackSelectionOverride(match.first, match.second))
+                            setOverrideForType(TrackSelectionOverride(match.first.mediaTrackGroup, match.second))
                         }
                     }
                 }
