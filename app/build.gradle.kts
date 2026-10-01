@@ -27,8 +27,8 @@ android {
         applicationId = "com.xtra.kick"
         minSdk = 23
         targetSdk = 37
-        versionCode = 122
-        versionName = "2.60.2"
+        versionCode = 123
+        versionName = "2.61.0"
     }
 
     buildTypes {
