@@ -136,6 +136,9 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
     open fun getCurrentSpeed(): Float? = null
     open fun getCurrentVolume(): Float? = null
     open fun getTotalDuration(): Long? = null
+    open fun getVideoStartEpochMs(): Long? {
+        return playbackService?.createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } }
+    }
     open fun playPause() {}
     open fun rewind() {}
     open fun fastForward() {}

@@ -17,6 +17,7 @@ class KickChatReplayManager(
     private val kickRepository: KickRepository,
     private val channelLogin: String?,
     private val videoStart: Long?,
+    private val getVideoStart: (() -> Long?)? = null,
     private val startTime: Long,
     private val getCurrentPosition: () -> Long?,
     private val getCurrentSpeed: () -> Float?,
@@ -56,16 +57,22 @@ class KickChatReplayManager(
         isActive = false
     }
 
+    private fun resolveVideoStart(): Long {
+        // Read lazily: the service's createdAt may still be unset when the manager is
+        // created, and is only repaired once loadVideo resolves the video over network.
+        return getVideoStart?.invoke() ?: videoStart ?: 0L
+    }
+
     private fun load(position: Long) {
         isLoading = true
         seenIds.clear()
-        if (videoStart == null) {
+        if (resolveVideoStart() == 0L) {
             Log.w("XtraChat", "kick replay without video start anchor, offsets will not match")
         }
         loadJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val chatroomId = ensureChatroomId()
-                val fromMs = (videoStart ?: 0L).plus(position).coerceAtLeast(0L)
+                val fromMs = resolveVideoStart().plus(position).coerceAtLeast(0L)
                 seedPosition = fromMs
                 if (chatroomId == null) {
                     isLoading = false
@@ -92,7 +99,7 @@ class KickChatReplayManager(
 
     private suspend fun fetch(chatroomId: Long, fromMs: Long): Pair<List<VideoChatMessage>, Long> {
         val result = mutableListOf<VideoChatMessage>()
-        val startMs = videoStart ?: 0L
+        val startMs = resolveVideoStart()
         val floorMs = fromMs - FETCH_WINDOW_MS
         var cursorUs: Long? = fromMs.times(1000).coerceAtLeast(0L)
         var pages = 0
@@ -143,7 +150,7 @@ class KickChatReplayManager(
      */
     private suspend fun fetchMore(position: Long): Boolean {
         val chatroomId = chatroomId ?: return false
-        val fromMs = (videoStart ?: 0L).plus(position).coerceAtLeast(0L)
+        val fromMs = resolveVideoStart().plus(position).coerceAtLeast(0L)
         seedPosition = fromMs
         return try {
             val fetched = fetch(chatroomId, fromMs).first
@@ -231,7 +238,7 @@ class KickChatReplayManager(
 
     fun updatePosition(position: Long) {
         if (started && lastCheckedPosition != position) {
-            val ms = (videoStart ?: 0L).plus(position).coerceAtLeast(0L)
+            val ms = resolveVideoStart().plus(position).coerceAtLeast(0L)
             if (position < lastCheckedPosition || ms - seedPosition > FORWARD_BUFFER_MS) {
                 loadJob?.cancel()
                 messageJob?.cancel()
