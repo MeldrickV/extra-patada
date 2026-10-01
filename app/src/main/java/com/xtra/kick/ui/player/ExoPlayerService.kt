@@ -1831,9 +1831,12 @@ class ExoPlayerService : BasePlaybackService() {
      * Pins the given video rendition with a hard track override (live and VOD).
      * Searches across every video track group: multivariant playlists can expose several
      * (e.g. source + transcodes), and pinning only the first one could lock a lower
-     * rendition than requested. Never pins a rendition the decoder cannot handle:
-     * unsupported tracks are filtered out first, falling back to the unfiltered list
-     * only if nothing is advertised as supported (previous behavior as last resort).
+     * rendition than requested. Matching is two-stage: first an exact height+fps match
+     * (bitrate is deliberately ignored there, since the pinned and advertised values
+     * can come from different playlist parses), then the legacy predicate as fallback.
+     * Never pins a rendition the decoder cannot handle: unsupported tracks are filtered
+     * out first, falling back to the unfiltered list only if nothing is advertised as
+     * supported (previous behavior as last resort).
      */
     private fun applyVideoPin(quality: VideoQuality) {
         player?.let { player ->
@@ -1856,20 +1859,25 @@ class ExoPlayerService : BasePlaybackService() {
                             }
                         }
                     }
+                    Log.i("XtraPlayer", "pin candidates for ${quality.name} (${quality.resolution}p@${quality.frameRate}:${quality.bitrate}): " + formats.joinToString { "${it.third.height}x${it.third.width}@${it.third.frameRate}:${it.third.bitrate}" })
                     if (quality.resolution != null) {
                         val list = formats
                             .sortedByDescending { it.third.bitrate }
                             .sortedByDescending { it.third.frameRate }
                             .sortedByDescending { it.third.height }
-                        list.find {
+                        val match = list.firstOrNull {
+                            quality.resolution == it.third.height
+                                    && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.third.frameRate)
+                        } ?: list.find {
                             (quality.resolution == it.third.height
                                     && (quality.frameRate?.let { fps -> floor(fps) } ?: 30f) >= floor(it.third.frameRate)
                                     && (quality.bitrate == null || quality.bitrate >= it.third.bitrate))
                                     || quality.resolution > it.third.height
                                     || it == list.last()
-                        }?.let { match ->
-                            setOverrideForType(TrackSelectionOverride(match.first, match.second))
-                            Log.i("XtraPlayer", "pin ${quality.name} -> ${match.third.height}x${match.third.width}@${match.third.frameRate} ${match.third.bitrate}bps (${formats.indexOf(match) + 1}/${formats.size} tracks, ${videoGroups.size} groups)")
+                        }
+                        match?.let {
+                            setOverrideForType(TrackSelectionOverride(it.first, it.second))
+                            Log.i("XtraPlayer", "pin ${quality.name} -> ${it.third.height}x${it.third.width}@${it.third.frameRate} ${it.third.bitrate}bps (${formats.indexOf(it) + 1}/${formats.size} tracks, ${videoGroups.size} groups)")
                         } ?: Log.w("XtraPlayer", "pin ${quality.name}: no match among ${formats.size} tracks")
                     } else {
                         formats.firstOrNull()?.let { match ->
