@@ -73,6 +73,7 @@ import java.util.Timer
 import kotlin.concurrent.schedule
 import kotlin.concurrent.scheduleAtFixedRate
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 class MediaPlayerService : BasePlaybackService() {
 
@@ -941,8 +942,11 @@ class MediaPlayerService : BasePlaybackService() {
                     if (url != null) {
                         playlistUrl = url
                     }
-                    if (createdAt.isNullOrBlank()) {
-                        createdAt = video?.livestream?.startTime ?: video?.createdAt
+                    if (createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } } == null) {
+                        // Kick list endpoints use a non-ISO "yyyy-MM-dd HH:mm:ss" format which is
+                        // useless as a replay anchor: prefer the ISO start_time from getVideo.
+                        createdAt = listOfNotNull(video?.livestream?.startTime, video?.createdAt)
+                            .firstOrNull { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } != null }
                     }
                 } else {
                     val result = try {
