@@ -198,10 +198,10 @@ class ChatViewModel(
         }
     }
 
-    fun startReplay(channelId: String?, channelLogin: String?, chatUrl: String? = null, videoId: String? = null, createdAt: String?, startTime: Int = 0, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?) {
+    fun startReplay(channelId: String?, channelLogin: String?, chatUrl: String? = null, videoId: String? = null, createdAt: String?, startTime: Int = 0, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?, getVideoStart: (() -> Long?)? = null) {
         if (chatReplayManager == null && chatReplayManagerLocal == null && kickChatReplayManager == null) {
             messageLimit = applicationContext.prefs().getInt(C.CHAT_LIMIT, 600)
-            startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin)
+            startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin, getVideoStart)
             if (videoId != null) {
                 loadEmotes(channelId, channelLogin)
             }
@@ -220,9 +220,9 @@ class ChatViewModel(
         }
     }
 
-    fun resumeReplay(channelId: String?, channelLogin: String?, chatUrl: String?, videoId: String?, createdAt: String?, startTime: Int, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?) {
+    fun resumeReplay(channelId: String?, channelLogin: String?, chatUrl: String?, videoId: String?, createdAt: String?, startTime: Int, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?, getVideoStart: (() -> Long?)? = null) {
         if (chatReplayManager?.isActive == false || chatReplayManagerLocal?.isActive == false || kickChatReplayManager?.isActive == false) {
-            startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin)
+            startReplayChat(videoId, createdAt, startTime, chatUrl, getCurrentPosition, getCurrentSpeed, channelId, channelLogin, getVideoStart)
         }
     }
 
@@ -2732,7 +2732,7 @@ class ChatViewModel(
         }
     }
 
-    fun startReplayChat(videoId: String?, createdAt: String?, startTime: Int, chatUrl: String?, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?, channelId: String?, channelLogin: String?) {
+    fun startReplayChat(videoId: String?, createdAt: String?, startTime: Int, chatUrl: String?, getCurrentPosition: () -> Long?, getCurrentSpeed: () -> Float?, channelId: String?, channelLogin: String?, getVideoStart: (() -> Long?)? = null) {
         stopReplayChat()
         if (!chatUrl.isNullOrBlank()) {
             chatReplayManagerLocal = ChatReplayManagerLocal(
@@ -2749,6 +2749,7 @@ class ChatViewModel(
                     kickRepository = kickRepository,
                     channelLogin = channelLogin,
                     videoStart = createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+                    getVideoStart = getVideoStart,
                     startTime = startTime.times(1000L),
                     getCurrentPosition = getCurrentPosition,
                     getCurrentSpeed = getCurrentSpeed,

@@ -71,6 +71,7 @@ import java.text.NumberFormat
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.time.Instant
 
 class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickListener, ReplyClickedDialog.OnButtonClickListener {
 
@@ -876,7 +877,8 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                         createdAt = args.getString(KEY_CREATED_AT),
                         startTime = startTime,
                         getCurrentPosition = (parentFragment as PlayerFragment)::getCurrentPosition,
-                        getCurrentSpeed = (parentFragment as PlayerFragment)::getCurrentSpeed
+                        getCurrentSpeed = (parentFragment as PlayerFragment)::getCurrentSpeed,
+                        getVideoStart = { (parentFragment as? PlayerFragment)?.getVideoStartEpochMs() },
                     )
                 }
             }
