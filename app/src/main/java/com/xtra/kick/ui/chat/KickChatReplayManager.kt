@@ -1,5 +1,6 @@
 package com.xtra.kick.ui.chat
 
+import android.util.Log
 import com.xtra.kick.model.chat.ChatMessage
 import com.xtra.kick.model.chat.VideoChatMessage
 import com.xtra.kick.repository.KickRepository
@@ -58,6 +59,9 @@ class KickChatReplayManager(
     private fun load(position: Long) {
         isLoading = true
         seenIds.clear()
+        if (videoStart == null) {
+            Log.w("XtraChat", "kick replay without video start anchor, offsets will not match")
+        }
         loadJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val chatroomId = ensureChatroomId()
