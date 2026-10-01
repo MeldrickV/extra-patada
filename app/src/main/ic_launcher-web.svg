@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Xtra for Kick — logotipo vectorial (versión limpia del arte circular).
+  Lienzo 512x512. Para usar en web, prensa, listados y derivados sin pérdida.
+  Colores: fondo #000000, X #FFFFFF, acentos #A2FB02 (lima) y #643FA4 (púrpura).
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Xtra for Kick logo">
+  <title>Xtra for Kick</title>
+  <desc>X blanca sobre disco negro con puntas lima y acentos púrpura</desc>
+  <defs>
+    <clipPath id="disc">
+      <circle cx="256" cy="256" r="256"/>
+    </clipPath>
+  </defs>
+  <circle cx="256" cy="256" r="256" fill="#000000"/>
+  <g clip-path="url(#disc)">
+    <!-- acentos púrpura -->
+    <polygon points="468,206 507,212 508,281 458,277" fill="#643FA4"/>
+    <polygon points="342,56 376,31 423,63 374,85" fill="#643FA4"/>
+    <polygon points="207,53 233,22 285,47 217,64" fill="#643FA4"/>
+    <polygon points="87,64 120,39 139,63 103,79" fill="#643FA4"/>
+    <polygon points="54,99 63,96 104,120 40,121" fill="#643FA4"/>
+    <polygon points="328,120 336,106 345,104 423,120" fill="#643FA4"/>
+    <!-- puntas lima -->
+    <polygon points="200,447 241,344 343,400 343,421 216,463" fill="#A2FB02"/>
+    <polygon points="21,353 83,294 129,296 127,374 58,416" fill="#A2FB02"/>
+    <polygon points="79,249 119,190 146,188 191,227 87,258" fill="#A2FB02"/>
+    <polygon points="2,215 11,194 25,197 28,228 0,243" fill="#A2FB02"/>
+    <!-- X blanca: diagonal trapezoidal + barra horizontal -->
+    <polygon points="124,34 535,341 445,425 114,44" fill="#FFFFFF"/>
+    <rect x="0" y="121" width="512" height="56" fill="#FFFFFF"/>
+  </g>
+</svg>
