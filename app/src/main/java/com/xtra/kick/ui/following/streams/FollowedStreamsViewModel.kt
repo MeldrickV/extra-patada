@@ -16,6 +16,7 @@ import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.datasource.FollowedStreamsDataSource
 import com.xtra.kick.util.C
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 import com.xtra.kick.util.tokenPrefs
@@ -45,7 +46,7 @@ class FollowedStreamsViewModel(
             enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
             networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
             kickRepository = kickRepository,
-            kickToken = applicationContext.tokenPrefs().getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
+            kickToken = SecurePrefs.tokens(applicationContext).getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
             combinePlatforms = true,
         )
     }.flow.cachedIn(viewModelScope)

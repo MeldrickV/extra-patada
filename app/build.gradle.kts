@@ -110,6 +110,7 @@ dependencies {
     implementation(libs.preference.ktx)
     implementation(libs.recyclerview)
     implementation(libs.room.runtime)
+    implementation(libs.security.crypto)
     ksp(libs.room.compiler)
     implementation(libs.room.paging)
     implementation(libs.swiperefreshlayout)

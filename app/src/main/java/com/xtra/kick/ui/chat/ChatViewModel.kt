@@ -40,6 +40,7 @@ import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.ui.common.IntegrityDialog
 import com.xtra.kick.util.KickSession
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.chat.ChatReadIRCSocket
 import com.xtra.kick.util.parseKickTimestampMs
@@ -1177,7 +1178,7 @@ class ChatViewModel(
         if (usePubSub && !channelId.isNullOrBlank()) {
             val collectPoints = applicationContext.prefs().getBoolean(C.CHAT_POINTS_COLLECT, true)
             val gqlWebClientId = applicationContext.prefs().getString(C.GQL_CLIENT_ID_WEB, "kimne78kx3ncx6brgo4mv6wki5h1ko")
-            val gqlWebToken = applicationContext.tokenPrefs().getString(C.GQL_TOKEN_WEB, null)
+            val gqlWebToken = SecurePrefs.tokens(applicationContext).getString(C.GQL_TOKEN_WEB, null)
             val notifyPoints = applicationContext.prefs().getBoolean(C.CHAT_POINTS_NOTIFY, false)
             val showRaids = applicationContext.prefs().getBoolean(C.CHAT_RAIDS_SHOW, true)
             val showPolls = applicationContext.prefs().getBoolean(C.CHAT_POLLS_SHOW, true)

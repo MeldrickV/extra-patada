@@ -25,6 +25,7 @@ import com.xtra.kick.XtraModule
 import com.xtra.kick.databinding.ActivityLoginBinding
 import com.xtra.kick.util.C
 import com.xtra.kick.util.KickOAuth
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.applyTheme
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -68,11 +69,15 @@ class LoginActivity : AppCompatActivity() {
             }
             showClientSetupDialog()
         }
-        tokenPrefs().edit {
+        SecurePrefs.tokens(this).edit {
             putString(C.KICK_ACCESS_TOKEN, null)
             putString(C.KICK_REFRESH_TOKEN, null)
             putLong(C.KICK_TOKEN_EXPIRES_AT, 0)
             putLong(C.KICK_REFRESH_EXPIRES_AT, 0)
+            putString(C.KICK_OAUTH_STATE, null)
+            putString(C.KICK_OAUTH_VERIFIER, null)
+        }
+        tokenPrefs().edit {
             putString(C.KICK_USERNAME, null)
             putString(C.KICK_USER_ID, null)
         }
@@ -153,11 +158,10 @@ class LoginActivity : AppCompatActivity() {
         verifier = KickOAuth.generateVerifier()
         val challenge = verifier?.let { KickOAuth.generateCodeChallenge(it) } ?: ""
         val state = KickOAuth.generateState()
-        tokenPrefs().edit {
+        SecurePrefs.tokens(this).edit {
             putString(C.KICK_OAUTH_STATE, state)
             putString(C.KICK_OAUTH_VERIFIER, verifier)
-        }
-        val scopes = prefs().getString(
+        }        val scopes = prefs().getString(
             C.KICK_CLIENT_SCOPES,
             "user:read channel:read channel:write chat:write moderation:ban moderation:chat_message:manage kicks:read streamkey:read"
         ) ?: ""
@@ -207,7 +211,7 @@ class LoginActivity : AppCompatActivity() {
             return
         }
         val state = uri.getQueryParameter("state")
-        if (state.isNullOrBlank() || state != tokenPrefs().getString(C.KICK_OAUTH_STATE, null)) {
+        if (state.isNullOrBlank() || state != SecurePrefs.tokens(this).getString(C.KICK_OAUTH_STATE, null)) {
             Toast.makeText(this, R.string.kick_login_state_mismatch, Toast.LENGTH_LONG).show()
             setResult(RESULT_CANCELED)
             finish()
@@ -218,7 +222,7 @@ class LoginActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val token = xtraModule.kickRepository.getOAuthToken(clientId, clientSecret, redirectUri, code.orEmpty(), verifier.orEmpty())
-                tokenPrefs().edit {
+                SecurePrefs.tokens(this@LoginActivity).edit {
                     putString(C.KICK_ACCESS_TOKEN, token.accessToken)
                     putString(C.KICK_REFRESH_TOKEN, token.refreshToken)
                     putLong(C.KICK_TOKEN_EXPIRES_AT, System.currentTimeMillis() + token.expiresIn * 1000)
