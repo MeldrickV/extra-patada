@@ -49,6 +49,7 @@ import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.ui.player.PlayerFragment
 import com.xtra.kick.ui.view.AutoCompleteAdapter
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -123,10 +124,13 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                 val channelId = args.getString(KEY_CHANNEL_ID)
                 val channelLogin = args.getString(KEY_CHANNEL_LOGIN)
                 val isLive = args.getBoolean(KEY_IS_LIVE)
-                val accountLogin = requireContext().tokenPrefs().getString(C.USERNAME, null)
-                val isLoggedIn = !accountLogin.isNullOrBlank() &&
+                val isKickChannel = channelId?.startsWith(C.KICK_USER_PREFIX) == true
+                val twitchLogin = requireContext().tokenPrefs().getString(C.USERNAME, null)
+                val isTwitchLoggedIn = !twitchLogin.isNullOrBlank() &&
                         (!TwitchApiHelper.getGQLHeaders(requireContext(), true)[C.HEADER_TOKEN].isNullOrBlank() ||
                                 !TwitchApiHelper.getHelixHeaders(requireContext())[C.HEADER_TOKEN].isNullOrBlank())
+                val isKickLoggedIn = KickSession.isLoggedIn(requireContext())
+                val isLoggedIn = if (isKickChannel) isKickLoggedIn else isTwitchLoggedIn
                 val chatUrl = args.getString(KEY_CHAT_URL)
                 if (isLive || (args.getString(KEY_VIDEO_ID) != null && args.getInt(KEY_START_TIME) != -1) || chatUrl != null) {
                     val enableMessaging = isLive && isLoggedIn
@@ -185,7 +189,9 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                         translateMessage = this@ChatFragment::onTranslateMessageClicked,
                         showLanguageDownloadDialog = this@ChatFragment::showLanguageDownloadDialog,
                         channelId = channelId,
-                        loggedInUser = if (enableMessaging) accountLogin else null,
+                        loggedInUser = if (enableMessaging) {
+                            if (isKickChannel) KickSession.username(requireContext()) else twitchLogin
+                        } else null,
                         messageClickListener = { channelId ->
                             (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(editText.windowToken, 0)
                             editText.clearFocus()

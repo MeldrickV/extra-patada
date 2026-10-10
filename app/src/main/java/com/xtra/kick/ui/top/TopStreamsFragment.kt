@@ -36,6 +36,7 @@ import com.xtra.kick.ui.common.StreamsSortDialog.Companion.RECENT
 import com.xtra.kick.ui.common.StreamsSortDialog.Companion.SORT_VIEWERS
 import com.xtra.kick.ui.common.StreamsSortDialog.Companion.SORT_VIEWERS_ASC
 import com.xtra.kick.ui.game.GamePagerFragmentArgs
+import com.xtra.kick.ui.common.LoginMenuHelper
 import com.xtra.kick.ui.login.LoginActivity
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.ui.search.SearchPagerFragmentDirections
@@ -67,8 +68,7 @@ class TopStreamsFragment : PagedListFragment(), Scrollable, StreamsSortDialog.On
         super.onViewCreated(view, savedInstanceState)
         with(binding) {
             val activity = requireActivity() as MainActivity
-            val isLoggedIn = !TwitchApiHelper.getGQLHeaders(requireContext(), true)[C.HEADER_TOKEN].isNullOrBlank() ||
-                    !TwitchApiHelper.getHelixHeaders(requireContext())[C.HEADER_TOKEN].isNullOrBlank()
+            val isLoggedIn = LoginMenuHelper.isLoggedIn(requireContext())
             val navController = findNavController()
             val appBarConfiguration = AppBarConfiguration(setOf(R.id.rootGamesFragment, R.id.rootTopFragment, R.id.followPagerFragment, R.id.followMediaFragment, R.id.savedPagerFragment, R.id.savedMediaFragment))
             toolbar.setupWithNavController(navController, appBarConfiguration)
@@ -85,12 +85,7 @@ class TopStreamsFragment : PagedListFragment(), Scrollable, StreamsSortDialog.On
                     }
                     R.id.login -> {
                         if (isLoggedIn) {
-                            activity.getAlertDialogBuilder().apply {
-                                setTitle(getString(R.string.logout_title))
-                                requireContext().tokenPrefs().getString(C.USERNAME, null)?.let { setMessage(getString(R.string.logout_msg, it)) }
-                                setNegativeButton(getString(R.string.no), null)
-                                setPositiveButton(getString(R.string.yes)) { _, _ -> activity.logoutResultLauncher?.launch(Intent(activity, LoginActivity::class.java)) }
-                            }.show()
+                            LoginMenuHelper.showLogoutDialog(activity)
                         } else {
                             activity.loginResultLauncher?.launch(Intent(activity, LoginActivity::class.java))
                         }

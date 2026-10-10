@@ -145,6 +145,9 @@
     <string name="ascending">Ascending</string>
     <string name="logout_title">Log out?</string>
     <string name="logout_msg">Logged in as %s</string>
+    <string name="logout_twitch">Log out of Twitch</string>
+    <string name="logout_kick">Log out of Kick</string>
+    <string name="kick_commands_unsupported">Kick: chat commands are not supported</string>
     <string name="language">Language</string>
     <string name="never">Never</string>
     <string name="blue">Blue</string>

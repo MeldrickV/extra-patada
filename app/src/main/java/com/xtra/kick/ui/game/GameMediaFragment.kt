@@ -48,6 +48,7 @@ import com.xtra.kick.ui.game.clips.GameClipsFragment
 import com.xtra.kick.ui.game.streams.GameStreamsFragment
 import com.xtra.kick.ui.game.videos.GameVideosFragment
 import com.xtra.kick.ui.games.GamesFragmentDirections
+import com.xtra.kick.ui.common.LoginMenuHelper
 import com.xtra.kick.ui.login.LoginActivity
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.ui.search.SearchPagerFragmentDirections
@@ -119,8 +120,7 @@ class GameMediaFragment : BaseNetworkFragment(), Scrollable, FragmentHost, Integ
             } else {
                 gameImage.visibility = View.GONE
             }
-            val isLoggedIn = !TwitchApiHelper.getGQLHeaders(requireContext(), true)[C.HEADER_TOKEN].isNullOrBlank() ||
-                    !TwitchApiHelper.getHelixHeaders(requireContext())[C.HEADER_TOKEN].isNullOrBlank()
+            val isLoggedIn = LoginMenuHelper.isLoggedIn(requireContext())
             val setting = requireContext().prefs().getString(C.UI_FOLLOW_BUTTON, "0")?.toIntOrNull() ?: 0
             val navController = findNavController()
             val appBarConfiguration = AppBarConfiguration(setOf(R.id.rootGamesFragment, R.id.rootTopFragment, R.id.followPagerFragment, R.id.followMediaFragment, R.id.savedPagerFragment, R.id.savedMediaFragment))
@@ -170,12 +170,7 @@ class GameMediaFragment : BaseNetworkFragment(), Scrollable, FragmentHost, Integ
                     }
                     R.id.login -> {
                         if (isLoggedIn) {
-                            activity.getAlertDialogBuilder().apply {
-                                setTitle(getString(R.string.logout_title))
-                                requireContext().tokenPrefs().getString(C.USERNAME, null)?.let { setMessage(getString(R.string.logout_msg, it)) }
-                                setNegativeButton(getString(R.string.no), null)
-                                setPositiveButton(getString(R.string.yes)) { _, _ -> activity.logoutResultLauncher?.launch(Intent(activity, LoginActivity::class.java)) }
-                            }.show()
+                            LoginMenuHelper.showLogoutDialog(activity)
                         } else {
                             activity.loginResultLauncher?.launch(Intent(activity, LoginActivity::class.java))
                         }
