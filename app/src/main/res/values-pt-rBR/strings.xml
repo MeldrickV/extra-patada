@@ -120,6 +120,9 @@
     <string name="ascending">Crescente</string>
     <string name="logout_title">Sair?</string>
     <string name="logout_msg">Entrou como %s</string>
+    <string name="logout_twitch">Sair do Twitch</string>
+    <string name="logout_kick">Sair do Kick</string>
+    <string name="kick_commands_unsupported">Kick: comandos de chat não são suportados</string>
     <string name="language">Idioma</string>
     <string name="never">Nunca</string>
     <string name="blue">Azul</string>

@@ -120,6 +120,9 @@
     <string name="ascending">Aufsteigend</string>
     <string name="logout_title">Abmelden?</string>
     <string name="logout_msg">Eingeloggt als %s</string>
+    <string name="logout_twitch">Von Twitch abmelden</string>
+    <string name="logout_kick">Von Kick abmelden</string>
+    <string name="kick_commands_unsupported">Kick: Chatbefehle werden nicht unterstützt</string>
     <string name="language">Sprache</string>
     <string name="never">Nie</string>
     <string name="blue">Blau</string>

@@ -120,6 +120,9 @@
     <string name="ascending">遞減</string>
     <string name="logout_title">登出？</string>
     <string name="logout_msg">登入為 %s</string>
+    <string name="logout_twitch">登出 Twitch</string>
+    <string name="logout_kick">登出 Kick</string>
+    <string name="kick_commands_unsupported">Kick：不支援聊天指令</string>
     <string name="language">語言</string>
     <string name="never">永不</string>
     <string name="blue">藍色</string>

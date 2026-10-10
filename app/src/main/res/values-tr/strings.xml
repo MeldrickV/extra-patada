@@ -121,6 +121,9 @@
     <string name="ascending">Artan</string>
     <string name="logout_title">Çıkış yapılsın mı?</string>
     <string name="logout_msg">%s olarak giriş yapıldı</string>
+    <string name="logout_twitch">Twitch\'ten çıkış yap</string>
+    <string name="logout_kick">Kick\'ten çıkış yap</string>
+    <string name="kick_commands_unsupported">Kick: sohbet komutları desteklenmiyor</string>
     <string name="language">Dil</string>
     <string name="never">Asla</string>
     <string name="blue">Mavi</string>
