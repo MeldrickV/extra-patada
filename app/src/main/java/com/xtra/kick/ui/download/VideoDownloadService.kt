@@ -957,10 +957,12 @@ class VideoDownloadService : LifecycleService() {
     private suspend fun startChatJob(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, path: String) = withContext(Dispatchers.IO) {
         if (offlineVideo.downloadChat && downloadProgress.chatProgress < downloadProgress.maxChatProgress) {
             val videoId = offlineVideo.videoId
+            val sourceStartPosition = offlineVideo.sourceStartPosition ?: return@withContext
+            val duration = offlineVideo.duration ?: return@withContext
             if (videoId != null) {
                 val isShared = path.toUri().scheme == ContentResolver.SCHEME_CONTENT
-                val startTimeSeconds = (offlineVideo.sourceStartPosition!! / 1000).toInt()
-                val durationSeconds = (offlineVideo.duration!! / 1000).toInt()
+                val startTimeSeconds = (sourceStartPosition / 1000).toInt()
+                val durationSeconds = (duration / 1000).toInt()
                 val endTimeSeconds = startTimeSeconds + durationSeconds
                 val resumed = !offlineVideo.chatUrl.isNullOrBlank() && downloadProgress.chatBytes > 0
                 val fileUri = if (resumed) {

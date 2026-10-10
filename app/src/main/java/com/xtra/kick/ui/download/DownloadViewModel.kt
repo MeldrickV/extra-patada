@@ -11,12 +11,14 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoQuality
+import com.xtra.kick.repository.KickDownloadResolver
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import com.xtra.kick.util.TwitchApiHelper
+import com.xtra.kick.util.m3u8.MasterPlaylist.parseMasterVariants
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +52,8 @@ class DownloadViewModel(
     var selectedQuality: String? = null
 
     private val defaultQualityNames = listOf("source", "1080p60", "1080p30", "720p60", "720p30", "480p30", "360p30", "160p30", "audio_only")
+
+    private val kickDownloads = KickDownloadResolver(kickRepository)
 
     @SuppressLint("NewApi")
     private suspend fun fetchPlaylistText(url: String, networkLibrary: String?): String? = withContext(Dispatchers.IO) {
@@ -102,20 +106,6 @@ class DownloadViewModel(
         }
     }
 
-    private fun parseMasterVariants(playlist: String): List<VideoQuality> {
-        val stableVariantIds = Regex("STABLE-VARIANT-ID=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-        val resolutions = Regex("RESOLUTION=(\\d+x\\d+)").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-        val frameRates = Regex("FRAME-RATE=([\\d.]+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toFloatOrNull() }.toMutableList()
-        val bitrates = Regex("BANDWIDTH=(\\d+)\\b").findAll(playlist).mapNotNull { it.groups[1]?.value?.toIntOrNull() }.toMutableList()
-        val codecs = Regex("CODECS=\"(.+?)\"").findAll(playlist).mapNotNull { it.groups[1]?.value }.toMutableList()
-        val urls = Regex("https://.*\\.m3u8").findAll(playlist).map(MatchResult::value).toMutableList()
-        return stableVariantIds.mapIndexedNotNull { index, variantId ->
-            urls.getOrNull(index)?.let { url ->
-                VideoQuality(variantId, resolutions.getOrNull(index)?.substringAfter('x')?.toIntOrNull(), frameRates.getOrNull(index), bitrates.getOrNull(index), codecs.getOrNull(index), url)
-            }
-        }
-    }
-
     private fun sortedQualities(list: List<VideoQuality>): List<VideoQuality> {
         return list
             .sortedByDescending { it.bitrate }
@@ -141,7 +131,7 @@ class DownloadViewModel(
                 viewModelScope.launch {
                     val default = defaultQualityNames.map { VideoQuality(it, url = "") }
                     try {
-                        val url = kickRepository.getChannel(channelLogin.orEmpty())?.playbackUrl
+                        val url = kickDownloads.resolveStreamUrl(channelLogin.orEmpty())
                         val master = url?.let { fetchPlaylistText(it, networkLibrary) }
                         val parsed = master?.let { parseMasterVariants(it) }
                         _qualities.value = if (!parsed.isNullOrEmpty()) {
@@ -234,7 +224,7 @@ class DownloadViewModel(
             if (kickChannelId?.startsWith("user_") == true) {
                 viewModelScope.launch {
                     try {
-                        val source = videoId?.let { kickRepository.getVideo(it)?.source }
+                        val source = kickDownloads.resolveVideo(videoId, kickChannelLogin)?.source
                         if (!source.isNullOrBlank()) {
                             val master = fetchPlaylistText(source, networkLibrary)
                             val parsed = master?.let { parseMasterVariants(it) }
@@ -471,7 +461,7 @@ class DownloadViewModel(
             if (kickChannelId?.startsWith("user_") == true) {
                 viewModelScope.launch {
                     try {
-                        val url = clipId?.let { kickRepository.getClip(it)?.clipUrl }
+                        val url = kickDownloads.resolveClip(clipId)?.url
                         if (!url.isNullOrBlank()) {
                             val master = fetchPlaylistText(url, networkLibrary)
                             val parsed = master?.let { parseMasterVariants(it) }
