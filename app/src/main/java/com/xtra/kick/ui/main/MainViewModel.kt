@@ -31,9 +31,12 @@ import com.xtra.kick.model.ui.Tag
 import com.xtra.kick.model.ui.User
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.model.ui.VideoSwap
+import com.xtra.kick.model.kick.byLivestreamId
+import com.xtra.kick.model.kick.toClipResolved
 import com.xtra.kick.repository.AuthRepository
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
+import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.repository.PlayerRepository
@@ -79,6 +82,7 @@ class MainViewModel(
     private val cronetExecutor: Lazy<ExecutorService>,
     private val okHttpClient: Lazy<OkHttpClient>,
     private val json: Json,
+    private val kickRepository: KickRepository,
 ) : ViewModel() {
 
     val integrity = MutableSharedFlow<String?>()
@@ -208,6 +212,10 @@ class MainViewModel(
 
     fun loadClip(clipId: String?, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, enableIntegrity: Boolean) {
         if (clip.value == null) {
+            if (!clipId.isNullOrBlank() && clipId.startsWith("clip_")) {
+                viewModelScope.launch { clip.value = loadKickClip(clipId) }
+                return
+            }
             viewModelScope.launch {
                 clip.value = try {
                     val response = graphQLRepository.loadQueryClip(networkLibrary, gqlHeaders, clipId!!)
@@ -305,6 +313,27 @@ class MainViewModel(
                     }
                 }
             }
+        }
+    }
+
+    private suspend fun loadKickClip(clipId: String): Clip? {
+        return try {
+            val clip = kickRepository.getClip(clipId) ?: return null
+            val login = clip.channel?.slug
+            val videosByLivestreamId = login
+                ?.let { runCatching { kickRepository.getChannelVideos(it) }.getOrNull() }
+                .orEmpty()
+                .byLivestreamId()
+            val channel = runCatching { login?.let { kickRepository.getChannel(it) } }.getOrNull()
+            clip.toClipResolved(
+                channelId = channel?.let { "user_${it.id}" },
+                channelLogin = login,
+                channelName = channel?.user?.username,
+                channelImageURL = channel?.user?.resolvedProfilePicture,
+                videosByLivestreamId = videosByLivestreamId,
+            )
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -1268,7 +1297,7 @@ class MainViewModel(
             initializer {
                 val application = (this[APPLICATION_KEY] as XtraApp)
                 val xtraModule = application.xtraModule
-                MainViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.offlineVideosRepository, xtraModule.localChannelFollowsRepository, xtraModule.authRepository, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.json)
+                MainViewModel(application.applicationContext, xtraModule.graphQLRepository, xtraModule.helixRepository, xtraModule.playerRepository, xtraModule.offlineVideosRepository, xtraModule.localChannelFollowsRepository, xtraModule.authRepository, xtraModule.httpEngine, xtraModule.cronetEngine, xtraModule.cronetExecutor, xtraModule.okHttpClient, xtraModule.json, xtraModule.kickRepository)
             }
         }
     }
