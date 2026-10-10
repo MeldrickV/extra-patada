@@ -120,6 +120,9 @@
     <string name="ascending">Ascendant</string>
     <string name="logout_title">Se déconnecter ?</string>
     <string name="logout_msg">Connecté.e en tant que %s</string>
+    <string name="logout_twitch">Se déconnecter de Twitch</string>
+    <string name="logout_kick">Se déconnecter de Kick</string>
+    <string name="kick_commands_unsupported">Kick : les commandes de chat ne sont pas prises en charge</string>
     <string name="language">Langue</string>
     <string name="never">Jamais</string>
     <string name="blue">Bleu</string>

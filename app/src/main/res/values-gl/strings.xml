@@ -120,6 +120,9 @@
     <string name="ascending">Ascendente</string>
     <string name="logout_title">Pechar sesión?</string>
     <string name="logout_msg">Sesión iniciada como %s</string>
+    <string name="logout_twitch">Pechar sesión de Twitch</string>
+    <string name="logout_kick">Pechar sesión de Kick</string>
+    <string name="kick_commands_unsupported">Kick: os comandos do chat non son compatibles</string>
     <string name="language">Idioma</string>
     <string name="never">Nunca</string>
     <string name="blue">Azul</string>

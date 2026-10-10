@@ -23,6 +23,7 @@ import com.xtra.kick.ui.following.channels.FollowedChannelsFragment
 import com.xtra.kick.ui.following.games.FollowedGamesFragment
 import com.xtra.kick.ui.following.streams.FollowedStreamsFragment
 import com.xtra.kick.ui.following.videos.FollowedVideosFragment
+import com.xtra.kick.ui.common.LoginMenuHelper
 import com.xtra.kick.ui.login.LoginActivity
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.ui.search.SearchPagerFragmentDirections
@@ -60,8 +61,7 @@ class FollowMediaFragment : Fragment(), Scrollable, FragmentHost {
             val activity = requireActivity() as MainActivity
             val navController = findNavController()
             val appBarConfiguration = AppBarConfiguration(setOf(R.id.rootGamesFragment, R.id.rootTopFragment, R.id.followPagerFragment, R.id.followMediaFragment, R.id.savedPagerFragment, R.id.savedMediaFragment))
-            val isLoggedIn = !TwitchApiHelper.getGQLHeaders(requireContext(), true)[C.HEADER_TOKEN].isNullOrBlank() ||
-                    !TwitchApiHelper.getHelixHeaders(requireContext())[C.HEADER_TOKEN].isNullOrBlank()
+            val isLoggedIn = LoginMenuHelper.isLoggedIn(requireContext())
             toolbar.setupWithNavController(navController, appBarConfiguration)
             toolbar.menu.findItem(R.id.login).title = if (isLoggedIn) getString(R.string.log_out) else getString(R.string.log_in)
             toolbar.setOnMenuItemClickListener { menuItem ->
@@ -76,12 +76,7 @@ class FollowMediaFragment : Fragment(), Scrollable, FragmentHost {
                     }
                     R.id.login -> {
                         if (isLoggedIn) {
-                            activity.getAlertDialogBuilder().apply {
-                                setTitle(getString(R.string.logout_title))
-                                requireContext().tokenPrefs().getString(C.USERNAME, null)?.let { setMessage(getString(R.string.logout_msg, it)) }
-                                setNegativeButton(getString(R.string.no), null)
-                                setPositiveButton(getString(R.string.yes)) { _, _ -> activity.logoutResultLauncher?.launch(Intent(activity, LoginActivity::class.java)) }
-                            }.show()
+                            LoginMenuHelper.showLogoutDialog(activity)
                         } else {
                             activity.loginResultLauncher?.launch(Intent(activity, LoginActivity::class.java))
                         }

@@ -118,6 +118,9 @@
     <string name="ascending">Naik</string>
     <string name="logout_title">Keluar?</string>
     <string name="logout_msg">Masuk sebagai %s</string>
+    <string name="logout_twitch">Keluar dari Twitch</string>
+    <string name="logout_kick">Keluar dari Kick</string>
+    <string name="kick_commands_unsupported">Kick: perintah chat tidak didukung</string>
     <string name="language">Bahasa</string>
     <string name="never">Tidak pernah</string>
     <string name="blue">Biru</string>

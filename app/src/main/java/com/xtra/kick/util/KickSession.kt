@@ -14,6 +14,16 @@ class KickSession(
 
     fun followFailedMessage(): String = context.getString(R.string.kick_follow_failed)
 
+    fun isLoggedIn(): Boolean = isLoggedIn(context)
+
+    fun username(): String? = username(context)
+
+    fun userId(): String? = userId(context)
+
+    fun clear() {
+        clear(context)
+    }
+
     suspend fun accessToken(): String? {
         val tokenPrefs = context.tokenPrefs()
         val accessToken = tokenPrefs.getString(C.KICK_ACCESS_TOKEN, null)
@@ -41,6 +51,34 @@ class KickSession(
         } catch (e: Exception) {
             Log.w("KickSession", "Token refresh failed: ${e.message}")
             null
+        }
+    }
+
+    companion object {
+        fun isLoggedIn(context: Context): Boolean {
+            val prefs = context.tokenPrefs()
+            return !prefs.getString(C.KICK_USERNAME, null).isNullOrBlank() &&
+                (!prefs.getString(C.KICK_ACCESS_TOKEN, null).isNullOrBlank() ||
+                    !prefs.getString(C.KICK_REFRESH_TOKEN, null).isNullOrBlank())
+        }
+
+        fun username(context: Context): String? {
+            return context.tokenPrefs().getString(C.KICK_USERNAME, null)?.takeIf { it.isNotBlank() }
+        }
+
+        fun userId(context: Context): String? {
+            return context.tokenPrefs().getString(C.KICK_USER_ID, null)?.takeIf { it.isNotBlank() }
+        }
+
+        fun clear(context: Context) {
+            context.tokenPrefs().edit {
+                putString(C.KICK_ACCESS_TOKEN, null)
+                putString(C.KICK_REFRESH_TOKEN, null)
+                putLong(C.KICK_TOKEN_EXPIRES_AT, 0)
+                putLong(C.KICK_REFRESH_EXPIRES_AT, 0)
+                putString(C.KICK_USERNAME, null)
+                putString(C.KICK_USER_ID, null)
+            }
         }
     }
 }

@@ -125,6 +125,9 @@
     <string name="ascending">Ascendente</string>
     <string name="logout_title">¿Cerrar sesión?</string>
     <string name="logout_msg">Sesión iniciada como %s</string>
+    <string name="logout_twitch">Cerrar sesión de Twitch</string>
+    <string name="logout_kick">Cerrar sesión de Kick</string>
+    <string name="kick_commands_unsupported">Kick: los comandos de chat no son compatibles</string>
     <string name="language">Idioma</string>
     <string name="never">Nunca</string>
     <string name="blue">Azul</string>

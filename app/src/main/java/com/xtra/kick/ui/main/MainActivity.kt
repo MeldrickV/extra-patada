@@ -89,8 +89,11 @@ import com.xtra.kick.ui.saved.downloads.DownloadsFragment
 import com.xtra.kick.ui.team.TeamFragmentDirections
 import com.xtra.kick.ui.top.TopStreamsFragmentDirections
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
+import com.xtra.kick.ui.common.LoginMenuHelper
 import com.xtra.kick.util.applyTheme
+import com.xtra.kick.util.TwitchSession
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
 import com.xtra.kick.util.tokenPrefs
@@ -660,6 +663,16 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    fun logoutTwitch() {
+        TwitchSession.clear(this)
+        restartActivity()
+    }
+
+    fun logoutKick() {
+        KickSession.clear(this)
+        restartActivity()
+    }
+
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S &&
@@ -1114,8 +1127,7 @@ class MainActivity : AppCompatActivity() {
         }
         navController.setGraph(navController.navInflater.inflate(R.navigation.nav_graph).also {
             val startOnFollowed = prefs.getString(C.UI_START_ON_FOLLOWED, "1")?.toIntOrNull() ?: 1
-            val isLoggedIn = !TwitchApiHelper.getGQLHeaders(this, true)[C.HEADER_TOKEN].isNullOrBlank() ||
-                    !TwitchApiHelper.getHelixHeaders(this)[C.HEADER_TOKEN].isNullOrBlank()
+            val isLoggedIn = LoginMenuHelper.isLoggedIn(this)
             val defaultItem = tabList.find { it.split(':')[1] != "0" }?.split(':')[0] ?: "1"
             when {
                 (isLoggedIn && startOnFollowed < 2) || (!isLoggedIn && startOnFollowed == 0) || defaultItem == "2" -> {

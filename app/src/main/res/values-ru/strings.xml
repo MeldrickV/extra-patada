@@ -120,6 +120,9 @@
     <string name="ascending">По возрастанию</string>
     <string name="logout_title">Выйти?</string>
     <string name="logout_msg">Авторизован как %s</string>
+    <string name="logout_twitch">Выйти из Twitch</string>
+    <string name="logout_kick">Выйти из Kick</string>
+    <string name="kick_commands_unsupported">Kick: команды чата не поддерживаются</string>
     <string name="language">Язык</string>
     <string name="never">Никогда</string>
     <string name="blue">Синяя</string>

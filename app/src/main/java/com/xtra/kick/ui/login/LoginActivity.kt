@@ -68,16 +68,13 @@ class LoginActivity : AppCompatActivity() {
             }
             showClientSetupDialog()
         }
-        val hasTwitchToken = !tokenPrefs().getString(C.TOKEN, null).isNullOrBlank()
         tokenPrefs().edit {
             putString(C.KICK_ACCESS_TOKEN, null)
             putString(C.KICK_REFRESH_TOKEN, null)
             putLong(C.KICK_TOKEN_EXPIRES_AT, 0)
             putLong(C.KICK_REFRESH_EXPIRES_AT, 0)
-            if (!hasTwitchToken) {
-                putString(C.USERNAME, null)
-                putString(C.USER_ID, null)
-            }
+            putString(C.KICK_USERNAME, null)
+            putString(C.KICK_USER_ID, null)
         }
         setupWebView()
         checkClientConfigured()
@@ -233,10 +230,8 @@ class LoginActivity : AppCompatActivity() {
                     xtraModule.kickRepository.getCurrentUser(token.accessToken).data
                 }.getOrNull()
                 tokenPrefs().edit {
-                    putString(C.USERNAME, user?.slug?.takeIf { it.isNotBlank() } ?: user?.username)
-                    if (user?.id != null) {
-                        putString(C.USER_ID, "user_${user.id}")
-                    }
+                    putString(C.KICK_USERNAME, user?.slug?.takeIf { it.isNotBlank() } ?: user?.username)
+                    user?.id?.takeIf { it > 0 }?.let { putString(C.KICK_USER_ID, it.toString()) }
                 }
                 setResult(RESULT_OK)
                 finish()

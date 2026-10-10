@@ -43,6 +43,8 @@ object C {
     const val KICK_REFRESH_TOKEN = "kick_refresh_token"
     const val KICK_TOKEN_EXPIRES_AT = "kick_token_expires_at"
     const val KICK_REFRESH_EXPIRES_AT = "kick_refresh_expires_at"
+    const val KICK_USERNAME = "kick_username"
+    const val KICK_USER_ID = "kick_user_id"
     const val KICK_OAUTH_STATE = "kick_oauth_state"
     const val KICK_OAUTH_VERIFIER = "kick_oauth_verifier"
     const val DOWNLOAD_PLAYLIST_TO_FILE = "download_playlist_to_file"

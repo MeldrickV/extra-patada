@@ -1601,7 +1601,7 @@ class ChatViewModel(
         }
 
         override suspend fun onMinuteWatched() {
-            if (!streamId.isNullOrBlank()) {
+            if (!streamId.isNullOrBlank() && channelId?.startsWith(C.KICK_USER_PREFIX) != true) {
                 try {
                     playerRepository.sendMinuteWatched(networkLibrary, accountId, streamId, channelId, channelLogin)
                 } catch (e: Exception) {
@@ -2048,6 +2048,12 @@ class ChatViewModel(
 
     fun send(message: CharSequence, replyId: String?, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, accountId: String?, channelId: String?, channelLogin: String?, useApiCommands: Boolean, useApiChatMessages: Boolean, enableIntegrity: Boolean) {
         val channelIsKick = channelId?.startsWith(C.KICK_USER_PREFIX) == true
+        if (channelIsKick && replyId == null && message.startsWith("/")) {
+            viewModelScope.launch {
+                onMessage(ChatMessage(systemMsg = applicationContext.getString(R.string.kick_commands_unsupported)))
+            }
+            return
+        }
         if (useApiCommands && !channelIsKick) {
             viewModelScope.launch {
                 try {
