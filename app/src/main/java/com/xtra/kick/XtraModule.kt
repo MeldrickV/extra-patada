@@ -91,6 +91,10 @@ class XtraModule(application: Application) {
 
     val okHttpClient = lazy {
         OkHttpClient.Builder().apply {
+            connectTimeout(15, TimeUnit.SECONDS)
+            readTimeout(30, TimeUnit.SECONDS)
+            writeTimeout(15, TimeUnit.SECONDS)
+            retryOnConnectionFailure(true)
             if (BuildConfig.DEBUG) {
                 addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY })
             }

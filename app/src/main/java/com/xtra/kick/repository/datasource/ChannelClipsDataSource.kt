@@ -15,6 +15,8 @@ import kotlin.math.min
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class ChannelClipsDataSource(
     private val channelId: String?,
@@ -213,12 +215,15 @@ class ChannelClipsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Clip> {
-        val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
+        val (channel, videosByLivestreamId) = coroutineScope {
+            val channelDeferred = async { runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull() }
+            val videosDeferred = async {
+                runCatching { kickRepository.getChannelVideos(channelLogin!!) }.getOrNull().orEmpty().byLivestreamId()
+            }
+            channelDeferred.await() to videosDeferred.await()
+        }
         val channelName = channel?.user?.username
         val channelImageURL = channel?.user?.resolvedProfilePicture
-        val videosByLivestreamId = runCatching { kickRepository.getChannelVideos(channelLogin!!) }.getOrNull()
-            .orEmpty()
-            .byLivestreamId()
         val all = kickAllClips ?: run {
             val fetched = buildList {
                 var cursor: String? = null

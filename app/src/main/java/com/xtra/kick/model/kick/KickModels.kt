@@ -93,6 +93,7 @@ data class KickChannelResponse(
     val user: KickChannelUser? = null,
     val chatroom: KickChatroom? = null,
     val livestream: KickChannelLivestream? = null,
+    @SerialName("recent_categories") val recentCategories: List<KickCategoryEntry> = emptyList(),
 )
 
 @Serializable
@@ -119,8 +120,18 @@ data class KickChannelLivestream(
     @SerialName("is_live") val isLive: Boolean = false,
     @SerialName("start_time") val startTime: String? = null,
     val category: KickCategory? = null,
+    val categories: List<KickCategoryEntry> = emptyList(),
+    val thumbnail: KickVideoThumbnail? = null,
     @SerialName("viewer_count") val viewerCount: Int = 0,
     @SerialName("started_at") val startedAt: String? = null,
+)
+
+@Serializable
+data class KickCategoryEntry(
+    val id: Long = 0,
+    @SerialName("category_id") val categoryId: Long = 0,
+    val name: String? = null,
+    val slug: String? = null,
 )
 
 data class KickRealtimeConnectionInfo(

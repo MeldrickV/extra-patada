@@ -11,6 +11,9 @@ import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.util.C
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 
 class FollowedChannelsDataSource(
     private val sort: String,
@@ -30,6 +33,7 @@ class FollowedChannelsDataSource(
 ) : PagingSource<Int, User>() {
     private var api: String? = null
     private var offset: String? = null
+    private var kickCursor: String? = null
 
     override suspend fun load(params: LoadParams<Int>): LoadResult<Int, User> {
         return if (!offset.isNullOrBlank()) {
@@ -349,14 +353,37 @@ class FollowedChannelsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, User> {
-        val list = kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset).map {
-            it.toUser()
+        if (params.key == null) {
+            kickCursor = null
         }
+        val page = kickRepository.getFollowedChannelsPage(kickToken.orEmpty(), params.loadSize, kickCursor)
+        kickCursor = page.cursor
+        val list = page.channels.map { it.toUser() }.toMutableList()
+        backfillKickAvatars(list)
         return LoadResult.Page(
             data = list,
             prevKey = null,
-            nextKey = null
+            nextKey = if (!kickCursor.isNullOrBlank()) {
+                (params.key ?: 1) + 1
+            } else null
         )
+    }
+
+    private suspend fun backfillKickAvatars(list: MutableList<User>) {
+        val missing = list.filter { it.profileImageURL.isNullOrBlank() && !it.login.isNullOrBlank() }
+        if (missing.isEmpty()) return
+        val avatars = coroutineScope {
+            missing.chunked(6).flatMap { chunk ->
+                chunk.map { user ->
+                    async { user.login to runCatching { kickRepository.getChannel(user.login!!) }.getOrNull()?.user?.resolvedProfilePicture }
+                }.awaitAll()
+            }.toMap()
+        }
+        list.forEach { user ->
+            if (user.profileImageURL.isNullOrBlank()) {
+                avatars[user.login]?.takeIf { it.isNotBlank() }?.let { user.profileImageURL = it }
+            }
+        }
     }
 
     override fun getRefreshKey(state: PagingState<Int, User>): Int? {
