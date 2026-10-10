@@ -75,6 +75,7 @@ import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.isKeyboardShown
+import com.xtra.kick.util.parseKickTimestampMs
 import com.xtra.kick.util.prefs
 import com.xtra.kick.util.tokenPrefs
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -137,7 +138,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
     open fun getCurrentVolume(): Float? = null
     open fun getTotalDuration(): Long? = null
     open fun getVideoStartEpochMs(): Long? {
-        return playbackService?.createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } }
+        return parseKickTimestampMs(playbackService?.createdAt)
     }
     open fun playPause() {}
     open fun rewind() {}
