@@ -66,7 +66,6 @@ import androidx.media3.exoplayer.upstream.ParsingLoadable
 import com.xtra.kick.BuildConfig
 import com.xtra.kick.R
 import com.xtra.kick.XtraApp
-import com.xtra.kick.model.VideoPosition
 import com.xtra.kick.model.VideoQuality
 import com.xtra.kick.model.ui.CustomProxy
 import com.xtra.kick.model.ui.StreamProxy
@@ -91,7 +90,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -2568,27 +2566,11 @@ class ExoPlayerService : BasePlaybackService() {
             if (!player.currentTracks.isEmpty) {
                 if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                     when (type) {
-                        VIDEO -> {
-                            videoId?.let { id ->
-                                val position = player.currentPosition
-                                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                                    xtraModule.playerRepository.saveVideoPosition(VideoPosition(id, position))
-                                }
-                            }
-                        }
-                        OFFLINE_VIDEO -> {
-                            offlineVideoId?.let { id ->
-                                val position = player.currentPosition
-                                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                                    xtraModule.offlineVideosRepository.updatePosition(id, position)
-                                }
-                            }
-                        }
+                        VIDEO -> persistVideoPosition(videoId, player.currentPosition)
+                        OFFLINE_VIDEO -> persistOfflinePosition(offlineVideoId, player.currentPosition)
                     }
                 }
-                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                    xtraModule.playerRepository.deletePlaybackStates()
-                }
+                clearPlaybackStates()
             }
         }
     }
@@ -2602,25 +2584,11 @@ class ExoPlayerService : BasePlaybackService() {
                     lastSavedPosition = currentPosition
                     if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                         when (type) {
-                            VIDEO -> {
-                                videoId?.let { id ->
-                                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                                        xtraModule.playerRepository.saveVideoPosition(VideoPosition(id, currentPosition))
-                                    }
-                                }
-                            }
-                            OFFLINE_VIDEO -> {
-                                offlineVideoId?.let { id ->
-                                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                                        xtraModule.offlineVideosRepository.updatePosition(id, currentPosition)
-                                    }
-                                }
-                            }
+                            VIDEO -> persistVideoPosition(videoId, currentPosition)
+                            OFFLINE_VIDEO -> persistOfflinePosition(offlineVideoId, currentPosition)
                         }
                     }
-                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
-                        savePlaybackState(currentPosition, !player.playWhenReady)
-                    }
+                    persistPlaybackState(currentPosition, !player.playWhenReady)
                 }
             }
         }
