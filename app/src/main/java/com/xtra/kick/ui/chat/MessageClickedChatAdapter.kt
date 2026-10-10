@@ -77,9 +77,9 @@ class MessageClickedChatAdapter(
     savedLocalTwitchEmotes, savedLocalBadges, savedLocalCheerEmotes, savedLocalEmotes, loggedInUser, selectedMessage
 ) {
 
-    private val type = selectedMessage?.type
-    private val userId = selectedMessage?.userId
-    private val userLogin = selectedMessage?.userLogin
+    val type = selectedMessage?.type
+    val userId = selectedMessage?.userId
+    val userLogin = selectedMessage?.userLogin
 
     override val messages = if (type == ChatMessage.USER_MESSAGE) {
         if (!userId.isNullOrBlank() || !userLogin.isNullOrBlank()) {

@@ -76,7 +76,7 @@ class ReplyClickedChatAdapter(
     savedLocalTwitchEmotes, savedLocalBadges, savedLocalCheerEmotes, savedLocalEmotes, loggedInUser, selectedMessage
 ) {
 
-    private val threadParentId = selectedMessage?.reply?.threadParentId
+    val threadParentId = selectedMessage?.reply?.threadParentId
 
     override val messages = synchronized(source) {
         source.filter {
