@@ -3,7 +3,8 @@ package com.xtra.kick.repository.datasource
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.graphql.type.ClipsPeriod
-import com.xtra.kick.model.kick.toClip
+import com.xtra.kick.model.kick.byLivestreamId
+import com.xtra.kick.model.kick.toClipResolved
 import com.xtra.kick.model.ui.Clip
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
@@ -217,8 +218,7 @@ class ChannelClipsDataSource(
         val channelImageURL = channel?.user?.resolvedProfilePicture
         val videosByLivestreamId = runCatching { kickRepository.getChannelVideos(channelLogin!!) }.getOrNull()
             .orEmpty()
-            .mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }
-            .toMap()
+            .byLivestreamId()
         val all = kickAllClips ?: run {
             val fetched = buildList {
                 var cursor: String? = null
@@ -232,14 +232,12 @@ class ChannelClipsDataSource(
             val seen = HashSet<String>()
             val unique = fetched.filter { seen.add(it.id) }
             val mapped = unique.map { clip ->
-                val video = clip.livestreamId?.let { videosByLivestreamId[it] }
-                clip.toClip(
+                clip.toClipResolved(
                     channelId = channelId,
                     channelLogin = channelLogin,
                     channelName = channelName,
                     channelImageURL = channelImageURL,
-                    videoId = video?.video?.uuid?.takeIf { it.isNotBlank() },
-                    videoCreatedAt = video?.startTime,
+                    videosByLivestreamId = videosByLivestreamId,
                 )
             }
             val minCreated = kickPeriodDays?.let { Clock.System.now() - it.days }

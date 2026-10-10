@@ -189,4 +189,57 @@ class KickMappersTest {
         assertNull(ui.channelName)
         assertNull(ui.channelImageURL)
     }
+
+    @Test
+    fun `videos index by livestream id skipping invalid`() {
+        val videos = listOf(
+            KickChannelVideo(id = 131645855, video = KickVideoReference(uuid = "uuid-1")),
+            KickChannelVideo(id = 0, video = KickVideoReference(uuid = "uuid-0")),
+            KickChannelVideo(id = -5, video = KickVideoReference(uuid = "uuid-neg")),
+        )
+
+        val indexed = videos.byLivestreamId()
+
+        assertEquals(1, indexed.size)
+        assertEquals("uuid-1", indexed["131645855"]?.video?.uuid)
+    }
+
+    @Test
+    fun `clip resolves VOD uuid offset and start from livestream`() {
+        val clip = KickClip(
+            id = "clip_01",
+            livestreamId = "131645855",
+            vodStartsAt = 488,
+            duration = 17,
+        )
+        val videos = listOf(
+            KickChannelVideo(
+                id = 131645855,
+                startTime = "2026-10-10 20:08:10",
+                video = KickVideoReference(uuid = "d6768682-411f-4390-839f-3c63b5940cf2"),
+            ),
+        ).byLivestreamId()
+
+        val ui = clip.toClipResolved(
+            channelId = "user_668",
+            channelLogin = "xqc",
+            videosByLivestreamId = videos,
+        )
+
+        assertEquals("d6768682-411f-4390-839f-3c63b5940cf2", ui.videoId)
+        assertEquals(488, ui.videoOffsetSeconds)
+        assertEquals("2026-10-10 20:08:10", ui.videoCreatedAt)
+        assertEquals("user_668", ui.channelId)
+    }
+
+    @Test
+    fun `clip without livestream match leaves VOD empty`() {
+        val clip = KickClip(id = "clip_02", livestreamId = "999", vodStartsAt = 10)
+
+        val ui = clip.toClipResolved(videosByLivestreamId = emptyMap())
+
+        assertNull(ui.videoId)
+        assertEquals(10, ui.videoOffsetSeconds)
+        assertNull(ui.videoCreatedAt)
+    }
 }

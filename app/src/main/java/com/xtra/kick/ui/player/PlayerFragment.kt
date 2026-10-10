@@ -975,6 +975,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                                         channelLogin = playbackService?.channelLogin,
                                         channelName = playbackService?.channelName,
                                         channelImageURL = playbackService?.channelImage,
+                                        thumbnailURL = playbackService?.thumbnail,
                                         createdAt = playbackService?.videoCreatedAt,
                                         animatedPreviewURL = playbackService?.videoAnimatedPreviewURL,
                                     ),

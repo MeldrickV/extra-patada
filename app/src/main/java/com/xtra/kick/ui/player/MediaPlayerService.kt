@@ -46,7 +46,9 @@ import com.xtra.kick.model.ui.StreamProxy
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.model.kick.byLivestreamId
 import com.xtra.kick.util.KickPlayback
+import com.xtra.kick.util.parseKickTimestampMs
 import com.xtra.kick.util.MediaButtonReceiver
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
@@ -73,7 +75,6 @@ import java.util.Timer
 import kotlin.concurrent.schedule
 import kotlin.concurrent.scheduleAtFixedRate
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Instant
 
 class MediaPlayerService : BasePlaybackService() {
 
@@ -942,11 +943,11 @@ class MediaPlayerService : BasePlaybackService() {
                     if (url != null) {
                         playlistUrl = url
                     }
-                    if (createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } } == null) {
-                        // Kick list endpoints use a non-ISO "yyyy-MM-dd HH:mm:ss" format which is
-                        // useless as a replay anchor: prefer the ISO start_time from getVideo.
+                    if (parseKickTimestampMs(createdAt) == null) {
+                        // Kick list endpoints use a non-ISO "yyyy-MM-dd HH:mm:ss" format:
+                        // prefer the start_time from getVideo as the replay anchor.
                         createdAt = listOfNotNull(video?.livestream?.startTime, video?.createdAt)
-                            .firstOrNull { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } != null }
+                            .firstOrNull { parseKickTimestampMs(it) != null }
                     }
                 } else {
                     val result = try {
@@ -1351,6 +1352,14 @@ class MediaPlayerService : BasePlaybackService() {
             if (qualities.isNullOrEmpty()) {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val clip = runCatching { xtraModule.kickRepository.getClip(clipId) }.getOrNull()
+                    if (videoId.isNullOrBlank() || videoOffsetSeconds == null || videoOffsetSeconds == -1) {
+                        val login = clip?.channel?.slug ?: channelLogin
+                        val videos = runCatching { login?.let { xtraModule.kickRepository.getChannelVideos(it) } }.getOrNull().orEmpty()
+                        val video = clip?.livestreamId?.let { videos.byLivestreamId()[it] }
+                        video?.video?.uuid?.takeIf { it.isNotBlank() }?.let { videoId = it }
+                        clip?.vodStartsAt?.takeIf { it > 0 }?.let { videoOffsetSeconds = it }
+                        video?.startTime?.let { videoCreatedAt = it }
+                    }
                     val url = clip?.clipUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: clip?.videoUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                     if (url != null) {

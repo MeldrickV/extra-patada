@@ -107,3 +107,25 @@ fun KickClip.toClip(
         platform = C.KICK,
     )
 }
+
+fun List<KickChannelVideo>.byLivestreamId(): Map<String, KickChannelVideo> {
+    return mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }.toMap()
+}
+
+fun KickClip.toClipResolved(
+    channelId: String? = null,
+    channelLogin: String? = null,
+    channelName: String? = null,
+    channelImageURL: String? = null,
+    videosByLivestreamId: Map<String, KickChannelVideo> = emptyMap(),
+): Clip {
+    val video = livestreamId?.let { videosByLivestreamId[it] }
+    return toClip(
+        channelId = channelId,
+        channelLogin = channelLogin,
+        channelName = channelName,
+        channelImageURL = channelImageURL,
+        videoId = video?.video?.uuid?.takeIf { it.isNotBlank() },
+        videoCreatedAt = video?.startTime,
+    )
+}
