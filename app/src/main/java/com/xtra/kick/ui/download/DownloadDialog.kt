@@ -324,6 +324,10 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
         return builder.create()
     }
 
+    private fun isKickDownload(): Boolean {
+        return requireArguments().getString(KEY_CHANNEL_ID)?.startsWith("user_") == true
+    }
+
     private fun init(qualities: List<VideoQuality>, totalDuration: Long = 0, currentPosition: Long = 0) {
         val type = requireArguments().getString(KEY_TYPE)
         binding.layout.children.forEach {
@@ -342,6 +346,12 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
             }
         }
         with(binding) {
+            if (isKickDownload()) {
+                downloadChat.isChecked = false
+                downloadChat.isEnabled = false
+                downloadChatEmotes.isChecked = false
+                downloadChatEmotes.isEnabled = false
+            }
             val hideCodecs = qualities.all {
                 val codec = it.codecs?.substringBefore('.')
                 codec == "avc1" || codec == "mp4a" || codec.isNullOrBlank()
@@ -510,8 +520,8 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                     else -> null
                 }
                 if (quality?.name != null && quality.url != null && !path.isNullOrBlank()) {
-                    val downloadChat = downloadChat.isChecked
-                    val downloadChatEmotes = downloadChatEmotes.isChecked
+                    val downloadChat = downloadChat.isChecked && !isKickDownload()
+                    val downloadChatEmotes = downloadChatEmotes.isChecked && !isKickDownload()
                     when (type) {
                         STREAM -> {
                             (requireActivity() as? MainActivity)?.downloadStream(
