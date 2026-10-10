@@ -3,12 +3,17 @@ package com.xtra.kick.ui.player
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
 import com.xtra.kick.XtraModule
 import com.xtra.kick.model.PlaybackState
+import com.xtra.kick.model.VideoPosition
 import com.xtra.kick.model.VideoQuality
 import com.xtra.kick.util.C
 import com.xtra.kick.util.prefs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -149,6 +154,34 @@ abstract class BasePlaybackService : LifecycleService() {
             skipAccessToken = skipAccessToken,
         )
         xtraModule.playerRepository.savePlaybackStates(listOf(item))
+    }
+
+    protected fun persistVideoPosition(videoId: String?, position: Long) {
+        videoId?.let { id ->
+            lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                xtraModule.playerRepository.saveVideoPosition(VideoPosition(id, position))
+            }
+        }
+    }
+
+    protected fun persistOfflinePosition(offlineVideoId: Int?, position: Long) {
+        offlineVideoId?.let { id ->
+            lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                xtraModule.offlineVideosRepository.updatePosition(id, position)
+            }
+        }
+    }
+
+    protected fun clearPlaybackStates() {
+        lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+            xtraModule.playerRepository.deletePlaybackStates()
+        }
+    }
+
+    protected fun persistPlaybackState(position: Long, paused: Boolean) {
+        lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+            savePlaybackState(position, paused)
+        }
     }
 
     protected fun setDefaultQuality() {
