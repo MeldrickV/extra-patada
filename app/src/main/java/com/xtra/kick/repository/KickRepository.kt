@@ -212,6 +212,10 @@ class KickRepository(
     }
 
     suspend fun getFollowedChannels(token: String, limit: Int, cursor: String?): List<KickFollowedChannel> = withContext(Dispatchers.IO) {
+        getFollowedChannelsPage(token, limit, cursor).channels
+    }
+
+    suspend fun getFollowedChannelsPage(token: String, limit: Int, cursor: String?): KickFollowedPage = withContext(Dispatchers.IO) {
         val url = KickApiHelper.followedChannelsUrl().toHttpUrl().newBuilder()
             .addQueryParameter("page_size", limit.toString())
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
@@ -231,7 +235,10 @@ class KickRepository(
                     array.optJSONObject(i)?.let { item -> list.add(parseFollowedChannel(item)) }
                 }
             }
-            list
+            val nextCursor = root.optString("cursor").takeIf { value -> value.isNotBlank() }
+                ?: root.optString("next_cursor").takeIf { value -> value.isNotBlank() }
+                ?: root.optJSONObject("pagination")?.optString("cursor")?.takeIf { value -> value.isNotBlank() }
+            KickFollowedPage(channels = list, cursor = nextCursor)
         }
     }
 
@@ -468,11 +475,17 @@ class KickRepository(
     private fun parseFollowedChannel(obj: JSONObject): KickFollowedChannel {
         val channel = obj.optJSONObject("channel") ?: obj
         val user = obj.optJSONObject("user") ?: channel.optJSONObject("user")
+        val resolved = user ?: channel
         return KickFollowedChannel(
             id = channel.optLong("id", 0),
             username = user?.optString("username")?.takeIf { it.isNotBlank() } ?: channel.optString("username").takeIf { it.isNotBlank() },
-            slug = (user ?: channel).optString("slug").takeIf { it.isNotBlank() },
-            profilePicture = (user ?: channel).optString("profile_picture").takeIf { it.isNotBlank() },
+            slug = resolved.optString("slug").takeIf { it.isNotBlank() },
+            profilePicture = listOfNotNull(
+                user?.optString("profile_picture")?.takeIf { it.isNotBlank() },
+                user?.optString("profile_pic")?.takeIf { it.isNotBlank() },
+                channel.optString("profile_picture").takeIf { it.isNotBlank() },
+                channel.optString("profile_pic").takeIf { it.isNotBlank() },
+            ).firstOrNull(),
         )
     }
 
@@ -504,4 +517,9 @@ class KickRepository(
 data class KickMessagesPage(
     val messages: List<JSONObject>,
     val cursor: Long? = null,
+)
+
+data class KickFollowedPage(
+    val channels: List<KickFollowedChannel>,
+    val cursor: String? = null,
 )

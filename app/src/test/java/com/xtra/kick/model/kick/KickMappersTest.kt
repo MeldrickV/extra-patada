@@ -242,4 +242,64 @@ class KickMappersTest {
         assertEquals(10, ui.videoOffsetSeconds)
         assertNull(ui.videoCreatedAt)
     }
+
+    @Test
+    fun `game prefers live metadata category`() {
+        val live = KickLivestream(
+            metadata = KickLivestreamMetadata(
+                title = "Live",
+                category = KickCategory(id = "15", name = "Just Chatting", slug = "just-chatting"),
+            ),
+        )
+        val channel = KickChannelResponse(
+            livestream = KickChannelLivestream(
+                category = KickCategory(id = "99", name = "Other", slug = "other"),
+                categories = listOf(KickCategoryEntry(id = 15, categoryId = 2, name = "List", slug = "list")),
+            ),
+            recentCategories = listOf(KickCategoryEntry(id = 7, name = "Recent", slug = "recent")),
+        )
+
+        val game = resolveKickGame(live, channel)
+
+        assertEquals("15", game.id)
+        assertEquals("just-chatting", game.slug)
+        assertEquals("Just Chatting", game.name)
+    }
+
+    @Test
+    fun `game falls back to livestream categories then recent`() {
+        val channel = KickChannelResponse(
+            livestream = KickChannelLivestream(
+                categories = listOf(KickCategoryEntry(id = 15, categoryId = 2, name = "Just Chatting", slug = "just-chatting")),
+            ),
+        )
+
+        val fromList = resolveKickGame(null, channel)
+        assertEquals("2", fromList.id)
+        assertEquals("just-chatting", fromList.slug)
+
+        val recentOnly = KickChannelResponse(
+            recentCategories = listOf(KickCategoryEntry(id = 7, name = "Recent", slug = "recent")),
+        )
+        val fromRecent = resolveKickGame(null, recentOnly)
+        assertEquals("7", fromRecent.id)
+        assertEquals("Recent", fromRecent.name)
+
+        val empty = resolveKickGame(null, KickChannelResponse())
+        assertNull(empty.id)
+        assertNull(empty.slug)
+        assertNull(empty.name)
+    }
+
+    @Test
+    fun `thumbnail prefers live then livestream`() {
+        val live = KickLivestream(thumbnailUrl = "https://live.thumb/x.jpg")
+        val channel = KickChannelResponse(
+            livestream = KickChannelLivestream(thumbnail = KickVideoThumbnail(src = "https://v2.thumb/y.jpg")),
+        )
+
+        assertEquals("https://live.thumb/x.jpg", resolveKickThumbnail(live, channel))
+        assertEquals("https://v2.thumb/y.jpg", resolveKickThumbnail(null, channel))
+        assertNull(resolveKickThumbnail(null, KickChannelResponse()))
+    }
 }

@@ -112,6 +112,36 @@ fun List<KickChannelVideo>.byLivestreamId(): Map<String, KickChannelVideo> {
     return mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }.toMap()
 }
 
+data class KickGameRef(
+    val id: String? = null,
+    val slug: String? = null,
+    val name: String? = null,
+)
+
+fun resolveKickGame(kickLive: KickLivestream?, channel: KickChannelResponse?): KickGameRef {
+    kickLive?.metadata?.category?.let { category ->
+        if (category.id != null || category.slug != null || category.name != null) {
+            return KickGameRef(id = category.id, slug = category.slug, name = category.name)
+        }
+    }
+    channel?.livestream?.category?.let { category ->
+        if (category.id != null || category.slug != null || category.name != null) {
+            return KickGameRef(id = category.id, slug = category.slug, name = category.name)
+        }
+    }
+    val entry = channel?.livestream?.categories?.firstOrNull { !it.name.isNullOrBlank() || !it.slug.isNullOrBlank() }
+        ?: channel?.recentCategories?.firstOrNull { !it.name.isNullOrBlank() || !it.slug.isNullOrBlank() }
+    entry?.let {
+        val id = it.categoryId.takeIf { id -> id > 0 }?.toString() ?: it.id.takeIf { id -> id > 0 }?.toString()
+        return KickGameRef(id = id, slug = it.slug, name = it.name)
+    }
+    return KickGameRef()
+}
+
+fun resolveKickThumbnail(kickLive: KickLivestream?, channel: KickChannelResponse?): String? {
+    return kickLive?.thumbnailUrl ?: channel?.livestream?.thumbnail?.src
+}
+
 fun KickClip.toClipResolved(
     channelId: String? = null,
     channelLogin: String? = null,

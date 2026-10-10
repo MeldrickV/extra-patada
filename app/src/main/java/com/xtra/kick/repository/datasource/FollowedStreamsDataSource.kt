@@ -4,6 +4,8 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.model.kick.KickFollowedChannel
 import com.xtra.kick.model.kick.KickLivestream
+import com.xtra.kick.model.kick.resolveKickGame
+import com.xtra.kick.model.kick.resolveKickThumbnail
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
@@ -11,6 +13,9 @@ import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.appendDeduplicated
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlin.math.min
 
 class FollowedStreamsDataSource(
@@ -177,17 +182,24 @@ class FollowedStreamsDataSource(
             } else null)?.takeIf { it.isNotEmpty() }
                 ?: localKickFollowed()
             val livestreamsBySlug = kickLiveLivestreamsBySlug(kickTarget)
-            for (item in followed) {
+            val withChannels = coroutineScope {
+                followed.filter { !it.slug.isNullOrBlank() }.chunked(6).flatMap { chunk ->
+                    chunk.map { item ->
+                        async { item to runCatching { kickRepository.getChannel(item.slug!!) }.getOrNull() }
+                    }.awaitAll()
+                }
+            }
+            for ((item, channel) in withChannels) {
                 if (list.size >= kickTarget) {
                     break
                 }
                 val slug = item.slug
-                if (slug.isNullOrBlank()) continue
-                val channel = runCatching { kickRepository.getChannel(slug) }.getOrNull() ?: continue
+                if (slug.isNullOrBlank() || channel == null) continue
                 val kickLive = livestreamsBySlug[slug]
                 val livestream = channel.livestream
                 if (kickLive == null && livestream?.isLive != true) continue
                 val id = "user_${channel.id}"
+                val game = resolveKickGame(kickLive, channel)
                 list.add(
                     Stream(
                         id = id,
@@ -195,11 +207,11 @@ class FollowedStreamsDataSource(
                         channelLogin = slug,
                         channelName = channel.user?.username ?: item.username,
                         channelImageURL = kickLive?.streamer?.user?.profilePicture ?: channel.user?.resolvedProfilePicture ?: item.profilePicture,
-                        gameId = kickLive?.metadata?.category?.id ?: livestream?.category?.id,
-                        gameSlug = kickLive?.metadata?.category?.slug ?: livestream?.category?.slug,
-                        gameName = kickLive?.metadata?.category?.name ?: livestream?.category?.name,
+                        gameId = game.id,
+                        gameSlug = game.slug,
+                        gameName = game.name,
                         title = kickLive?.metadata?.title ?: livestream?.sessionTitle,
-                        thumbnailURL = kickLive?.thumbnailUrl,
+                        thumbnailURL = resolveKickThumbnail(kickLive, channel),
                         createdAt = kickLive?.startedAt ?: livestream?.startedAt,
                         viewerCount = kickLive?.viewersCount ?: livestream?.viewerCount,
                     )
@@ -469,14 +481,21 @@ class FollowedStreamsDataSource(
             ?: localKickFollowed()
         val livestreamsBySlug = kickLiveLivestreamsBySlug(params.loadSize)
         val list = mutableListOf<Stream>()
-        for (item in followed) {
+        val withChannels = coroutineScope {
+            followed.filter { !it.slug.isNullOrBlank() }.chunked(6).flatMap { chunk ->
+                chunk.map { item ->
+                    async { item to runCatching { kickRepository.getChannel(item.slug!!) }.getOrNull() }
+                }.awaitAll()
+            }
+        }
+        for ((item, channel) in withChannels) {
             val slug = item.slug
-            if (slug.isNullOrBlank()) continue
-            val channel = runCatching { kickRepository.getChannel(slug) }.getOrNull() ?: continue
+            if (slug.isNullOrBlank() || channel == null) continue
             val kickLive = livestreamsBySlug[slug]
             val livestream = channel.livestream
             if (kickLive == null && livestream?.isLive != true) continue
             val id = "user_${channel.id}"
+            val game = resolveKickGame(kickLive, channel)
             list.add(
                 Stream(
                     id = id,
@@ -484,11 +503,11 @@ class FollowedStreamsDataSource(
                     channelLogin = slug,
                     channelName = channel.user?.username ?: item.username,
                     channelImageURL = kickLive?.streamer?.user?.profilePicture ?: channel.user?.resolvedProfilePicture ?: item.profilePicture,
-                    gameId = kickLive?.metadata?.category?.id ?: livestream?.category?.id,
-                    gameSlug = kickLive?.metadata?.category?.slug ?: livestream?.category?.slug,
-                    gameName = kickLive?.metadata?.category?.name ?: livestream?.category?.name,
+                    gameId = game.id,
+                    gameSlug = game.slug,
+                    gameName = game.name,
                     title = kickLive?.metadata?.title ?: livestream?.sessionTitle,
-                    thumbnailURL = kickLive?.thumbnailUrl,
+                    thumbnailURL = resolveKickThumbnail(kickLive, channel),
                     createdAt = kickLive?.startedAt ?: livestream?.startedAt,
                     viewerCount = kickLive?.viewersCount ?: livestream?.viewerCount,
                 )
