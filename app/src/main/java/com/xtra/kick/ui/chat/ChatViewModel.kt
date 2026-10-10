@@ -42,6 +42,7 @@ import com.xtra.kick.ui.common.IntegrityDialog
 import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.chat.ChatReadIRCSocket
+import com.xtra.kick.util.parseKickTimestampMs
 import com.xtra.kick.util.chat.ChatReadWebSocket
 import com.xtra.kick.util.chat.ChatUtils
 import com.xtra.kick.util.chat.ChatWriteIRCSocket
@@ -2736,19 +2737,20 @@ class ChatViewModel(
         stopReplayChat()
         if (!chatUrl.isNullOrBlank()) {
             chatReplayManagerLocal = ChatReplayManagerLocal(
-                createdAt = createdAt?.toLongOrNull() ?: createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+                createdAt = createdAt?.toLongOrNull() ?: parseKickTimestampMs(createdAt),
                 getCurrentPosition = getCurrentPosition,
                 getCurrentSpeed = getCurrentSpeed,
                 coroutineScope = viewModelScope,
                 listener = ChatReplayListener(),
             )
             readChatFile(chatUrl, channelId, channelLogin)
-        } else if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+        } else if (channelId?.startsWith(C.KICK_USER_PREFIX) == true ||
+            (channelId.isNullOrBlank() && !channelLogin.isNullOrBlank())) {
             if (!videoId.isNullOrBlank()) {
                 kickChatReplayManager = KickChatReplayManager(
                     kickRepository = kickRepository,
                     channelLogin = channelLogin,
-                    videoStart = createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+                    videoStart = parseKickTimestampMs(createdAt),
                     getVideoStart = getVideoStart,
                     startTime = startTime.times(1000L),
                     getCurrentPosition = getCurrentPosition,
@@ -2766,7 +2768,7 @@ class ChatViewModel(
                     json = json,
                     enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                     videoId = videoId,
-                    createdAt = createdAt?.let { Instant.parseOrNull(it)?.toEpochMilliseconds()?.takeIf { ms -> ms > 0 } },
+                    createdAt = parseKickTimestampMs(createdAt),
                     startTime = startTime.times(1000L),
                     getCurrentPosition = getCurrentPosition,
                     getCurrentSpeed = getCurrentSpeed,
