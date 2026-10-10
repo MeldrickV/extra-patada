@@ -11,6 +11,16 @@ kotlin {
     jvmToolchain(21)
 }
 
+// Optional real release keystore. Provide via env var or gradle property:
+// RELEASE_STORE_FILE, RELEASE_STORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD.
+// When absent (e.g. CI), release falls back to the debug keystore (local-only builds).
+val releaseKeystoreFile: java.io.File? = (System.getenv("RELEASE_STORE_FILE")
+    ?: project.findProperty("RELEASE_STORE_FILE") as String?)
+    ?.let { file(it) }
+    ?.takeIf { it.exists() }
+val releaseStorePassword: String? = System.getenv("RELEASE_STORE_PASSWORD")
+    ?: project.findProperty("RELEASE_STORE_PASSWORD") as String?
+
 android {
     signingConfigs {
         getByName("debug") {
@@ -18,6 +28,16 @@ android {
             keyPassword = "123456"
             storeFile = file("debug-keystore.jks")
             storePassword = "123456"
+        }
+        if (releaseKeystoreFile != null && releaseStorePassword != null) {
+            create("release") {
+                storeFile = releaseKeystoreFile
+                storePassword = releaseStorePassword
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                    ?: project.findProperty("RELEASE_KEY_ALIAS") as String? ?: "release"
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+                    ?: project.findProperty("RELEASE_KEY_PASSWORD") as String? ?: releaseStorePassword
+            }
         }
     }
     namespace = "com.xtra.kick"
@@ -41,7 +61,8 @@ android {
             isShrinkResources = true
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            // Uses the real release key when RELEASE_* is provided, debug key otherwise.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
     buildFeatures {

@@ -48,7 +48,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -1099,9 +1098,7 @@ class MainViewModel(
         updateJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val progressListener = NetworkUtils.ProgressListener { bytesRead ->
-                    runBlocking {
-                        updateProgress.emit(bytesRead)
-                    }
+                    updateProgress.tryEmit(bytesRead)
                 }
                 val response = when {
                     networkLibrary == C.HTTP_ENGINE && httpEngine.value != null -> @SuppressLint("NewApi") {

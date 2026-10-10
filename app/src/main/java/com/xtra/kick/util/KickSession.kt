@@ -1,6 +1,7 @@
 package com.xtra.kick.util
 
 import android.content.Context
+import android.util.Log
 import androidx.core.content.edit
 import com.xtra.kick.R
 import com.xtra.kick.repository.KickRepository
@@ -38,6 +39,7 @@ class KickSession(
             }
             response.accessToken
         } catch (e: Exception) {
+            Log.w("KickSession", "Token refresh failed: ${e.message}")
             null
         }
     }
