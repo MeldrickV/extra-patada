@@ -56,7 +56,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
@@ -1984,22 +1984,24 @@ class MediaPlayerService : BasePlaybackService() {
                 if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                     when (type) {
                         VIDEO -> {
-                            videoId?.let {
-                                runBlocking {
-                                    xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, player.currentPosition.toLong()))
+                            videoId?.let { id ->
+                                val position = player.currentPosition.toLong()
+                                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                                    xtraModule.playerRepository.saveVideoPosition(VideoPosition(id, position))
                                 }
                             }
                         }
                         OFFLINE_VIDEO -> {
-                            offlineVideoId?.let {
-                                runBlocking {
-                                    xtraModule.offlineVideosRepository.updatePosition(it, player.currentPosition.toLong())
+                            offlineVideoId?.let { id ->
+                                val position = player.currentPosition.toLong()
+                                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                                    xtraModule.offlineVideosRepository.updatePosition(id, position)
                                 }
                             }
                         }
                     }
                 }
-                runBlocking {
+                lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
                     xtraModule.playerRepository.deletePlaybackStates()
                 }
             }
@@ -2049,22 +2051,22 @@ class MediaPlayerService : BasePlaybackService() {
                     if (prefs().getBoolean(C.PLAYER_USE_VIDEO_POSITIONS, true)) {
                         when (type) {
                             VIDEO -> {
-                                videoId?.let {
-                                    runBlocking {
-                                        xtraModule.playerRepository.saveVideoPosition(VideoPosition(it, currentPosition))
+                                videoId?.let { id ->
+                                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                                        xtraModule.playerRepository.saveVideoPosition(VideoPosition(id, currentPosition))
                                     }
                                 }
                             }
                             OFFLINE_VIDEO -> {
-                                offlineVideoId?.let {
-                                    runBlocking {
-                                        xtraModule.offlineVideosRepository.updatePosition(it, currentPosition)
+                                offlineVideoId?.let { id ->
+                                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
+                                        xtraModule.offlineVideosRepository.updatePosition(id, currentPosition)
                                     }
                                 }
                             }
                         }
                     }
-                    runBlocking {
+                    lifecycleScope.launch(Dispatchers.IO + NonCancellable) {
                         savePlaybackState(currentPosition, !player.isPlaying)
                     }
                 }

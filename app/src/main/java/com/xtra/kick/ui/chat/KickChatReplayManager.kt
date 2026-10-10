@@ -84,6 +84,7 @@ class KickChatReplayManager(
                 isLoading = false
                 startJob()
             } catch (e: Exception) {
+                Log.w("XtraChat", "kick replay load failed: ${e.message}")
                 isLoading = false
             }
         }
@@ -93,7 +94,9 @@ class KickChatReplayManager(
         chatroomId?.let { return it }
         val login = channelLogin
         if (login.isNullOrBlank()) return null
-        chatroomId = runCatching { kickRepository.getChannel(login).chatroom?.id?.takeIf { it > 0 } }.getOrNull()
+        chatroomId = runCatching { kickRepository.getChannel(login).chatroom?.id?.takeIf { it > 0 } }
+            .onFailure { Log.w("XtraChat", "kick replay chatroom lookup failed for $login: ${it.message}") }
+            .getOrNull()
         return chatroomId
     }
 
@@ -162,6 +165,7 @@ class KickChatReplayManager(
                 true
             }
         } catch (e: Exception) {
+            Log.w("XtraChat", "kick replay fetchMore failed: ${e.message}")
             false
         }
     }

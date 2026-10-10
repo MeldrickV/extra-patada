@@ -1,5 +1,6 @@
 package com.xtra.kick.repository
 
+import android.util.Log
 import com.xtra.kick.model.kick.KickCategoriesData
 import com.xtra.kick.model.kick.KickCategoriesResponse
 import com.xtra.kick.model.kick.KickCategory
@@ -256,7 +257,7 @@ class KickRepository(
                     array.optJSONObject(index)?.toString()?.let { json.decodeFromString<KickChannelVideo>(it) }
                 }
             }
-        }.getOrNull()
+        }.onFailure { Log.w("KickRepository", "getChannelVideos failed for $slug: ${it.message}") }.getOrNull()
     }
 
     suspend fun getVideo(uuid: String): KickVideoResponse? = withContext(Dispatchers.IO) {
@@ -270,7 +271,7 @@ class KickRepository(
                 }
                 json.decodeFromString<KickVideoResponse>(it.body.string())
             }
-        }.getOrNull()
+        }.onFailure { Log.w("KickRepository", "getVideo failed for $uuid: ${it.message}") }.getOrNull()
     }
 
     suspend fun getChannelClips(slug: String): List<KickClip> = withContext(Dispatchers.IO) {
@@ -304,7 +305,7 @@ class KickRepository(
                 }
                 json.decodeFromString<KickChannelLeaderboards>(it.body.string())
             }
-        }.getOrNull()
+        }.onFailure { Log.w("KickRepository", "getChannelLeaderboards failed for $slug: ${it.message}") }.getOrNull()
     }
 
     private suspend fun searchEnriched(query: String): JSONObject = withContext(Dispatchers.IO) {
@@ -395,7 +396,7 @@ class KickRepository(
                 }
                 json.decodeFromString<KickSingleClipResponse>(it.body.string()).clip
             }
-        }.getOrNull()
+        }.onFailure { Log.w("KickRepository", "getClip failed for $id: ${it.message}") }.getOrNull()
     }
 
     suspend fun sendChatMessage(token: String, content: String, broadcasterUserId: Long, replyToMessageId: String? = null): String? = withContext(Dispatchers.IO) {

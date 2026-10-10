@@ -38,15 +38,17 @@ captures/
 *.iml
 .idea
 
-# Keystore files
-# Uncomment the following line if you do not want to check your keystore files in.
-#*.jks
+# Keystore files (release keys must never be committed; provide via
+# RELEASE_STORE_FILE env var or gradle property, see app/build.gradle.kts)
+*.jks
+*.keystore
+release.keystore
 
 # External native build folder generated in Android Studio 2.2 and later
 .externalNativeBuild
 
 # Google Services (e.g. APIs or Firebase)
-#google-services.json
+google-services.json
 
 # Freeline
 freeline.py
