@@ -26,7 +26,7 @@ class KickChatReplayManager(
 ) {
     private val list = mutableListOf<VideoChatMessage>()
     private val seenIds = HashSet<String>()
-    private var chatroomId: Long? = null
+    private var numericChannelId: Long? = null
     private var seedPosition = 0L
     private var started = false
     private var isLoading = false
@@ -81,15 +81,15 @@ class KickChatReplayManager(
                     return@launch
                 }
                 anchorRetries = 0
-                val chatroomId = ensureChatroomId()
+                val channelId = ensureChannelId()
                 val fromMs = anchor.plus(position).coerceAtLeast(0L)
                 seedPosition = fromMs
-                if (chatroomId == null) {
-                    Log.w("XtraChat", "kick replay aborted: no chatroom for $channelLogin")
+                if (channelId == null) {
+                    Log.w("XtraChat", "kick replay aborted: no channel id for $channelLogin")
                     isLoading = false
                     return@launch
                 }
-                val fetched = fetch(chatroomId, fromMs)
+                val fetched = fetch(channelId, fromMs)
                 Log.i("XtraChat", "kick replay window loaded: anchor=$anchor fromMs=$fromMs matched=${fetched.first.size}")
                 list.clear()
                 list.addAll(fetched.first)
@@ -102,24 +102,24 @@ class KickChatReplayManager(
         }
     }
 
-    private suspend fun ensureChatroomId(): Long? {
-        chatroomId?.let { return it }
+    private suspend fun ensureChannelId(): Long? {
+        numericChannelId?.let { return it }
         val login = channelLogin
         if (login.isNullOrBlank()) return null
-        chatroomId = runCatching { kickRepository.getChannel(login).chatroom?.id?.takeIf { it > 0 } }
-            .onFailure { Log.w("XtraChat", "kick replay chatroom lookup failed for $login: ${it.message}") }
+        numericChannelId = runCatching { kickRepository.getChannel(login).id.takeIf { it > 0 } }
+            .onFailure { Log.w("XtraChat", "kick replay channel lookup failed for $login: ${it.message}") }
             .getOrNull()
-        return chatroomId
+        return numericChannelId
     }
 
-    private suspend fun fetch(chatroomId: Long, fromMs: Long): Pair<List<VideoChatMessage>, Long> {
+    private suspend fun fetch(numericChannelId: Long, fromMs: Long): Pair<List<VideoChatMessage>, Long> {
         val result = mutableListOf<VideoChatMessage>()
         val startMs = resolveVideoStart()
         val floorMs = fromMs - FETCH_WINDOW_MS
         var cursorUs: Long? = fromMs.times(1000).coerceAtLeast(0L)
         var pages = 0
         while (cursorUs != null && pages < MAX_PAGES) {
-            val page = kickRepository.getChannelMessages(chatroomId, cursorUs)
+            val page = kickRepository.getChannelMessages(numericChannelId, cursorUs)
             val messages = page.messages.mapNotNull { message ->
                 KickChatUtils.parseKickMessage(message)?.takeIf { it.timestamp != null }
             }
@@ -145,12 +145,12 @@ class KickChatReplayManager(
      * into the buffer (no clearing). Returns true when at least one new message arrived.
      */
     private suspend fun fetchMore(position: Long): Boolean {
-        val chatroomId = chatroomId ?: return false
+        val numericChannelId = numericChannelId ?: return false
         if (resolveVideoStart() == 0L) return false
         val fromMs = resolveVideoStart().plus(position).coerceAtLeast(0L)
         seedPosition = fromMs
         return try {
-            val fetched = fetch(chatroomId, fromMs).first
+            val fetched = fetch(numericChannelId, fromMs).first
             if (fetched.isEmpty()) {
                 false
             } else {

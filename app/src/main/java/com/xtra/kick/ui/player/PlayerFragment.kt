@@ -1633,12 +1633,14 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
     }
 
     fun share() {
+        val isKick = playbackService?.channelId?.startsWith(C.KICK_USER_PREFIX) == true
         when (playbackService?.type) {
             BasePlaybackService.STREAM -> {
                 playbackService?.channelLogin?.let { channelLogin ->
+                    val url = if (isKick) "https://kick.com/$channelLogin" else "https://twitch.tv/$channelLogin"
                     startActivity(Intent.createChooser(Intent().apply {
                         action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/${channelLogin}")
+                        putExtra(Intent.EXTRA_TEXT, url)
                         playbackService?.channelName?.let {
                             putExtra(Intent.EXTRA_TITLE, it)
                         }
@@ -1655,9 +1657,15 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                         val seconds = (totalSeconds % 60).let { if (it < 10) "0$it" else "$it" }
                         "?t=${hours}h${minutes}m${seconds}s"
                     } ?: ""
+                    val channelLogin = playbackService?.channelLogin
+                    val url = if (isKick && !channelLogin.isNullOrBlank()) {
+                        "https://kick.com/$channelLogin/videos/$videoId"
+                    } else {
+                        "https://twitch.tv/videos/$videoId$position"
+                    }
                     startActivity(Intent.createChooser(Intent().apply {
                         action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/videos/${videoId}${position}")
+                        putExtra(Intent.EXTRA_TEXT, url)
                         playbackService?.title?.let {
                             putExtra(Intent.EXTRA_TITLE, it)
                         }
@@ -1668,9 +1676,14 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
             BasePlaybackService.CLIP -> {
                 playbackService?.clipId?.let { clipId ->
                     playbackService?.channelLogin?.let { channelLogin ->
+                        val url = if (isKick) {
+                            "https://kick.com/$channelLogin/clips/$clipId"
+                        } else {
+                            "https://twitch.tv/$channelLogin/clip/$clipId"
+                        }
                         startActivity(Intent.createChooser(Intent().apply {
                             action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/${channelLogin}/clip/${clipId}")
+                            putExtra(Intent.EXTRA_TEXT, url)
                             playbackService?.title?.let {
                                 putExtra(Intent.EXTRA_TITLE, it)
                             }
