@@ -1917,9 +1917,17 @@ class ExoPlayerService : BasePlaybackService() {
             it.resolution != null
                     && it.name != VideoQuality.AUTO_QUALITY
                     && it.name != VideoQuality.SOURCE_QUALITY
-                    && it.name != VideoQuality.AUDIO_ONLY_QUALITY
-                    && it.name != VideoQuality.CHAT_ONLY_QUALITY
+                    && it.name != VideoQuality.AUDIO_ONLY_QUALITY                    && it.name != VideoQuality.CHAT_ONLY_QUALITY
         } ?: return false
+        if (current.name == VideoQuality.SOURCE_QUALITY) {
+            val top = renditions.maxByOrNull { it.bitrate ?: 0 } ?: return false
+            previousQuality = current
+            quality = top
+            applyVideoPin(top)
+            Log.i("XtraPlayer", "stepped pinned live quality source -> ${top.name} (highest sustainable)")
+            serviceListener?.toast(getString(R.string.quality_adjusted_sustainable, top.name), Toast.LENGTH_SHORT)
+            return true
+        }
         val index = renditions.indexOfFirst { it.name == current.name }.takeIf { it >= 0 }
             ?: renditions.indexOfFirst {
                 it.resolution == current.resolution && it.frameRate == current.frameRate

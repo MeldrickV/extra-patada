@@ -32,6 +32,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Base64
 import android.view.KeyEvent
+import android.util.Log
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
@@ -95,6 +96,7 @@ class MediaPlayerService : BasePlaybackService() {
     var seekPosition: Long? = null
     var startPlayer = true
     var playerErrored = false
+    private var consecutiveStreamErrors = 0
     private var customProxyList: List<CustomProxy>? = null
     private var streamProxyList: List<StreamProxy>? = null
     private var backupQualities: List<String>? = null
@@ -310,6 +312,7 @@ class MediaPlayerService : BasePlaybackService() {
             )
             player.setOnPreparedListener { player ->
                 playerErrored = false
+                consecutiveStreamErrors = 0
                 seekPosition?.let {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         player?.seekTo(it, MediaPlayer.SEEK_CLOSEST)
@@ -354,6 +357,9 @@ class MediaPlayerService : BasePlaybackService() {
                 playerErrored = true
                 updatePlaybackState(true)
                 updateNotification()
+                if (type == STREAM) {
+                    resyncLiveStream(player)
+                }
                 playerListener?.onError(player, what, extra)
                 return@setOnErrorListener true
             }
@@ -1418,8 +1424,26 @@ class MediaPlayerService : BasePlaybackService() {
         }
     }
 
-    fun retry(item: String) {
-        when (item) {
+    private fun resyncLiveStream(player: MediaPlayer) {
+        val url = quality?.url ?: qualities?.firstOrNull()?.url ?: playlistUrl ?: return
+        consecutiveStreamErrors += 1
+        if (consecutiveStreamErrors > MAX_LIVE_RESYNC_ATTEMPTS) {
+            Log.e("XtraPlayer", "live stream keeps failing after $MAX_LIVE_RESYNC_ATTEMPTS resyncs, giving up")
+            return
+        }
+        Log.e("XtraPlayer", "live stream error, re-syncing to live edge (attempt $consecutiveStreamErrors)")
+        serviceListener?.toast(R.string.player_error, Toast.LENGTH_SHORT)
+        try {
+            player.reset()
+            player.setDataSource(this@MediaPlayerService, url.toUri())
+            seekPosition = null
+            player.prepareAsync()
+        } catch (e: Exception) {
+            Log.e("XtraPlayer", "live resync failed: ${e.message}")
+        }
+    }
+
+    fun retry(item: String) {        when (item) {
             "refreshStream" -> {
                 lifecycleScope.launch {
                     loadStream()
@@ -2122,6 +2146,7 @@ class MediaPlayerService : BasePlaybackService() {
     companion object {
         private const val NOTIFICATION_ID = 1001
         private const val GROUP_KEY = "com.xtra.kick.PLAYBACK_NOTIFICATIONS"
+        private const val MAX_LIVE_RESYNC_ATTEMPTS = 3
 
         private const val REQUEST_CODE_RESUME = 0
         private const val REQUEST_CODE_REWIND = 1
