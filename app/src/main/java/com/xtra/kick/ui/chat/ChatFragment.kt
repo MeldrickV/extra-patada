@@ -50,6 +50,7 @@ import com.xtra.kick.ui.player.PlayerFragment
 import com.xtra.kick.ui.view.AutoCompleteAdapter
 import com.xtra.kick.util.C
 import com.xtra.kick.util.KickSession
+import com.xtra.kick.util.TvMode
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -178,7 +179,7 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                             }
                         ),
                         imageLibrary = requireContext().prefs().getString(C.CHAT_IMAGE_LIBRARY, "0"),
-                        messageTextSize = (requireContext().prefs().getString(C.CHAT_TEXT_SIZE, "14")?.toFloatOrNull() ?: 14f) * sizeModifier,
+                        messageTextSize = TvMode.defaultChatTextSize(requireContext()) * sizeModifier,
                         emoteSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (requireContext().prefs().getString(C.CHAT_EMOTE_SIZE, "29.5")?.toFloatOrNull() ?: 29.5f) * sizeModifier, resources.displayMetrics).toInt(),
                         badgeSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (requireContext().prefs().getString(C.CHAT_BADGE_SIZE, "18.5")?.toFloatOrNull() ?: 18.5f) * sizeModifier, resources.displayMetrics).toInt(),
                         gifSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, (requireContext().prefs().getString(C.CHAT_GIF_SIZE, "79.5")?.toFloatOrNull() ?: 79.5f) * sizeModifier, resources.displayMetrics).toInt(),
