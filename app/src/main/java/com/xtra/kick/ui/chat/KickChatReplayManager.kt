@@ -33,6 +33,7 @@ class KickChatReplayManager(
     private var loadJob: Job? = null
     private var messageJob: Job? = null
     private var lastCheckedPosition = 0L
+    private var anchorRetries = 0
     private var playbackSpeed: Float? = null
     var isActive = true
 
@@ -66,19 +67,30 @@ class KickChatReplayManager(
     private fun load(position: Long) {
         isLoading = true
         seenIds.clear()
-        if (resolveVideoStart() == 0L) {
-            Log.w("XtraChat", "kick replay without video start anchor, offsets will not match")
-        }
         loadJob = coroutineScope.launch(Dispatchers.IO) {
             try {
+                var anchor = resolveVideoStart()
+                while (anchor == 0L && anchorRetries < MAX_ANCHOR_RETRIES && isActive) {
+                    anchorRetries += 1
+                    delay(2000)
+                    anchor = resolveVideoStart()
+                }
+                if (anchor == 0L) {
+                    Log.w("XtraChat", "kick replay aborted: no video start anchor after retries")
+                    isLoading = false
+                    return@launch
+                }
+                anchorRetries = 0
                 val chatroomId = ensureChatroomId()
-                val fromMs = resolveVideoStart().plus(position).coerceAtLeast(0L)
+                val fromMs = anchor.plus(position).coerceAtLeast(0L)
                 seedPosition = fromMs
                 if (chatroomId == null) {
+                    Log.w("XtraChat", "kick replay aborted: no chatroom for $channelLogin")
                     isLoading = false
                     return@launch
                 }
                 val fetched = fetch(chatroomId, fromMs)
+                Log.i("XtraChat", "kick replay window loaded: anchor=$anchor fromMs=$fromMs matched=${fetched.first.size}")
                 list.clear()
                 list.addAll(fetched.first)
                 isLoading = false
@@ -115,26 +127,7 @@ class KickChatReplayManager(
                 cursorUs = null
                 break
             }
-            messages.forEach { message ->
-                val timestamp = message.timestamp ?: return@forEach
-                if (timestamp in startMs..fromMs && seenIds.add(message.id ?: timestamp.toString())) {
-                    result.add(
-                        VideoChatMessage(
-                            id = message.id,
-                            offsetSeconds = (timestamp - startMs).div(1000).toInt().coerceAtLeast(0),
-                            createdAt = null,
-                            userId = message.userId,
-                            userLogin = message.userLogin,
-                            userName = message.userName,
-                            message = message.message,
-                            color = message.color,
-                            emotes = message.emotes,
-                            badges = message.badges,
-                            fullMsg = null,
-                        )
-                    )
-                }
-            }
+            result.addAll(mapReplayWindow(messages, startMs, fromMs, seenIds))
             val oldestTimestamp = messages.minOfOrNull { it.timestamp ?: 0L } ?: 0L
             if (oldestTimestamp < floorMs || result.size >= MESSAGE_BUFFER) {
                 cursorUs = null
@@ -153,6 +146,7 @@ class KickChatReplayManager(
      */
     private suspend fun fetchMore(position: Long): Boolean {
         val chatroomId = chatroomId ?: return false
+        if (resolveVideoStart() == 0L) return false
         val fromMs = resolveVideoStart().plus(position).coerceAtLeast(0L)
         seedPosition = fromMs
         return try {
@@ -273,5 +267,34 @@ class KickChatReplayManager(
         private const val MESSAGE_BUFFER = 500
         private const val FORWARD_IDLE_DELAY_MS = 30_000L
         private const val MAX_IDLE_DELAY_MS = 180_000L
+        private const val MAX_ANCHOR_RETRIES = 5
+    }
+}
+
+fun mapReplayWindow(
+    messages: List<ChatMessage>,
+    startMs: Long,
+    fromMs: Long,
+    seenIds: MutableSet<String>,
+): List<VideoChatMessage> {
+    return messages.mapNotNull { message ->
+        val timestamp = message.timestamp ?: return@mapNotNull null
+        if (timestamp in startMs..fromMs && seenIds.add(message.id ?: timestamp.toString())) {
+            VideoChatMessage(
+                id = message.id,
+                offsetSeconds = (timestamp - startMs).div(1000).toInt().coerceAtLeast(0),
+                createdAt = null,
+                userId = message.userId,
+                userLogin = message.userLogin,
+                userName = message.userName,
+                message = message.message,
+                color = message.color,
+                emotes = message.emotes,
+                badges = message.badges,
+                fullMsg = null,
+            )
+        } else {
+            null
+        }
     }
 }

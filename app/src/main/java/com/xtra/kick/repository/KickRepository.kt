@@ -261,7 +261,11 @@ class KickRepository(
                 }
                 val array = JSONArray(it.body.string())
                 (0 until array.length()).mapNotNull { index ->
-                    array.optJSONObject(index)?.toString()?.let { json.decodeFromString<KickChannelVideo>(it) }
+                    runCatching {
+                        array.optJSONObject(index)?.toString()?.let { json.decodeFromString<KickChannelVideo>(it) }
+                    }.onFailure { error ->
+                        Log.w("KickRepository", "Skipping undecodable video for $slug: ${error.message}")
+                    }.getOrNull()
                 }
             }
         }.onFailure { Log.w("KickRepository", "getChannelVideos failed for $slug: ${it.message}") }.getOrNull()
@@ -371,6 +375,12 @@ class KickRepository(
             }
         }
     } ?: emptyList()
+
+    suspend fun searchLivestreamBySlug(slug: String): KickSearchChannel? {
+        if (slug.isBlank()) return null
+        return runCatching { searchStreams(slug) }.getOrNull()
+            ?.firstOrNull { it.slug.equals(slug, ignoreCase = true) }
+    }
 
     suspend fun searchCategories(query: String): List<KickCategory> = searchEnriched(query).optJSONArray("categories")?.let { items ->
         buildList {

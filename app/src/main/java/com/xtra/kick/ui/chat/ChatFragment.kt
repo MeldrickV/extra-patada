@@ -1281,7 +1281,8 @@ class ChatFragment : BaseNetworkFragment(), MessageClickedDialog.OnButtonClickLi
                     createdAt = args.getString(KEY_CREATED_AT),
                     startTime = args.getInt(KEY_START_TIME),
                     getCurrentPosition = (parentFragment as PlayerFragment)::getCurrentPosition,
-                    getCurrentSpeed = (parentFragment as PlayerFragment)::getCurrentSpeed
+                    getCurrentSpeed = (parentFragment as PlayerFragment)::getCurrentSpeed,
+                    getVideoStart = { (parentFragment as? PlayerFragment)?.getVideoStartEpochMs() },
                 )
             }
         }
