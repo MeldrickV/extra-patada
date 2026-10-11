@@ -6,6 +6,7 @@ import com.xtra.kick.model.kick.KickCategoriesResponse
 import com.xtra.kick.model.kick.KickCategory
 import com.xtra.kick.model.kick.KickChannelResponse
 import com.xtra.kick.model.kick.KickChannelVideo
+import com.xtra.kick.model.kick.KickChannelVideoV1
 import com.xtra.kick.model.kick.KickChannelLeaderboards
 import com.xtra.kick.model.kick.KickChannelsClipsResponse
 import com.xtra.kick.model.kick.KickClipsPage

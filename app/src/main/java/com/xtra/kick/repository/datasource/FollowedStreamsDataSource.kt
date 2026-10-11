@@ -177,7 +177,7 @@ class FollowedStreamsDataSource(
         val kickTarget = (max + 1) / 2
         if (!kickFetched) {
             kickFetched = true
-            appendDeduplicated(combinedSeen, list, directFollowedLivestreams(kickTarget), { combinedStreamKey(it) }, max)
+            appendDeduplicated(combinedSeen, list, directFollowedLivestreams(kickTarget), { it.channelId ?: it.channelLogin }, max)
             if (list.size < kickTarget) {
             val followed = (if (!kickToken.isNullOrBlank()) {
                 runCatching {
