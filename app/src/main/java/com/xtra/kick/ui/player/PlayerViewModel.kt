@@ -27,6 +27,7 @@ import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import com.xtra.kick.util.TwitchApiHelper
+import com.xtra.kick.util.parseKickTimestampMs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -565,8 +566,15 @@ class PlayerViewModel(
         }
     }
 
-    fun isFollowingChannel(userId: String?, channelId: String?, channelLogin: String?, setting: Int, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>) {
-        if (_isFollowing.value == null) {
+    suspend fun resolveKickVodWebId(channelId: String?, createdAt: String?): String? {
+        val numericId = channelId?.removePrefix(C.KICK_USER_PREFIX)?.toLongOrNull() ?: return null
+        val epoch = parseKickTimestampMs(createdAt) ?: return null
+        return runCatching { kickSession.repository.getChannelVideosV1(numericId) }.getOrNull()
+            ?.firstOrNull { parseKickTimestampMs(it.startTime) == epoch }
+            ?.id?.takeIf { it.isNotBlank() }
+    }
+
+    fun isFollowingChannel(userId: String?, channelId: String?, channelLogin: String?, setting: Int, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>) {        if (_isFollowing.value == null) {
             viewModelScope.launch {
                 try {
                     if (!channelId.isNullOrBlank()) {

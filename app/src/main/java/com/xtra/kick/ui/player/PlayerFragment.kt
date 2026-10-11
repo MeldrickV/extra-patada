@@ -1658,19 +1658,14 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                         "?t=${hours}h${minutes}m${seconds}s"
                     } ?: ""
                     val channelLogin = playbackService?.channelLogin
-                    val url = if (isKick && !channelLogin.isNullOrBlank()) {
-                        "https://kick.com/$channelLogin/videos/$videoId"
-                    } else {
-                        "https://twitch.tv/videos/$videoId$position"
-                    }
-                    startActivity(Intent.createChooser(Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_TEXT, url)
-                        playbackService?.title?.let {
-                            putExtra(Intent.EXTRA_TITLE, it)
+                    if (isKick && !channelLogin.isNullOrBlank()) {
+                        viewLifecycleOwner.lifecycleScope.launch {
+                            val webId = viewModel.resolveKickVodWebId(playbackService?.channelId, playbackService?.createdAt) ?: videoId
+                            shareText("https://kick.com/$channelLogin/videos/$webId")
                         }
-                        type = "text/plain"
-                    }, null))
+                    } else {
+                        shareText("https://twitch.tv/videos/$videoId$position")
+                    }
                 }
             }
             BasePlaybackService.CLIP -> {
@@ -1711,6 +1706,17 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                 }
             }
         }
+    }
+
+    private fun shareText(url: String) {
+        startActivity(Intent.createChooser(Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_TEXT, url)
+            playbackService?.title?.let {
+                putExtra(Intent.EXTRA_TITLE, it)
+            }
+            type = "text/plain"
+        }, null))
     }
 
     fun changePlayerMode() {

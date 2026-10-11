@@ -282,9 +282,15 @@ class ChannelPagerFragment : BaseNetworkFragment(), Scrollable, FragmentHost, In
                         true
                     }
                     R.id.share -> {
+                        val login = args.channelLogin
+                        val url = if (!login.isNullOrBlank() && args.channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
+                            "https://kick.com/$login"
+                        } else {
+                            "https://twitch.tv/$login"
+                        }
                         startActivity(Intent.createChooser(Intent().apply {
                             action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/${args.channelLogin}")
+                            putExtra(Intent.EXTRA_TEXT, url)
                             args.channelName?.let {
                                 putExtra(Intent.EXTRA_TITLE, it)
                             }
