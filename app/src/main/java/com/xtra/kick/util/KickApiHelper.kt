@@ -19,7 +19,7 @@ object KickApiHelper {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
     fun channelUrl(slug: String): String {
-        return "$WEBSITE_BASE_URL/api/v2/channels/$slug"
+        return "$WEBSITE_BASE_URL/api/v2/channels/$slug/info"
     }
 
     fun channelVideosUrl(slug: String): String {
@@ -50,6 +50,14 @@ object KickApiHelper {
         return "$WEBSITE_BASE_URL/api/v2/channels/$channelId/messages"
     }
 
+    fun channelMessagesSendUrl(chatroomId: Long): String {
+        return "$WEBSITE_BASE_URL/api/v2/messages/send/$chatroomId"
+    }
+
+    fun streamPlaybackUrl(videoUuid: String): String {
+        return "$TV_BASE_URL/api/v1/stream/$videoUuid/playback"
+    }
+
     fun followedChannelsUrl(): String {
         return "$WEBSITE_BASE_URL/api/v2/channels/followed"
     }
@@ -66,6 +74,7 @@ object KickApiHelper {
         return mapOf(
             "User-Agent" to BROWSER_USER_AGENT,
             "Accept" to "application/json",
+            "X-Request-Id" to java.util.UUID.randomUUID().toString(),
         )
     }
 
