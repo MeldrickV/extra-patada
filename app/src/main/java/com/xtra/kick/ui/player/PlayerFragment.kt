@@ -82,6 +82,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.timepicker.MaterialTimePicker
 import com.google.android.material.timepicker.TimeFormat
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -98,6 +99,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
     protected var chatFragment: ChatFragment? = null
     protected open val playbackService: BasePlaybackService? = null
     protected var started = false
+    private val startJobs = mutableListOf<Job>()
 
     private var isPortrait = false
     protected var isMaximized = true
@@ -634,8 +636,10 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
     }
 
     fun start() {
+        startJobs.forEach { it.cancel() }
+        startJobs.clear()
         with(binding) {
-            viewLifecycleOwner.lifecycleScope.launch {
+            startJobs += viewLifecycleOwner.lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {
                     playbackService?.integrity?.collect {
                         (requireActivity() as? MainActivity)?.getNewIntegrityToken(it, childFragmentManager)
@@ -831,7 +835,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                             }
                         }
                     }
-                    viewLifecycleOwner.lifecycleScope.launch {
+                    startJobs += viewLifecycleOwner.lifecycleScope.launch {
                         repeatOnLifecycle(Lifecycle.State.STARTED) {
                             viewModel.stream.collectLatest { stream ->
                                 if (stream != null) {
@@ -865,7 +869,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                             }
                         }
                     }
-                    viewLifecycleOwner.lifecycleScope.launch {
+                    startJobs += viewLifecycleOwner.lifecycleScope.launch {
                         repeatOnLifecycle(Lifecycle.State.STARTED) {
                             viewModel.unlistedVideoQualities.collectLatest { qualities ->
                                 if (qualities != null) {
@@ -929,7 +933,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                 }
                 if (playbackService?.type == BasePlaybackService.VIDEO) {
                     if (requireContext().prefs().getBoolean(C.PLAYER_MENU_BOOKMARK, true)) {
-                        viewLifecycleOwner.lifecycleScope.launch {
+                        startJobs += viewLifecycleOwner.lifecycleScope.launch {
                             repeatOnLifecycle(Lifecycle.State.STARTED) {
                                 viewModel.isBookmarked.collectLatest {
                                     if (it != null) {
@@ -941,7 +945,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                         }
                     }
                     if (!playbackService?.videoId.isNullOrBlank() && (requireContext().prefs().getBoolean(C.PLAYER_GAMES_BUTTON, true) || requireContext().prefs().getBoolean(C.PLAYER_MENU_GAMES, false))) {
-                        viewLifecycleOwner.lifecycleScope.launch {
+                        startJobs += viewLifecycleOwner.lifecycleScope.launch {
                             repeatOnLifecycle(Lifecycle.State.STARTED) {
                                 viewModel.gamesList.collectLatest { list ->
                                     if (!list.isNullOrEmpty()) {
@@ -1056,7 +1060,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                                 }
                             }
                         }
-                        viewLifecycleOwner.lifecycleScope.launch {
+                        startJobs += viewLifecycleOwner.lifecycleScope.launch {
                             repeatOnLifecycle(Lifecycle.State.STARTED) {
                                 viewModel.isFollowing.collectLatest {
                                     if (it != null) {
@@ -1069,7 +1073,7 @@ abstract class PlayerFragment : BaseNetworkFragment(), RadioButtonDialogFragment
                                 }
                             }
                         }
-                        viewLifecycleOwner.lifecycleScope.launch {
+                        startJobs += viewLifecycleOwner.lifecycleScope.launch {
                             repeatOnLifecycle(Lifecycle.State.STARTED) {
                                 viewModel.follow.collectLatest { pair ->
                                     if (pair != null) {
