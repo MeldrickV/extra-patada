@@ -4,6 +4,7 @@ object KickApiHelper {
 
     const val API_BASE_URL = "https://api.kick.com"
     const val WEBSITE_BASE_URL = "https://kick.com"
+    const val TV_BASE_URL = "https://tv.kick.com"
     const val REALTIME_BASE_URL = "https://web.kick.com/api/v1/realtime"
     const val OAUTH_BASE_URL = "https://id.kick.com"
     const val PUBLIC_API_BASE_URL = "https://api.kick.com/public/v1"
@@ -23,6 +24,10 @@ object KickApiHelper {
 
     fun channelVideosUrl(slug: String): String {
         return "$WEBSITE_BASE_URL/api/v2/channels/$slug/videos"
+    }
+
+    fun channelVideosV1Url(channelId: Long): String {
+        return "$TV_BASE_URL/api/v1/channels/$channelId/videos"
     }
 
     fun channelClipsUrl(slug: String): String {

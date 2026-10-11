@@ -4,6 +4,9 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.graphql.type.BroadcastType
 import com.xtra.kick.graphql.type.VideoSort
+import com.xtra.kick.model.kick.KickVideoCategory
+import com.xtra.kick.model.kick.KickVideoThumbnail
+import com.xtra.kick.model.kick.findByStart
 import com.xtra.kick.model.kick.toVideo
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.repository.GraphQLRepository
@@ -11,7 +14,10 @@ import com.xtra.kick.repository.HelixRepository
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
+import com.xtra.kick.util.parseKickTimestampMs
 import kotlin.math.min
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class ChannelVideosDataSource(
     private val channelId: String?,
@@ -189,13 +195,30 @@ class ChannelVideosDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Video> {
-        val channel = runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull()
+        val (channel, videos) = coroutineScope {
+            val channelDeferred = async { runCatching { kickRepository.getChannel(channelLogin!!) }.getOrNull() }
+            val videosDeferred = async { kickRepository.getChannelVideos(channelLogin!!) }
+            channelDeferred.await() to videosDeferred.await()
+        }
         val channelName = channel?.user?.username
         val channelImageURL = channel?.user?.resolvedProfilePicture
-        val list = kickRepository.getChannelVideos(channelLogin!!)?.mapNotNull { it ->
-            if (it.isLive) {
-                it.video.uuid?.takeIf { uuid -> uuid.isNotBlank() }?.let { uuid ->
-                    val category = it.categories.firstOrNull()
+        val v1ByStart = runCatching {
+            channel?.id?.takeIf { it > 0 }?.let { kickRepository.getChannelVideosV1(it) }
+        }.getOrNull().orEmpty()
+        val list = videos?.mapNotNull { item ->
+            val enriched = v1ByStart.findByStart(item.startTime)?.let { v1 ->
+                item.copy(
+                    startTime = v1.startTime ?: item.startTime,
+                    sessionTitle = v1.title ?: item.sessionTitle,
+                    thumbnail = v1.thumbnail.src?.let { KickVideoThumbnail(it) } ?: item.thumbnail,
+                    categories = v1.category?.let {
+                        listOf(KickVideoCategory(id = it.categoryId, name = it.name, slug = it.slug))
+                    } ?: item.categories,
+                )
+            } ?: item
+            if (enriched.isLive) {
+                enriched.video.uuid?.takeIf { uuid -> uuid.isNotBlank() }?.let { uuid ->
+                    val category = enriched.categories.firstOrNull()
                     Video(
                         id = uuid,
                         channelId = channelId,
@@ -205,19 +228,19 @@ class ChannelVideosDataSource(
                         gameId = category?.id?.toString(),
                         gameSlug = category?.slug,
                         gameName = category?.name,
-                        title = it.sessionTitle,
-                        thumbnailURL = it.thumbnail.src,
-                        createdAt = it.startTime,
-                        viewCount = it.viewerCount,
+                        title = enriched.sessionTitle,
+                        thumbnailURL = enriched.thumbnail.src,
+                        createdAt = enriched.startTime,
+                        viewCount = enriched.viewerCount,
                         durationSeconds = null,
                         type = "live",
-                        animatedPreviewURL = it.thumbnail.src,
-                        playlistUrl = it.source?.takeIf { source -> source.startsWith("https://") || source.startsWith("http://") },
+                        animatedPreviewURL = enriched.thumbnail.src,
+                        playlistUrl = enriched.source?.takeIf { source -> source.startsWith("https://") || source.startsWith("http://") },
                         platform = C.KICK,
                     )
                 }
             } else {
-                it.toVideo(
+                enriched.toVideo(
                     channelId = channelId,
                     channelLogin = channelLogin,
                     channelName = channelName,
