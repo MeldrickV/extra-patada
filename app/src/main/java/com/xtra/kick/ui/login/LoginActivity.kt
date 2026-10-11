@@ -161,7 +161,8 @@ class LoginActivity : AppCompatActivity() {
         SecurePrefs.tokens(this).edit {
             putString(C.KICK_OAUTH_STATE, state)
             putString(C.KICK_OAUTH_VERIFIER, verifier)
-        }        val scopes = prefs().getString(
+        }
+        val scopes = prefs().getString(
             C.KICK_CLIENT_SCOPES,
             "user:read channel:read channel:write chat:write moderation:ban moderation:chat_message:manage kicks:read streamkey:read"
         ) ?: ""

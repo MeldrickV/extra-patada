@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import androidx.security.crypto.MasterKeys
 
 object SecurePrefs {
 
@@ -37,13 +37,11 @@ object SecurePrefs {
 
     private fun openStore(app: Context): SharedPreferences {
         return try {
-            val masterKey = MasterKey.Builder(app)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
             EncryptedSharedPreferences.create(
-                app,
                 FILE,
-                masterKey,
+                masterKeyAlias,
+                app,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
             )
