@@ -20,6 +20,7 @@ import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.OfflineVideosRepository
 import com.xtra.kick.repository.datasource.FollowedChannelsDataSource
 import com.xtra.kick.util.C
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 import com.xtra.kick.util.tokenPrefs
@@ -74,7 +75,7 @@ class FollowedChannelsViewModel(
                 enableIntegrity = applicationContext.prefs().getBoolean(C.ENABLE_INTEGRITY, false),
                 networkLibrary = applicationContext.prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP),
                 kickRepository = kickRepository,
-                kickToken = applicationContext.tokenPrefs().getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
+                kickToken = SecurePrefs.tokens(applicationContext).getString(C.KICK_ACCESS_TOKEN, null)?.takeIf { it.isNotBlank() },
             )
         }.flow
     }.cachedIn(viewModelScope)

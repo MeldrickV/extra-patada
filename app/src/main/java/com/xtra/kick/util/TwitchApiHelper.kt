@@ -266,7 +266,7 @@ object TwitchApiHelper {
                     }
                 }
                 if (includeToken) {
-                    context.tokenPrefs().getString(C.GQL_TOKEN2, null)?.let {
+                    SecurePrefs.tokens(context).getString(C.GQL_TOKEN2, null)?.let {
                         if (it.isNotBlank()) {
                             put(C.HEADER_TOKEN, addTokenPrefixGQL(it))
                         }
@@ -283,7 +283,7 @@ object TwitchApiHelper {
                     put(C.HEADER_CLIENT_ID, it)
                 }
             }
-            context.tokenPrefs().getString(C.TOKEN, null)?.let {
+            SecurePrefs.tokens(context).getString(C.TOKEN, null)?.let {
                 if (it.isNotBlank()) {
                     put(C.HEADER_TOKEN, addTokenPrefixHelix(it))
                 }

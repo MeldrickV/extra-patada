@@ -92,6 +92,7 @@ import com.xtra.kick.util.C
 import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.ui.common.LoginMenuHelper
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.applyTheme
 import com.xtra.kick.util.TwitchSession
 import com.xtra.kick.util.getAlertDialogBuilder
@@ -223,8 +224,7 @@ class MainActivity : AppCompatActivity() {
                                         prefs.getString(C.NETWORK_LIBRARY, C.OKHTTP),
                                         TwitchApiHelper.getGQLHeaders(this@MainActivity, true),
                                         prefs.getString(C.GQL_CLIENT_ID_WEB, "kimne78kx3ncx6brgo4mv6wki5h1ko"),
-                                        tokenPrefs().getString(C.GQL_TOKEN_WEB, null)?.takeIf { it.isNotBlank() }?.let { TwitchApiHelper.addTokenPrefixGQL(it) },
-                                        TwitchApiHelper.getHelixHeaders(this@MainActivity),
+                                        SecurePrefs.tokens(this@MainActivity).getString(C.GQL_TOKEN_WEB, null)?.takeIf { it.isNotBlank() }?.let { TwitchApiHelper.addTokenPrefixGQL(it) },                                        TwitchApiHelper.getHelixHeaders(this@MainActivity),
                                         this@MainActivity.tokenPrefs().getString(C.USER_ID, null),
                                         this@MainActivity.tokenPrefs().getString(C.USERNAME, null),
                                         this@MainActivity

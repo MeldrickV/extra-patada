@@ -65,6 +65,7 @@ import com.xtra.kick.model.ui.SettingsSearchItem
 import com.xtra.kick.ui.common.IntegrityDialog
 import com.xtra.kick.ui.settings.SettingsViewModel.Companion.SettingsViewModelFactory
 import com.xtra.kick.util.C
+import com.xtra.kick.util.SecurePrefs
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.applyTheme
 import com.xtra.kick.util.getAlertDialogBuilder
@@ -1276,9 +1277,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             findPreference<EditTextPreference>("token")?.apply {
                 isPersistent = false
-                text = requireContext().tokenPrefs().getString(C.TOKEN, null)
+                text = SecurePrefs.tokens(requireContext()).getString(C.TOKEN, null)
                 setOnPreferenceChangeListener { _, newValue ->
-                    requireContext().tokenPrefs().edit {
+                    SecurePrefs.tokens(requireContext()).edit {
                         putString(C.TOKEN, newValue.toString())
                     }
                     true
@@ -1286,9 +1287,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             findPreference<EditTextPreference>("gql_token2")?.apply {
                 isPersistent = false
-                text = requireContext().tokenPrefs().getString(C.GQL_TOKEN2, null)
+                text = SecurePrefs.tokens(requireContext()).getString(C.GQL_TOKEN2, null)
                 setOnPreferenceChangeListener { _, newValue ->
-                    requireContext().tokenPrefs().edit {
+                    SecurePrefs.tokens(requireContext()).edit {
                         putString(C.GQL_TOKEN2, newValue.toString())
                     }
                     true
@@ -1296,9 +1297,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             findPreference<EditTextPreference>("gql_token_web")?.apply {
                 isPersistent = false
-                text = requireContext().tokenPrefs().getString(C.GQL_TOKEN_WEB, null)
+                text = SecurePrefs.tokens(requireContext()).getString(C.GQL_TOKEN_WEB, null)
                 setOnPreferenceChangeListener { _, newValue ->
-                    requireContext().tokenPrefs().edit {
+                    SecurePrefs.tokens(requireContext()).edit {
                         putString(C.GQL_TOKEN_WEB, newValue.toString())
                     }
                     true

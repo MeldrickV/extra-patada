@@ -14,11 +14,13 @@ object TwitchSession {
     }
 
     fun clear(context: Context) {
-        context.tokenPrefs().edit {
+        SecurePrefs.tokens(context.applicationContext).edit {
             putString(C.TOKEN, null)
             putString(C.GQL_TOKEN, null)
             putString(C.GQL_TOKEN2, null)
             putString(C.GQL_TOKEN_WEB, null)
+        }
+        context.tokenPrefs().edit {
             putString(C.USERNAME, null)
             putString(C.USER_ID, null)
         }
