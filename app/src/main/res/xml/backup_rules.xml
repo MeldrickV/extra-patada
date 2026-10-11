@@ -2,5 +2,6 @@
 <full-backup-content>
     <include domain="sharedpref" path="."/>
     <exclude domain="sharedpref" path="prefs2.xml"/>
+    <exclude domain="sharedpref" path="secure_tokens.xml"/>
     <include domain="database" path="."/>
 </full-backup-content>

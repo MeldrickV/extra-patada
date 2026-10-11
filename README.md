@@ -70,6 +70,17 @@ toolchain locally.
 - [x] Combined Twitch + Kick mode (phase 10): settings toggle "Platform" (`twitch` = existing kick-first feed with Twitch fallback, default; `both` = Kick+Twitch interleaved, de-duplicated by `platform|channelId` to avoid numeric-id collisions) applied to Popular, Following streams and Browse games.
 - [x] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11): dead code removed, combined-paging + mapper JVM tests; lint baseline kept (warningsAsErrors rejected: exposes pre-existing false positives)
 
+## Maintenance pass (2026-10, PRs #37–#45)
+
+- Anti-crash: no more `runBlocking` on main thread (receiver `goAsync`, services persist with `NonCancellable`, progress via `tryEmit`); swallowed Kick errors now log under `KickRepository`/`XtraChat`.
+- Kick VOD chat replay: tolerant timestamp parser (ISO + `yyyy-MM-dd HH:mm:ss`), lazy service anchor kept across resume, Kick manager fallback.
+- Clip → full VOD with offset via shared `livestream_id → uuid` resolver (lists, deep links and player all agree).
+- Faster Kick lists (explicit OkHttp timeouts, parallel channel lookups) and richer Following (thumbnail/game fallbacks, avatar backfill, followed pagination).
+- Smaller core: `BaseChatAdapter` shared by clicked-message adapters, position persistence helpers in `BasePlaybackService`, player `start()` no longer stacks collectors.
+- Dual login: separate Kick identity keys, per-platform logout, per-platform chat send, encrypted token store (`secure_tokens`, excluded from backups) with one-time migration and locked refresh.
+- Downloads: shared Kick URL resolver, master playlists without `STABLE-VARIANT-ID` parse to real qualities, chat download disabled for Kick until replay export exists.
+- Playback robustness: live-edge resync on both players, pinned source steps down, chat token refreshes before TTL expiry.
+
 ## License
 
 Xtra for Kick is licensed under the [GNU Affero General Public License v3.0](LICENSE).
