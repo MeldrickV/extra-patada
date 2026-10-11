@@ -74,12 +74,14 @@ class KickChatWebSocket(
 
     private fun scheduleReconnect(ttlSeconds: Long) {
         reconnectJob?.cancel()
-        if (ttlSeconds <= 0) {
-            return
-        }
         val scope = coroutineScope ?: return
+        val delaySeconds = if (ttlSeconds <= 0) {
+            60L
+        } else {
+            (ttlSeconds - 5).coerceAtLeast(5)
+        }
         reconnectJob = scope.launch(Dispatchers.IO) {
-            delay((ttlSeconds - 5).coerceAtLeast(60).seconds)
+            delay(delaySeconds.seconds)
             if (isActive) {
                 runCatching { refreshSubscription() }
             }
