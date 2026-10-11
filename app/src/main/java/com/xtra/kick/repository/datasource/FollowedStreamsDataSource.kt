@@ -4,6 +4,7 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingState
 import com.xtra.kick.model.kick.KickFollowedChannel
 import com.xtra.kick.model.kick.KickLivestream
+import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.resolveKickGame
 import com.xtra.kick.model.kick.resolveKickThumbnail
 import com.xtra.kick.model.ui.Stream
@@ -189,31 +190,46 @@ class FollowedStreamsDataSource(
                     }.awaitAll()
                 }
             }
-            for ((item, channel) in withChannels) {
+            val candidates = withChannels.mapNotNull { (item, channel) ->
+                val slug = item.slug
+                if (slug.isNullOrBlank() || channel == null) {
+                    null
+                } else {
+                    val kickLive = livestreamsBySlug[slug]
+                    if (kickLive == null && channel.livestream?.isLive != true) {
+                        null
+                    } else {
+                        Triple(item, channel, kickLive)
+                    }
+                }
+            }
+            val searchFallback = searchMissingThumbnails(candidates.mapNotNull { (item, channel, kickLive) ->
+                item.slug?.takeIf { resolveKickThumbnail(kickLive, channel) == null }
+            })
+            for ((item, channel, kickLive) in candidates) {
                 if (list.size >= kickTarget) {
                     break
                 }
-                val slug = item.slug
-                if (slug.isNullOrBlank() || channel == null) continue
-                val kickLive = livestreamsBySlug[slug]
+                val slug = item.slug ?: continue
                 val livestream = channel.livestream
-                if (kickLive == null && livestream?.isLive != true) continue
-                val id = "user_${channel.id}"
                 val game = resolveKickGame(kickLive, channel)
+                val search = searchFallback[slug]
                 list.add(
                     Stream(
-                        id = id,
-                        channelId = id,
+                        id = "user_${channel.id}",
+                        channelId = "user_${channel.id}",
                         channelLogin = slug,
                         channelName = channel.user?.username ?: item.username,
                         channelImageURL = kickLive?.streamer?.user?.profilePicture ?: channel.user?.resolvedProfilePicture ?: item.profilePicture,
-                        gameId = game.id,
-                        gameSlug = game.slug,
-                        gameName = game.name,
-                        title = kickLive?.metadata?.title ?: livestream?.sessionTitle,
-                        thumbnailURL = resolveKickThumbnail(kickLive, channel),
-                        createdAt = kickLive?.startedAt ?: livestream?.startedAt,
-                        viewerCount = kickLive?.viewersCount ?: livestream?.viewerCount,
+                        gameId = game.id ?: search?.categoryId,
+                        gameSlug = game.slug ?: search?.categorySlug,
+                        gameName = game.name ?: search?.categoryName,
+                        title = kickLive?.metadata?.title ?: livestream?.sessionTitle ?: search?.title,
+                        thumbnailURL = resolveKickThumbnail(kickLive, channel) ?: search?.thumbnail,
+                        createdAt = kickLive?.startedAt ?: livestream?.startedAt ?: search?.startedAt,
+                        viewerCount = kickLive?.viewersCount?.takeIf { it > 0 }
+                            ?: livestream?.viewerCount?.takeIf { it > 0 }
+                            ?: search?.viewerCount ?: 0,
                     )
                 )
             }
@@ -488,28 +504,43 @@ class FollowedStreamsDataSource(
                 }.awaitAll()
             }
         }
-        for ((item, channel) in withChannels) {
+        val candidates = withChannels.mapNotNull { (item, channel) ->
             val slug = item.slug
-            if (slug.isNullOrBlank() || channel == null) continue
-            val kickLive = livestreamsBySlug[slug]
+            if (slug.isNullOrBlank() || channel == null) {
+                null
+            } else {
+                val kickLive = livestreamsBySlug[slug]
+                if (kickLive == null && channel.livestream?.isLive != true) {
+                    null
+                } else {
+                    Triple(item, channel, kickLive)
+                }
+            }
+        }
+        val searchFallback = searchMissingThumbnails(candidates.mapNotNull { (item, channel, kickLive) ->
+            item.slug?.takeIf { resolveKickThumbnail(kickLive, channel) == null }
+        })
+        for ((item, channel, kickLive) in candidates) {
+            val slug = item.slug ?: continue
             val livestream = channel.livestream
-            if (kickLive == null && livestream?.isLive != true) continue
-            val id = "user_${channel.id}"
             val game = resolveKickGame(kickLive, channel)
+            val search = searchFallback[slug]
             list.add(
                 Stream(
-                    id = id,
-                    channelId = id,
+                    id = "user_${channel.id}",
+                    channelId = "user_${channel.id}",
                     channelLogin = slug,
                     channelName = channel.user?.username ?: item.username,
                     channelImageURL = kickLive?.streamer?.user?.profilePicture ?: channel.user?.resolvedProfilePicture ?: item.profilePicture,
-                    gameId = game.id,
-                    gameSlug = game.slug,
-                    gameName = game.name,
-                    title = kickLive?.metadata?.title ?: livestream?.sessionTitle,
-                    thumbnailURL = resolveKickThumbnail(kickLive, channel),
-                    createdAt = kickLive?.startedAt ?: livestream?.startedAt,
-                    viewerCount = kickLive?.viewersCount ?: livestream?.viewerCount,
+                    gameId = game.id ?: search?.categoryId,
+                    gameSlug = game.slug ?: search?.categorySlug,
+                    gameName = game.name ?: search?.categoryName,
+                    title = kickLive?.metadata?.title ?: livestream?.sessionTitle ?: search?.title,
+                    thumbnailURL = resolveKickThumbnail(kickLive, channel) ?: search?.thumbnail,
+                    createdAt = kickLive?.startedAt ?: livestream?.startedAt ?: search?.startedAt,
+                    viewerCount = kickLive?.viewersCount?.takeIf { it > 0 }
+                        ?: livestream?.viewerCount?.takeIf { it > 0 }
+                        ?: search?.viewerCount ?: 0,
                 )
             )
             if (list.size >= params.loadSize) break
@@ -519,6 +550,14 @@ class FollowedStreamsDataSource(
             prevKey = null,
             nextKey = null
         )
+    }
+
+    private suspend fun searchMissingThumbnails(slugs: List<String>): Map<String, KickSearchChannel> = coroutineScope {
+        slugs.distinct().chunked(4).flatMap { chunk ->
+            chunk.map { slug ->
+                async { slug to runCatching { kickRepository.searchLivestreamBySlug(slug) }.getOrNull() }
+            }.awaitAll()
+        }.mapNotNull { (slug, hit) -> hit?.let { slug to it } }.toMap()
     }
 
     private suspend fun kickLiveLivestreamsBySlug(needed: Int): Map<String, KickLivestream> {
