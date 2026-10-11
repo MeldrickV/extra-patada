@@ -2061,7 +2061,7 @@ class ChatViewModel(
                     if (replyId == null && message.startsWith("/")) {
                         sendCommand(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, channelLogin, useApiChatMessages, enableIntegrity)
                     } else {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, replyId)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, replyId, channelLogin)
                     }
                 } catch (e: Exception) {
 
@@ -2073,7 +2073,7 @@ class ChatViewModel(
             } else {
                 viewModelScope.launch {
                     try {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, replyId)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, replyId, channelLogin)
                     } catch (e: Exception) {
 
                     }
@@ -2082,21 +2082,33 @@ class ChatViewModel(
         }
     }
 
-    private suspend fun sendMessage(message: CharSequence, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, accountId: String?, channelId: String?, useApiChatMessages: Boolean, enableIntegrity: Boolean, replyId: String? = null) {
+    private suspend fun sendMessage(message: CharSequence, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>, accountId: String?, channelId: String?, useApiChatMessages: Boolean, enableIntegrity: Boolean, replyId: String? = null, channelLogin: String? = null) {
         try {
             if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
-                val broadcasterUserId = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
-                if (broadcasterUserId != null) {
-                    val token = KickSession(applicationContext, kickRepository).accessToken()
-                    if (token.isNullOrBlank()) {
-                        onMessage(ChatMessage(systemMsg = "Kick chat: not logged in"))
-                    } else {
-                        kickRepository.sendChatMessage(token, message.toString(), broadcasterUserId, replyId)?.let {
-                            onMessage(ChatMessage(systemMsg = it))
+                val token = KickSession(applicationContext, kickRepository).accessToken()
+                if (token.isNullOrBlank()) {
+                    onMessage(ChatMessage(systemMsg = "Kick chat: not logged in"))
+                } else if (replyId == null) {
+                    val v2error = kickRepository.sendKickChannelMessage(token, channelId, channelLogin, message.toString())
+                    if (v2error != null) {
+                        val broadcasterUserId = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                        if (broadcasterUserId != null) {
+                            kickRepository.sendChatMessage(token, message.toString(), broadcasterUserId, null)?.let {
+                                onMessage(ChatMessage(systemMsg = it))
+                            }
+                        } else {
+                            onMessage(ChatMessage(systemMsg = v2error))
                         }
                     }
                 } else {
-                    onMessage(ChatMessage(systemMsg = "Kick chat: invalid channel id"))
+                    val broadcasterUserId = channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+                    if (broadcasterUserId != null) {
+                        kickRepository.sendChatMessage(token, message.toString(), broadcasterUserId, replyId)?.let {
+                            onMessage(ChatMessage(systemMsg = it))
+                        }
+                    } else {
+                        onMessage(ChatMessage(systemMsg = "Kick chat: invalid channel id"))
+                    }
                 }
                 return
             }
@@ -2223,7 +2235,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2264,7 +2276,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2279,7 +2291,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2560,7 +2572,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2571,7 +2583,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2638,7 +2650,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2649,7 +2661,7 @@ class ChatViewModel(
                     }
                 } else {
                     if (!gqlHeaders[C.HEADER_TOKEN].isNullOrBlank()) {
-                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+                        sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
                     }
                 }
             }
@@ -2736,7 +2748,7 @@ class ChatViewModel(
                     }
                 }
             }
-            else -> sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity)
+            else -> sendMessage(message, networkLibrary, gqlHeaders, helixHeaders, accountId, channelId, useApiChatMessages, enableIntegrity, channelLogin = channelLogin)
         }
     }
 

@@ -21,6 +21,7 @@ import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.KickSelfUserResponse
 import com.xtra.kick.model.kick.KickSingleClipResponse
 import com.xtra.kick.model.kick.KickVideoResponse
+import com.xtra.kick.util.C
 import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +40,7 @@ class KickRepository(
     private val json: Json,
 ) {
 
-    private val headers = KickApiHelper.getBrowserHeaders()
+    private fun headers() = KickApiHelper.getBrowserHeaders()
 
     suspend fun getLivestreams(limit: Int, cursor: String?): KickLivestreamsData = withContext(Dispatchers.IO) {
         val url = KickApiHelper.PRIVATE_LIVESTREAMS_URL.toHttpUrl().newBuilder()
@@ -47,7 +48,7 @@ class KickRepository(
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -63,7 +64,7 @@ class KickRepository(
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -84,7 +85,7 @@ class KickRepository(
             .apply { cursor?.let { addQueryParameter("cursor", it) } }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -96,7 +97,7 @@ class KickRepository(
 
     suspend fun getChannel(slug: String): KickChannelResponse = withContext(Dispatchers.IO) {
         val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelUrl(slug)).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -136,7 +137,7 @@ class KickRepository(
             Request.Builder()
                 .url(KickApiHelper.REALTIME_BASE_URL + path)
                 .apply {
-                    headers.forEach { (key, value) -> header(key, value) }
+                    headers().forEach { (key, value) -> header(key, value) }
                     post(body.toRequestBody())
                 }
                 .build()
@@ -253,7 +254,7 @@ class KickRepository(
 
     suspend fun getChannelVideos(slug: String): List<KickChannelVideo>? = withContext(Dispatchers.IO) {        runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelVideosUrl(slug)).apply {
-                headers.forEach { (key, value) -> header(key, value) }
+                headers().forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
             response.use {
                 if (!it.isSuccessful) {
@@ -274,7 +275,7 @@ class KickRepository(
     suspend fun getChannelVideosV1(channelId: Long): List<KickChannelVideoV1> = withContext(Dispatchers.IO) {
         runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelVideosV1Url(channelId)).apply {
-                headers.forEach { (key, value) -> header(key, value) }
+                headers().forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
             response.use {
                 if (!it.isSuccessful) {
@@ -295,7 +296,7 @@ class KickRepository(
     suspend fun getVideo(uuid: String): KickVideoResponse? = withContext(Dispatchers.IO) {
         runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.videoUrl(uuid)).apply {
-                headers.forEach { (key, value) -> header(key, value) }
+                headers().forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
             response.use {
                 if (!it.isSuccessful) {
@@ -315,7 +316,7 @@ class KickRepository(
             .apply { cursor?.takeIf { it.isNotBlank() }?.let { addQueryParameter("cursor", it) } }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -329,7 +330,7 @@ class KickRepository(
     suspend fun getChannelLeaderboards(slug: String): KickChannelLeaderboards? = withContext(Dispatchers.IO) {
         runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelLeaderboardsUrl(slug)).apply {
-                headers.forEach { (key, value) -> header(key, value) }
+                headers().forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
             response.use {
                 if (!it.isSuccessful) {
@@ -345,7 +346,7 @@ class KickRepository(
             .addQueryParameter("query", query)
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {
@@ -437,7 +438,7 @@ class KickRepository(
     suspend fun getClip(id: String): KickClip? = withContext(Dispatchers.IO) {
         runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.clipUrl(id)).apply {
-                headers.forEach { (key, value) -> header(key, value) }
+                headers().forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
             response.use {
                 if (!it.isSuccessful) {
@@ -477,6 +478,55 @@ class KickRepository(
                 }.getOrNull() ?: "Kick chat send failed: ${it.code}"
             }
         }
+    }
+
+    suspend fun sendKickChannelMessage(token: String, channelId: String, channelLogin: String?, content: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val chatroomId = channelLogin?.takeIf { it.isNotBlank() }?.let { login ->
+                runCatching { getChannel(login) }.getOrNull()?.chatroom?.id
+            } ?: channelId.removePrefix(C.KICK_USER_PREFIX).toLongOrNull()
+            ?: return@runCatching "Kick chat: invalid channel id"
+            val body = JSONObject()
+                .put("content", content)
+                .put("type", "message")
+                .toString()
+            val response = okHttpClient.value.newCall(
+                Request.Builder()
+                    .url(KickApiHelper.channelMessagesSendUrl(chatroomId))
+                    .apply {
+                        KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+                        header("Content-Type", "application/json")
+                    }
+                    .post(body.toRequestBody())
+                    .build()
+            ).executeAsync()
+            response.use {
+                if (it.isSuccessful) {
+                    null
+                } else {
+                    "Kick chat send failed: ${it.code}"
+                }
+            }
+        }.getOrElse { "Kick chat send failed" }
+    }
+
+    suspend fun postPlayback(videoUuid: String): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val body = JSONObject()
+                .put("player_name", "xtra")
+                .toString()
+            val response = okHttpClient.value.newCall(
+                Request.Builder()
+                    .url(KickApiHelper.streamPlaybackUrl(videoUuid))
+                    .apply {
+                        headers().forEach { (key, value) -> header(key, value) }
+                        header("Content-Type", "application/json")
+                    }
+                    .post(body.toRequestBody())
+                    .build()
+            ).executeAsync()
+            response.use { it.isSuccessful }
+        }.onFailure { Log.w("KickRepository", "postPlayback failed for $videoUuid: ${it.message}") }.getOrDefault(false)
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
@@ -536,7 +586,7 @@ class KickRepository(
             .apply { cursorUs?.let { addQueryParameter("cursor", it.toString()) } }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
-            headers.forEach { (key, value) -> header(key, value) }
+            headers().forEach { (key, value) -> header(key, value) }
         }.build()).executeAsync()
         response.use {
             if (!it.isSuccessful) {

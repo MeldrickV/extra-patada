@@ -941,6 +941,9 @@ class MediaPlayerService : BasePlaybackService() {
             if (qualities.isNullOrEmpty()) {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
+                    lifecycleScope.launch {
+                        xtraModule.kickRepository.postPlayback(videoId)
+                    }
                     val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: playlistUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
