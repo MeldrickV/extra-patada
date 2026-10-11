@@ -564,8 +564,8 @@ class FollowedStreamsDataSource(
     }
 
     private suspend fun directFollowedLivestreams(limit: Int): List<Stream> {
-        if (kickToken.isNullOrBlank()) return emptyList()
-        return runCatching { kickRepository.getUserFollowedLivestreams(kickToken) }.getOrNull()
+        val token = kickToken?.takeIf { it.isNotBlank() } ?: return emptyList()
+        return runCatching { kickRepository.getUserFollowedLivestreams(token) }.getOrNull()
             .orEmpty()
             .mapNotNull { it.toFollowedStream() }
             .take(limit.coerceAtLeast(1))
