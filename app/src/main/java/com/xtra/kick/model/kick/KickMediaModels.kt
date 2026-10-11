@@ -47,6 +47,23 @@ data class KickVideoCategory(
 )
 
 @Serializable
+data class KickChannelVideoV1(
+    val id: String? = null,
+    @SerialName("start_time") val startTime: String? = null,
+    @SerialName("end_time") val endTime: String? = null,
+    val duration: Long = 0,
+    val title: String? = null,
+    val status: String? = null,
+    @SerialName("is_live") val isLive: Boolean = false,
+    @SerialName("is_mature") val isMature: Boolean = false,
+    val language: String? = null,
+    @SerialName("viewer_count") val viewerCount: Int = 0,
+    val thumbnail: KickVideoThumbnail = KickVideoThumbnail(),
+    val category: KickCategoryEntry? = null,
+    val channel: KickClipChannel? = null,
+)
+
+@Serializable
 data class KickVideoResponse(
     val source: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

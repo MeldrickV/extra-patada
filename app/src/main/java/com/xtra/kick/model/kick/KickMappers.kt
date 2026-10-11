@@ -7,6 +7,7 @@ import com.xtra.kick.model.ui.Tag
 import com.xtra.kick.model.ui.User
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.util.C
+import com.xtra.kick.util.parseKickTimestampMs
 
 fun KickLivestream.toStream(): Stream {
     return Stream(
@@ -46,6 +47,25 @@ fun KickFollowedChannel.toUser(): User {
         name = username,
         profileImageURL = profilePicture,
         accountFollow = true,
+        platform = C.KICK,
+    )
+}
+
+fun KickSearchChannel.toFollowedStream(): Stream? {
+    val slug = slug?.takeIf { it.isNotBlank() } ?: return null
+    return Stream(
+        id = "user_$id",
+        channelId = "user_$id",
+        channelLogin = slug,
+        channelName = username,
+        channelImageURL = profilePicture,
+        gameId = categoryId,
+        gameSlug = categorySlug,
+        gameName = categoryName,
+        title = title,
+        thumbnailURL = thumbnail,
+        createdAt = startedAt,
+        viewerCount = viewerCount,
         platform = C.KICK,
     )
 }
@@ -110,6 +130,11 @@ fun KickClip.toClip(
 
 fun List<KickChannelVideo>.byLivestreamId(): Map<String, KickChannelVideo> {
     return mapNotNull { video -> video.id.takeIf { it > 0 }?.toString()?.let { it to video } }.toMap()
+}
+
+fun List<KickChannelVideoV1>.findByStart(startTime: String?): KickChannelVideoV1? {
+    val epoch = parseKickTimestampMs(startTime) ?: return null
+    return firstOrNull { parseKickTimestampMs(it.startTime) == epoch }
 }
 
 data class KickGameRef(

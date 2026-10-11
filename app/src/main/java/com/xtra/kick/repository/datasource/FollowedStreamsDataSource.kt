@@ -7,6 +7,7 @@ import com.xtra.kick.model.kick.KickLivestream
 import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.resolveKickGame
 import com.xtra.kick.model.kick.resolveKickThumbnail
+import com.xtra.kick.model.kick.toFollowedStream
 import com.xtra.kick.model.ui.Stream
 import com.xtra.kick.repository.GraphQLRepository
 import com.xtra.kick.repository.HelixRepository
@@ -176,6 +177,8 @@ class FollowedStreamsDataSource(
         val kickTarget = (max + 1) / 2
         if (!kickFetched) {
             kickFetched = true
+            appendDeduplicated(combinedSeen, list, directFollowedLivestreams(kickTarget), { combinedStreamKey(it) }, max)
+            if (list.size < kickTarget) {
             val followed = (if (!kickToken.isNullOrBlank()) {
                 runCatching {
                     kickRepository.getFollowedChannels(kickToken.orEmpty(), kickTarget.coerceAtLeast(1), null)
@@ -232,6 +235,7 @@ class FollowedStreamsDataSource(
                             ?: search?.viewerCount ?: 0,
                     )
                 )
+            }
             }
         }
         if (list.size < max && !twitchExhausted) {
@@ -489,6 +493,13 @@ class FollowedStreamsDataSource(
     }
 
     private suspend fun kickLoad(params: LoadParams<Int>): LoadResult<Int, Stream> {
+        directFollowedLivestreams(params.loadSize).takeIf { it.isNotEmpty() }?.let { direct ->
+            return LoadResult.Page(
+                data = direct,
+                prevKey = null,
+                nextKey = null
+            )
+        }
         val followed = (if (!kickToken.isNullOrBlank()) {
             runCatching {
                 kickRepository.getFollowedChannels(kickToken.orEmpty(), params.loadSize, offset)
@@ -550,6 +561,14 @@ class FollowedStreamsDataSource(
             prevKey = null,
             nextKey = null
         )
+    }
+
+    private suspend fun directFollowedLivestreams(limit: Int): List<Stream> {
+        if (kickToken.isNullOrBlank()) return emptyList()
+        return runCatching { kickRepository.getUserFollowedLivestreams(kickToken) }.getOrNull()
+            .orEmpty()
+            .mapNotNull { it.toFollowedStream() }
+            .take(limit.coerceAtLeast(1))
     }
 
     private suspend fun searchMissingThumbnails(slugs: List<String>): Map<String, KickSearchChannel> = coroutineScope {

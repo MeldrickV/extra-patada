@@ -250,8 +250,7 @@ class KickRepository(
         postFollow(token, channelId, "DELETE")
     }
 
-    suspend fun getChannelVideos(slug: String): List<KickChannelVideo>? = withContext(Dispatchers.IO) {
-        runCatching {
+    suspend fun getChannelVideos(slug: String): List<KickChannelVideo>? = withContext(Dispatchers.IO) {        runCatching {
             val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelVideosUrl(slug)).apply {
                 headers.forEach { (key, value) -> header(key, value) }
             }.build()).executeAsync()
@@ -269,6 +268,27 @@ class KickRepository(
                 }
             }
         }.onFailure { Log.w("KickRepository", "getChannelVideos failed for $slug: ${it.message}") }.getOrNull()
+    }
+
+    suspend fun getChannelVideosV1(channelId: Long): List<KickChannelVideoV1> = withContext(Dispatchers.IO) {
+        runCatching {
+            val response = okHttpClient.value.newCall(Request.Builder().url(KickApiHelper.channelVideosV1Url(channelId)).apply {
+                headers.forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick channel videos v1 request failed: ${it.code}")
+                }
+                val array = JSONObject(it.body.string()).optJSONArray("data") ?: JSONArray()
+                (0 until array.length()).mapNotNull { index ->
+                    runCatching {
+                        array.optJSONObject(index)?.toString()?.let { item -> json.decodeFromString<KickChannelVideoV1>(item) }
+                    }.onFailure { error ->
+                        Log.w("KickRepository", "Skipping undecodable v1 video for $channelId: ${error.message}")
+                    }.getOrNull()
+                }
+            }
+        }.onFailure { Log.w("KickRepository", "getChannelVideosV1 failed for $channelId: ${it.message}") }.getOrNull() ?: emptyList()
     }
 
     suspend fun getVideo(uuid: String): KickVideoResponse? = withContext(Dispatchers.IO) {
@@ -354,23 +374,7 @@ class KickRepository(
         buildList {
             for (i in 0 until items.length()) {
                 items.optJSONObject(i)?.let { obj ->
-                    val channel = obj.optJSONObject("channel")
-                    val category = obj.optJSONObject("category")
-                    val thumbnail = obj.optJSONObject("thumbnail")
-                    add(KickSearchChannel(
-                        id = channel?.optLong("id", 0) ?: 0,
-                        username = channel?.optString("username")?.takeIf { name -> name.isNotBlank() },
-                        slug = channel?.optString("slug")?.takeIf { name -> name.isNotBlank() },
-                        profilePicture = channel?.optString("profile_picture")?.takeIf { name -> name.isNotBlank() },
-                        isLive = true,
-                        title = obj.optString("title").takeIf { value -> value.isNotBlank() },
-                        thumbnail = thumbnail?.optString("src")?.takeIf { value -> value.isNotBlank() },
-                        startedAt = obj.optString("start_time").takeIf { value -> value.isNotBlank() },
-                        viewerCount = obj.optInt("viewer_count", 0),
-                        categoryId = category?.opt("id")?.toString()?.takeIf { id -> id != "null" },
-                        categorySlug = category?.optString("slug")?.takeIf { name -> name.isNotBlank() },
-                        categoryName = category?.optString("name")?.takeIf { name -> name.isNotBlank() },
-                    ))
+                    parseSearchLivestream(obj)?.let { add(it) }
                 }
             }
         }
@@ -380,6 +384,33 @@ class KickRepository(
         if (slug.isBlank()) return null
         return runCatching { searchStreams(slug) }.getOrNull()
             ?.firstOrNull { it.slug.equals(slug, ignoreCase = true) }
+    }
+
+    suspend fun getUserFollowedLivestreams(token: String): List<KickSearchChannel> = withContext(Dispatchers.IO) {
+        runCatching {
+            val url = "${KickApiHelper.WEBSITE_BASE_URL}/api/v1/user/livestreams".toHttpUrl().newBuilder()
+                .addQueryParameter("sort", "viewers_desc")
+                .build()
+            val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                KickApiHelper.getAuthHeaders(token).forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync()
+            response.use {
+                if (!it.isSuccessful) {
+                    throw IllegalStateException("Kick followed livestreams request failed: ${it.code}")
+                }
+                val root = JSONObject(it.body.string())
+                val array = root.optJSONArray("data")
+                    ?: root.optJSONObject("data")?.optJSONArray("livestreams")
+                    ?: JSONArray()
+                buildList {
+                    for (i in 0 until array.length()) {
+                        array.optJSONObject(i)?.let { obj ->
+                            parseSearchLivestream(obj)?.let { add(it) }
+                        }
+                    }
+                }
+            }
+        }.onFailure { Log.w("KickRepository", "getUserFollowedLivestreams failed: ${it.message}") }.getOrNull() ?: emptyList()
     }
 
     suspend fun searchCategories(query: String): List<KickCategory> = searchEnriched(query).optJSONArray("categories")?.let { items ->
@@ -528,6 +559,26 @@ data class KickMessagesPage(
     val messages: List<JSONObject>,
     val cursor: Long? = null,
 )
+
+fun parseSearchLivestream(obj: JSONObject): KickSearchChannel? {
+    val channel = obj.optJSONObject("channel") ?: return null
+    val category = obj.optJSONObject("category")
+    val thumbnail = obj.optJSONObject("thumbnail")
+    return KickSearchChannel(
+        id = channel.optLong("id", 0),
+        username = channel.optString("username").takeIf { name -> name.isNotBlank() },
+        slug = channel.optString("slug").takeIf { name -> name.isNotBlank() },
+        profilePicture = channel.optString("profile_picture").takeIf { name -> name.isNotBlank() },
+        isLive = true,
+        title = obj.optString("title").takeIf { value -> value.isNotBlank() },
+        thumbnail = thumbnail?.optString("src")?.takeIf { value -> value.isNotBlank() },
+        startedAt = obj.optString("start_time").takeIf { value -> value.isNotBlank() },
+        viewerCount = obj.optInt("viewer_count", 0),
+        categoryId = category?.opt("id")?.toString()?.takeIf { id -> id != "null" },
+        categorySlug = category?.optString("slug")?.takeIf { name -> name.isNotBlank() },
+        categoryName = category?.optString("name")?.takeIf { name -> name.isNotBlank() },
+    )
+}
 
 data class KickFollowedPage(
     val channels: List<KickFollowedChannel>,
