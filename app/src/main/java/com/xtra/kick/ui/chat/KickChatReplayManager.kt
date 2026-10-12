@@ -203,6 +203,7 @@ class KickChatReplayManager(
                     continue
                 }
                 var currentPosition: Long
+                val positionBeforeWait = (getCurrentPosition() ?: 0) + startTime
                 while (
                     (getCurrentPosition() ?: 0).let { position ->
                         lastCheckedPosition = position
@@ -219,6 +220,12 @@ class KickChatReplayManager(
                 }
                 if (!isActive) {
                     break
+                }
+                if (messageOffset <= positionBeforeWait) {
+                    delay(CATCH_UP_DELAY_MS.milliseconds)
+                    if (!isActive) {
+                        break
+                    }
                 }
                 listener.onChatMessage(
                     ChatMessage(
@@ -270,6 +277,7 @@ class KickChatReplayManager(
         private const val FETCH_WINDOW_MS = 120_000L
         private const val FORWARD_BUFFER_MS = 15_000L
         private const val BEHIND_GRACE_MS = 10_000L
+        private const val CATCH_UP_DELAY_MS = 200L
         private const val MAX_PAGES = 4
         private const val MESSAGE_BUFFER = 500
         private const val FORWARD_IDLE_DELAY_MS = 30_000L
