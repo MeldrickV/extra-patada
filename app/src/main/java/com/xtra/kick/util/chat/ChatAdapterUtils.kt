@@ -41,6 +41,7 @@ import com.xtra.kick.model.chat.STVUser
 import com.xtra.kick.model.chat.TwitchBadge
 import com.xtra.kick.model.chat.TwitchEmote
 import com.xtra.kick.ui.view.CenteredImageSpan
+import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.ui.view.NamePaintImageSpan
 import com.xtra.kick.ui.view.NamePaintSpan
 import com.xtra.kick.util.TwitchApiHelper
@@ -981,16 +982,23 @@ object ChatAdapterUtils {
             "2" -> image.url2x ?: image.url1x
             else -> image.url1x
         }
-        enqueueCoil(fragment, image, url, onLoaded, kickEmoteStaticUrl(url as? String ?: image.url1x))
+        enqueueCoil(fragment, image, url, onLoaded)
     }
 
-    private fun enqueueCoil(fragment: Fragment, image: Image, url: Any?, onLoaded: (Drawable) -> Unit, staticUrl: String?) {
+    private fun enqueueCoil(fragment: Fragment, image: Image, url: Any?, onLoaded: (Drawable) -> Unit) {
         fragment.requireContext().imageLoader.enqueue(
             ImageRequest.Builder(fragment.requireContext()).apply {
                 data(url)
-                if (image.thirdParty) {
+                val userAgent = if ((url as? String)?.contains("files.kick.com/") == true) {
+                    KickApiHelper.BROWSER_USER_AGENT
+                } else if (image.thirdParty) {
+                    "Xtra/" + BuildConfig.VERSION_NAME
+                } else {
+                    null
+                }
+                if (userAgent != null) {
                     httpHeaders(NetworkHeaders.Builder().apply {
-                        add("User-Agent", "Xtra/" + BuildConfig.VERSION_NAME)
+                        add("User-Agent", userAgent)
                     }.build())
                 }
                 target(
@@ -998,19 +1006,11 @@ object ChatAdapterUtils {
                         onLoaded((it.asDrawable(fragment.resources)))
                     },
                     onError = {
-                        if (staticUrl != null) {
-                            enqueueCoil(fragment, image, staticUrl, onLoaded, null)
-                        } else {
-                            Log.w("XtraChat", "coil image failed: ${if (url is String) url else url?.javaClass?.simpleName}")
-                        }
+                        Log.w("XtraChat", "coil image failed: ${if (url is String) url else url?.javaClass?.simpleName}")
                     },
                 )
             }.build()
         )
-    }
-
-    private fun kickEmoteStaticUrl(url: String?): String? {
-        return url?.takeIf { it.contains("files.kick.com/emotes/") }?.replace("/fullsize", "/static")
     }
 
     private fun loadGlide(fragment: Fragment, image: Image, emoteQuality: String, onLoaded: (Drawable) -> Unit) {
@@ -1021,8 +1021,15 @@ object ChatAdapterUtils {
                 "2" -> image.url2x ?: image.url1x
                 else -> image.url1x
             }.let {
-                if (image.thirdParty) {
-                    GlideUrl(it) { mapOf("User-Agent" to "Xtra/" + BuildConfig.VERSION_NAME) }
+                val userAgent = if ((it as? String)?.contains("files.kick.com/") == true) {
+                    KickApiHelper.BROWSER_USER_AGENT
+                } else if (image.thirdParty) {
+                    "Xtra/" + BuildConfig.VERSION_NAME
+                } else {
+                    null
+                }
+                if (userAgent != null) {
+                    GlideUrl(it) { mapOf("User-Agent" to userAgent) }
                 } else it
             })
             .diskCacheStrategy(DiskCacheStrategy.DATA)
