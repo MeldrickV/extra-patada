@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -132,13 +133,13 @@ class KickRepository(
             .toString()
     }
 
-    private suspend fun postRealtime(path: String, headers: Map<String, String>, body: String): String = withContext(Dispatchers.IO) {
+    private suspend fun postRealtime(path: String, realtimeHeaders: Map<String, String>, body: String): String = withContext(Dispatchers.IO) {
         val response = okHttpClient.value.newCall(
             Request.Builder()
                 .url(KickApiHelper.REALTIME_BASE_URL + path)
                 .apply {
-                    headers().forEach { (key, value) -> header(key, value) }
-                    post(body.toRequestBody())
+                    realtimeHeaders.forEach { (key, value) -> header(key, value) }
+                    post(body.toRequestBody("application/json".toMediaType()))
                 }
                 .build()
         ).executeAsync()
