@@ -70,7 +70,7 @@ toolchain locally.
 - [x] Combined Twitch + Kick mode (phase 10): settings toggle "Platform" (`twitch` = existing kick-first feed with Twitch fallback, default; `both` = Kick+Twitch interleaved, de-duplicated by `platform|channelId` to avoid numeric-id collisions) applied to Popular, Following streams and Browse games.
 - [x] Debt: lint baseline cleanup, more JVM tests, dead-code removal (phase 11): dead code removed, combined-paging + mapper JVM tests; lint baseline kept (warningsAsErrors rejected: exposes pre-existing false positives)
 
-## Maintenance pass (2026-10, PRs #37–#45)
+## Maintenance pass (2026-10, PRs #37–#58)
 
 - Anti-crash: no more `runBlocking` on main thread (receiver `goAsync`, services persist with `NonCancellable`, progress via `tryEmit`); swallowed Kick errors now log under `KickRepository`/`XtraChat`.
 - Kick VOD chat replay: tolerant timestamp parser (ISO + `yyyy-MM-dd HH:mm:ss`), lazy service anchor kept across resume, Kick manager fallback.
@@ -80,6 +80,10 @@ toolchain locally.
 - Dual login: separate Kick identity keys, per-platform logout, per-platform chat send, encrypted token store (`secure_tokens`, excluded from backups) with one-time migration and locked refresh.
 - Downloads: shared Kick URL resolver, master playlists without `STABLE-VARIANT-ID` parse to real qualities, chat download disabled for Kick until replay export exists.
 - Playback robustness: live-edge resync on both players, pinned source steps down, chat token refreshes before TTL expiry.
+- Official-app alignment (reverse engineered from Kick TV/mobile APKs): channel info from `/info`, followed livestreams in one call, VODs from the v1 endpoint with ISO anchors, chat send via `v2/messages/send` with public fallback, unique request ids, VOD playback tracking.
+- Replay that works: pages keyed by numeric channel id (not chatroom), smooth catch-up pacing instead of bursts, Kick emotes with browser user agent.
+- Kick-correct sharing: `kick.com` channel/video/clip links with canonical web video ids.
+- Android TV detection (leanback + ui mode) with larger chat text; realtime calls carry the proper platform headers and JSON content type.
 
 ## License
 
