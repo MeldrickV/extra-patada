@@ -154,9 +154,15 @@ class KickChatReplayManager(
             if (fetched.isEmpty()) {
                 false
             } else {
-                list.addAll(fetched)
-                list.sortBy { it.offsetSeconds }
-                true
+                val cutoff = position + startTime - BEHIND_GRACE_MS
+                val fresh = fetched.filter { (it.offsetSeconds?.times(1000L) ?: Long.MAX_VALUE) >= cutoff }
+                if (fresh.isEmpty()) {
+                    false
+                } else {
+                    list.addAll(fresh)
+                    list.sortBy { it.offsetSeconds }
+                    true
+                }
             }
         } catch (e: Exception) {
             Log.w("XtraChat", "kick replay fetchMore failed: ${e.message}")
@@ -263,10 +269,11 @@ class KickChatReplayManager(
     companion object {
         private const val FETCH_WINDOW_MS = 120_000L
         private const val FORWARD_BUFFER_MS = 15_000L
+        private const val BEHIND_GRACE_MS = 10_000L
         private const val MAX_PAGES = 4
         private const val MESSAGE_BUFFER = 500
         private const val FORWARD_IDLE_DELAY_MS = 30_000L
-        private const val MAX_IDLE_DELAY_MS = 180_000L
+        private const val MAX_IDLE_DELAY_MS = 60_000L
         private const val MAX_ANCHOR_RETRIES = 5
     }
 }
