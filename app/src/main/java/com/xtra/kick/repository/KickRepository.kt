@@ -522,10 +522,7 @@ class KickRepository(
     suspend fun mintPlaybackUrl(videoUuid: String, channelSlug: String?): String? = withContext(Dispatchers.IO) {
         playbackMintCache[videoUuid]?.let { return@withContext it }
         runCatching {
-            val body = KickPlaybackMint.buildPlaybackBody(
-                channelSlug?.takeIf { it.isNotBlank() } ?: "videos",
-                videoUuid,
-            )
+            val body = KickPlaybackMint.buildPlaybackBody(channelSlug ?: "", videoUuid)
             val response = okHttpClient.value.newCall(
                 Request.Builder()
                     .url(KickApiHelper.streamPlaybackUrl(videoUuid))

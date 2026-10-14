@@ -12,6 +12,7 @@ import org.json.JSONObject
 object KickPlaybackMint {
 
     fun buildPlaybackBody(channelSlug: String, videoId: String, browserLang: String = "en-US"): String {
+        val slug = channelSlug.takeIf { it.isNotBlank() } ?: "videos"
         return JSONObject()
             .put(
                 "video_player",
@@ -41,7 +42,7 @@ object KickPlaybackMint {
                     .put("page_type", "vod")
                     .put("player_remote_played", false)
                     .put("enable_sampling", false)
-                    .put("url_path", "/$channelSlug/videos/$videoId")
+                    .put("url_path", "/$slug/videos/$videoId")
                     .put("autoplay_behaviour", "auto")
                     .put("play_muted", false)
                     .put("viewer_connection_type", ""),
