@@ -70,6 +70,30 @@ class KickChatReplayTest {
     }
 
     @Test
+    fun `forward window keeps messages from position up to ceiling`() {
+        val parsed = fixtureMessages().mapNotNull {
+            KickChatUtils.parseKickMessage(it)?.takeIf { message -> message.timestamp != null }
+        }
+        val timestamps = parsed.mapNotNull { it.timestamp }
+        val anchor = timestamps.minOrNull() ?: error("no timestamps")
+        // Simulate opening the VOD 5min in with a 10min forward window.
+        val fromMs = anchor + 300_000
+        val ceilingMs = fromMs + 600_000
+
+        val mapped = mapReplayWindow(parsed, anchor, ceilingMs, HashSet())
+
+        assertTrue(mapped.isNotEmpty())
+        mapped.forEach { video ->
+            val source = parsed.first { it.id == video.id }
+            val timestamp = source.timestamp ?: error("no timestamp")
+            assertTrue(timestamp in anchor..ceilingMs)
+            assertEquals(((timestamp - anchor).div(1000).toInt().coerceAtLeast(0)), video.offsetSeconds)
+        }
+        // Messages are still anchored to the VOD start, not to the window.
+        assertTrue(mapped.any { (it.offsetSeconds ?: 0) >= 60 })
+    }
+
+    @Test
     fun `anchor matches real vod start`() {
         val startMs = Instant.parse("2026-10-10T20:08:10Z").toEpochMilliseconds()
         assertTrue(startMs > 0)

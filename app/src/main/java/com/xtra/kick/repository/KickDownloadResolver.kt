@@ -28,7 +28,16 @@ class KickDownloadResolver(
                 )
             }
         }
-        val login = channelLogin?.takeIf { it.isNotBlank() } ?: return null
+        val login = channelLogin?.takeIf { it.isNotBlank() }
+        runCatching { kickRepository.mintPlaybackUrl(videoUuid, login) }.getOrNull()
+            ?.takeIf { it.isNotBlank() }?.let { minted ->
+                return ResolvedVideo(
+                    source = minted,
+                    createdAt = null,
+                    startTime = null,
+                )
+            }
+        login ?: return null
         val match = runCatching { kickRepository.getChannelVideos(login) }.getOrNull()
             ?.firstOrNull { it.video?.uuid == videoUuid }
         val source = match?.source?.takeIf { it.isNotBlank() } ?: return null
