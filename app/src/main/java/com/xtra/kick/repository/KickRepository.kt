@@ -23,6 +23,7 @@ import com.xtra.kick.model.kick.KickSingleClipResponse
 import com.xtra.kick.model.kick.KickVideoResponse
 import com.xtra.kick.util.C
 import com.xtra.kick.util.KickApiHelper
+import com.xtra.kick.util.KickIvsProbe
 import com.xtra.kick.util.KickPlaybackMint
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import kotlinx.coroutines.Dispatchers
@@ -546,6 +547,34 @@ class KickRepository(
                     ?.also { url -> playbackMintCache[videoUuid] = url }
             }
         }.onFailure { Log.w("KickRepository", "mintPlaybackUrl failed for $videoUuid: ${it.message}") }.getOrNull()
+    }
+
+    /**
+     * Probes IVS masters directly as a last resort. Returns the first candidate
+     * answering HEAD, or null when nothing is exposed.
+     */
+    suspend fun probeIvsMaster(thumbnail: String?, startMs: Long?): String? = withContext(Dispatchers.IO) {
+        val sessionSegment = KickIvsProbe.parseSessionSegment(thumbnail)
+        val anchor = startMs?.takeIf { it > 0 }
+        if (sessionSegment == null || anchor == null) return@withContext null
+        val candidates = KickIvsProbe.candidateUrls(sessionSegment.sessionId, sessionSegment.segmentId, anchor)
+        for (url in candidates) {
+            val ok = runCatching {
+                val request = Request.Builder()
+                    .url(url)
+                    .head()
+                    .header("User-Agent", KickApiHelper.BROWSER_USER_AGENT)
+                    .header("Referer", "${KickApiHelper.WEBSITE_BASE_URL}/")
+                    .build()
+                okHttpClient.value.newCall(request).executeAsync().use { it.isSuccessful }
+            }.getOrDefault(false)
+            if (ok) {
+                Log.i("KickRepository", "probeIvsMaster hit: $url")
+                return@withContext url
+            }
+        }
+        Log.w("KickRepository", "probeIvsMaster missed ${candidates.size} candidates")
+        null
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {

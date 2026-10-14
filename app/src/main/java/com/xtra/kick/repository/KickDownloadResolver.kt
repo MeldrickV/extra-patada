@@ -40,11 +40,22 @@ class KickDownloadResolver(
         login ?: return null
         val match = runCatching { kickRepository.getChannelVideos(login) }.getOrNull()
             ?.firstOrNull { it.video?.uuid == videoUuid }
-        val source = match?.source?.takeIf { it.isNotBlank() } ?: return null
+        match?.source?.takeIf { it.isNotBlank() }?.let { source ->
+            return ResolvedVideo(
+                source = source,
+                createdAt = match.video?.createdAt,
+                startTime = match.startTime,
+            )
+        }
+        // Last resort: probe the IVS paths from the listing thumbnail.
+        val startMs = match?.startTime?.let { com.xtra.kick.util.parseKickTimestampMs(it) }
+        val probed = runCatching {
+            kickRepository.probeIvsMaster(match?.thumbnail?.src, startMs)
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
         return ResolvedVideo(
-            source = source,
-            createdAt = match.video?.createdAt,
-            startTime = match.startTime,
+            source = probed,
+            createdAt = match?.video?.createdAt,
+            startTime = match?.startTime,
         )
     }
 

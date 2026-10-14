@@ -943,10 +943,19 @@ class MediaPlayerService : BasePlaybackService() {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
                     val minted = runCatching { xtraModule.kickRepository.mintPlaybackUrl(videoId, channelLogin) }.getOrNull()
-                    val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                    var url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: minted?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { KickPlaybackMint.withCacheBuster(it) }
                         ?: playlistUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
-                        ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
+                    if (url == null) {
+                        // Last resort before the single derived candidate: probe the
+                        // IVS paths directly (works for unmintable and sub-only VODs).
+                        val thumb = videoAnimatedPreviewURL ?: thumbnail
+                        val startMs = listOfNotNull(video?.livestream?.startTime, video?.createdAt, createdAt)
+                            .firstNotNullOfOrNull { parseKickTimestampMs(it) }
+                        url = runCatching { xtraModule.kickRepository.probeIvsMaster(thumb, startMs) }.getOrNull()
+                            ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                            ?: KickPlayback.vodMasterUrl(thumb)
+                    }
                     if (url != null) {
                         playlistUrl = url
                     } else {
