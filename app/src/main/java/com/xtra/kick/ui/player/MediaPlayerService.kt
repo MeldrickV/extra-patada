@@ -48,6 +48,7 @@ import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
 import com.xtra.kick.model.kick.byLivestreamId
 import com.xtra.kick.util.KickPlayback
+import com.xtra.kick.util.KickPlaybackMint
 import com.xtra.kick.util.parseKickTimestampMs
 import com.xtra.kick.util.MediaButtonReceiver
 import com.xtra.kick.util.NetworkUtils
@@ -941,14 +942,15 @@ class MediaPlayerService : BasePlaybackService() {
             if (qualities.isNullOrEmpty()) {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
-                    lifecycleScope.launch {
-                        xtraModule.kickRepository.postPlayback(videoId)
-                    }
+                    val minted = runCatching { xtraModule.kickRepository.mintPlaybackUrl(videoId, channelLogin) }.getOrNull()
                     val url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                        ?: minted?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { KickPlaybackMint.withCacheBuster(it) }
                         ?: playlistUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: KickPlayback.vodMasterUrl(videoAnimatedPreviewURL ?: thumbnail)
                     if (url != null) {
                         playlistUrl = url
+                    } else {
+                        Log.w("XtraPlayer", "kick vod has no playable source (subscriber-only?): $videoId")
                     }
                     if (parseKickTimestampMs(createdAt) == null) {
                         // Kick list endpoints use a non-ISO "yyyy-MM-dd HH:mm:ss" format:

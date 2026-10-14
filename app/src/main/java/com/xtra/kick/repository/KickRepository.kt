@@ -23,6 +23,7 @@ import com.xtra.kick.model.kick.KickSingleClipResponse
 import com.xtra.kick.model.kick.KickVideoResponse
 import com.xtra.kick.util.C
 import com.xtra.kick.util.KickApiHelper
+import com.xtra.kick.util.KickPlaybackMint
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -511,23 +512,43 @@ class KickRepository(
         }.getOrElse { "Kick chat send failed" }
     }
 
-    suspend fun postPlayback(videoUuid: String): Boolean = withContext(Dispatchers.IO) {
+    private val playbackMintCache = mutableMapOf<String, String>()
+
+    /**
+     * Mints a signed VOD master playlist. One resolve per VOD is cached; a
+     * failure is not kept so the next caller tries again. Returns null when no
+     * URL is minted, e.g. a subscriber-only VOD without an entitled session.
+     */
+    suspend fun mintPlaybackUrl(videoUuid: String, channelSlug: String?): String? = withContext(Dispatchers.IO) {
+        playbackMintCache[videoUuid]?.let { return@withContext it }
         runCatching {
-            val body = JSONObject()
-                .put("player_name", "xtra")
-                .toString()
+            val body = KickPlaybackMint.buildPlaybackBody(
+                channelSlug?.takeIf { it.isNotBlank() } ?: "videos",
+                videoUuid,
+            )
             val response = okHttpClient.value.newCall(
                 Request.Builder()
                     .url(KickApiHelper.streamPlaybackUrl(videoUuid))
                     .apply {
-                        headers().forEach { (key, value) -> header(key, value) }
+                        header("User-Agent", KickApiHelper.BROWSER_USER_AGENT)
+                        header("Accept", "application/json")
                         header("Content-Type", "application/json")
+                        header("Origin", KickApiHelper.WEBSITE_BASE_URL)
+                        header("Referer", "${KickApiHelper.WEBSITE_BASE_URL}/")
+                        header("X-Request-Id", java.util.UUID.randomUUID().toString())
                     }
-                    .post(body.toRequestBody())
+                    .post(body.toRequestBody("application/json".toMediaType()))
                     .build()
             ).executeAsync()
-            response.use { it.isSuccessful }
-        }.onFailure { Log.w("KickRepository", "postPlayback failed for $videoUuid: ${it.message}") }.getOrDefault(false)
+            response.use {
+                if (!it.isSuccessful) {
+                    Log.w("KickRepository", "mintPlaybackUrl failed for $videoUuid: ${it.code}")
+                    return@runCatching null
+                }
+                KickPlaybackMint.parseMintedVodUrl(it.body.string())
+                    ?.also { url -> playbackMintCache[videoUuid] = url }
+            }
+        }.onFailure { Log.w("KickRepository", "mintPlaybackUrl failed for $videoUuid: ${it.message}") }.getOrNull()
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
@@ -582,9 +603,12 @@ class KickRepository(
         )
     }
 
-    suspend fun getChannelMessages(channelId: Long, cursorUs: Long? = null): KickMessagesPage = withContext(Dispatchers.IO) {
+    suspend fun getChannelMessages(channelId: Long, cursorUs: Long? = null, startTimeIso: String? = null): KickMessagesPage = withContext(Dispatchers.IO) {
         val url = KickApiHelper.channelMessagesUrl(channelId).toHttpUrl().newBuilder()
-            .apply { cursorUs?.let { addQueryParameter("cursor", it.toString()) } }
+            .apply {
+                startTimeIso?.takeIf { it.isNotBlank() }?.let { addQueryParameter("start_time", it) }
+                cursorUs?.let { addQueryParameter("cursor", it.toString()) }
+            }
             .build()
         val response = okHttpClient.value.newCall(Request.Builder().url(url).apply {
             headers().forEach { (key, value) -> header(key, value) }

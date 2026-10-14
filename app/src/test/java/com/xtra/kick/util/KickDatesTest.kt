@@ -8,6 +8,13 @@ import kotlin.time.Instant
 class KickDatesTest {
 
     @Test
+    fun `instantIsoUtc formats epoch as UTC ISO`() {
+        assertEquals("2026-10-10T20:08:10Z", KickApiHelper.instantIsoUtc(Instant.parse("2026-10-10T20:08:10Z").toEpochMilliseconds()))
+        assertEquals("1970-01-01T00:00:00Z", KickApiHelper.instantIsoUtc(0L))
+        assertEquals("1970-01-01T00:00:00Z", KickApiHelper.instantIsoUtc(-5L))
+    }
+
+    @Test
     fun `parses ISO instant with Z`() {
         val expected = Instant.parse("2026-10-10T21:06:37Z").toEpochMilliseconds()
         assertEquals(expected, parseKickTimestampMs("2026-10-10T21:06:37Z"))

@@ -94,4 +94,14 @@ object KickApiHelper {
             "Origin" to WEBSITE_BASE_URL,
         )
     }
+
+    /**
+     * Formats an epoch-millis timestamp as UTC ISO-8601 (`yyyy-MM-dd'T'HH:mm:ss'Z'`),
+     * the `start_time` shape Kick's channel-messages endpoint anchors replay on.
+     */
+    fun instantIsoUtc(epochMs: Long): String {
+        val format = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+        format.timeZone = java.util.TimeZone.getTimeZone("UTC")
+        return format.format(java.util.Date(epochMs.coerceAtLeast(0L)))
+    }
 }
