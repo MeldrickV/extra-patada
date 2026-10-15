@@ -515,6 +515,31 @@ class VideoDownloadService : LifecycleService() {
             })
             fileUri
         }
+        // Stale byte/progress counters (e.g. file removed outside) would skip
+        // content that was never written: restart clean instead of faking it.
+        val existingBytes = try {
+            if (isShared) {
+                contentResolver.openAssetFileDescriptor(videoFileUri.toUri(), "r")?.use { it.length } ?: -1
+            } else {
+                File(videoFileUri).takeIf { it.exists() }?.length() ?: -1
+            }
+        } catch (e: Exception) {
+            -1
+        }
+        if (existingBytes < 0 || existingBytes < downloadProgress.bytes) {
+            Log.w("VideoDownloadService", "resetting stale to-file progress ${downloadProgress.progress}/${downloadProgress.bytes}")
+            downloadProgress.progress = 0
+            downloadProgress.bytes = 0
+            xtraModule.offlineVideosRepository.update(offlineVideo.apply {
+                progress = 0
+                maxProgress = downloadProgress.maxProgress
+                bytes = 0
+                chatProgress = downloadProgress.chatProgress
+                maxChatProgress = downloadProgress.maxChatProgress
+                chatBytes = downloadProgress.chatBytes
+                chatOffsetSeconds = downloadProgress.chatOffsetSeconds
+            })
+        }
         val requestSemaphore = Semaphore(prefs().getInt(C.DOWNLOAD_CONCURRENT_LIMIT, 10))
         val mutexMap = mutableMapOf<Int, Mutex>()
         val count = MutableStateFlow(0)
@@ -690,6 +715,30 @@ class VideoDownloadService : LifecycleService() {
                 }
             }
         }
+    }
+
+    private fun segmentFileExists(videoDirectoryUri: String, isShared: Boolean, name: String): Boolean {
+        return try {
+            if (isShared) {
+                contentResolver.openInputStream("$videoDirectoryUri%2F$name".toUri())?.close()
+                true
+            } else {
+                File(videoDirectoryUri + name).exists()
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Counts the existing prefix [0, upto): the actually watchable frontier. */
+    private fun contiguousCompleted(videoDirectoryUri: String, isShared: Boolean, fileSegments: List<Segment>, upto: Int): Int {
+        var count = 0
+        val limit = upto.coerceIn(0, fileSegments.size)
+        while (count < limit) {
+            if (!segmentFileExists(videoDirectoryUri, isShared, fileSegments[count].uri)) break
+            count++
+        }
+        return count
     }
 
     private suspend fun downloadPlaylist(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, playlistUrl: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
@@ -883,6 +932,25 @@ class VideoDownloadService : LifecycleService() {
         val chatJob = launch(Dispatchers.IO) {
             startChatJob(offlineVideo, downloadProgress, path)
         }
+        // Reconcile stored progress with files on disk: stale progress (from
+        // crashes or older naming schemes) would otherwise skip segments that
+        // were never written and fake completion.
+        val storedProgress = downloadProgress.progress.coerceIn(0, fileSegments.size)
+        val verifiedStart = contiguousCompleted(videoDirectoryUri, isShared, fileSegments, storedProgress)
+        if (verifiedStart < downloadProgress.progress) {
+            Log.w("VideoDownloadService", "rewinding stale progress ${downloadProgress.progress} to $verifiedStart")
+            downloadProgress.progress = verifiedStart
+            xtraModule.offlineVideosRepository.update(offlineVideo.apply {
+                progress = verifiedStart
+                maxProgress = downloadProgress.maxProgress
+                bytes = downloadProgress.bytes
+                chatProgress = downloadProgress.chatProgress
+                maxChatProgress = downloadProgress.maxChatProgress
+                chatBytes = downloadProgress.chatBytes
+                chatOffsetSeconds = downloadProgress.chatOffsetSeconds
+            })
+        }
+        writePartialPlaylist(videoDirectoryUri, isShared, playlist, fileSegments, verifiedStart)
         // Snapshot the resume offset: progress mutates as jobs complete, so the
         // post-drop index must anchor to a fixed base (live reads overrun).
         val baseProgress = downloadProgress.progress
@@ -1021,7 +1089,10 @@ class VideoDownloadService : LifecycleService() {
                             chatBytes = downloadProgress.chatBytes
                             chatOffsetSeconds = downloadProgress.chatOffsetSeconds
                         })
-                        writePartialPlaylist(videoDirectoryUri, isShared, playlist, fileSegments, downloadProgress.progress)
+                        // The partial playlist only references verified files so
+                        // the player never opens a gap.
+                        val verified = contiguousCompleted(videoDirectoryUri, isShared, fileSegments, downloadProgress.progress)
+                        writePartialPlaylist(videoDirectoryUri, isShared, playlist, fileSegments, verified)
                     }
                 }
                 count.update { it + 1 }
@@ -1033,6 +1104,22 @@ class VideoDownloadService : LifecycleService() {
             }
         }
         jobs.joinAll()
+        // Never fake completion: if any file is missing, rewind so the next
+        // resume (or the completion check outside) sees real progress.
+        val verified = contiguousCompleted(videoDirectoryUri, isShared, fileSegments, fileSegments.size)
+        if (verified < downloadProgress.progress) {
+            Log.w("VideoDownloadService", "download incomplete: rewinding ${downloadProgress.progress} to $verified")
+            downloadProgress.progress = verified
+            xtraModule.offlineVideosRepository.update(offlineVideo.apply {
+                progress = verified
+                maxProgress = downloadProgress.maxProgress
+                bytes = downloadProgress.bytes
+                chatProgress = downloadProgress.chatProgress
+                maxChatProgress = downloadProgress.maxChatProgress
+                chatBytes = downloadProgress.chatBytes
+                chatOffsetSeconds = downloadProgress.chatOffsetSeconds
+            })
+        }
         chatJob.join()
     }
 
