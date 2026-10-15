@@ -29,6 +29,22 @@ class KickDownloadResolver(
             }
         }
         val login = channelLogin?.takeIf { it.isNotBlank() }
+        val videos = login?.let { runCatching { kickRepository.getChannelVideos(it) }.getOrNull() }
+        val match = videos?.firstOrNull { it.video?.uuid == videoUuid }
+        match?.let {
+            // The mint endpoint only knows new-format v1 ids (old uuids answer 404).
+            val v1Id = runCatching {
+                kickRepository.getV1IdForMatch(it.channelId, login, it.startTime)
+            }.getOrNull()
+            runCatching { kickRepository.mintPlaybackUrl(v1Id ?: videoUuid, login) }.getOrNull()
+                ?.takeIf { url -> url.isNotBlank() }?.let { minted ->
+                    return ResolvedVideo(
+                        source = minted,
+                        createdAt = null,
+                        startTime = null,
+                    )
+                }
+        }
         runCatching { kickRepository.mintPlaybackUrl(videoUuid, login) }.getOrNull()
             ?.takeIf { it.isNotBlank() }?.let { minted ->
                 return ResolvedVideo(
@@ -38,8 +54,6 @@ class KickDownloadResolver(
                 )
             }
         login ?: return null
-        val match = runCatching { kickRepository.getChannelVideos(login) }.getOrNull()
-            ?.firstOrNull { it.video?.uuid == videoUuid }
         match?.source?.takeIf { it.isNotBlank() }?.let { source ->
             return ResolvedVideo(
                 source = source,

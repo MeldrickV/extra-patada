@@ -942,7 +942,14 @@ class MediaPlayerService : BasePlaybackService() {
             if (qualities.isNullOrEmpty()) {
                 if (channelId?.startsWith(C.KICK_USER_PREFIX) == true) {
                     val video = runCatching { xtraModule.kickRepository.getVideo(videoId) }.getOrNull()
-                    val minted = runCatching { xtraModule.kickRepository.mintPlaybackUrl(videoId, channelLogin) }.getOrNull()
+                    var minted = runCatching { xtraModule.kickRepository.mintPlaybackUrl(videoId, channelLogin) }.getOrNull()
+                    if (minted.isNullOrBlank()) {
+                        // The mint endpoint only knows new-format v1 ids (old uuids answer 404).
+                        val v1Id = runCatching { xtraModule.kickRepository.resolveV1VideoId(videoId, channelLogin) }.getOrNull()
+                        if (!v1Id.isNullOrBlank() && v1Id != videoId) {
+                            minted = runCatching { xtraModule.kickRepository.mintPlaybackUrl(v1Id, channelLogin) }.getOrNull()
+                        }
+                    }
                     var url = video?.source?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                         ?: minted?.takeIf { it.startsWith("https://") || it.startsWith("http://") }?.let { KickPlaybackMint.withCacheBuster(it) }
                         ?: playlistUrl?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
@@ -954,8 +961,11 @@ class MediaPlayerService : BasePlaybackService() {
                         val thumb = kickLegacyThumbnail ?: videoAnimatedPreviewURL ?: thumbnail
                         val startMs = listOfNotNull(video?.livestream?.startTime, video?.createdAt, createdAt)
                             .firstNotNullOfOrNull { parseKickTimestampMs(it) }
+                        Log.i("XtraPlayer", "kick probe fallback: thumb=${thumb?.substringBefore("?")?.takeLast(64)} startMs=$startMs")
                         url = runCatching { xtraModule.kickRepository.probeIvsMaster(thumb, startMs) }.getOrNull()
                             ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+                            ?: runCatching { xtraModule.kickRepository.probeIvsFromListing(videoId, channelLogin) }.getOrNull()
+                                ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
                             ?: KickPlayback.vodMasterUrl(thumb)
                     }
                     if (url != null) {
