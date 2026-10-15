@@ -75,6 +75,7 @@ fun KickChannelVideo.toVideo(
     channelLogin: String? = null,
     channelName: String? = null,
     channelImageURL: String? = null,
+    legacyThumbnail: String? = null,
 ): Video {
     val category = categories.firstOrNull()
     return Video(
@@ -95,6 +96,7 @@ fun KickChannelVideo.toVideo(
         animatedPreviewURL = thumbnail.src,
         playlistUrl = source?.takeIf { it.startsWith("https://") || it.startsWith("http://") },
         platform = C.KICK,
+        kickLegacyThumbnail = legacyThumbnail,
     )
 }
 

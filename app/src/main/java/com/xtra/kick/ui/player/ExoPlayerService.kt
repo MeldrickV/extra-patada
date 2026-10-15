@@ -1462,7 +1462,9 @@ class ExoPlayerService : BasePlaybackService() {
                     if (url == null) {
                         // Last resort before the single derived candidate: probe the
                         // IVS paths directly (works for unmintable and sub-only VODs).
-                        val thumb = videoAnimatedPreviewURL ?: thumbnail
+                        // Prefer the pre-enrichment legacy thumbnail: signed v1 URLs
+                        // carry no session path and blind the probe.
+                        val thumb = kickLegacyThumbnail ?: videoAnimatedPreviewURL ?: thumbnail
                         val startMs = listOfNotNull(video?.livestream?.startTime, video?.createdAt, createdAt)
                             .firstNotNullOfOrNull { parseKickTimestampMs(it) }
                         url = runCatching { xtraModule.kickRepository.probeIvsMaster(thumb, startMs) }.getOrNull()
@@ -1472,7 +1474,8 @@ class ExoPlayerService : BasePlaybackService() {
                     if (url != null) {
                         playlistUrl = url
                     } else {
-                        Log.w("XtraPlayer", "kick vod has no playable source (subscriber-only?): $videoId")
+                        val subOnly = runCatching { xtraModule.kickRepository.isSubOnlyVod(channelId, channelLogin, createdAt) }.getOrNull() == true
+                        Log.w("XtraPlayer", "kick vod has no playable source" + (if (subOnly) " (subscriber-only)" else "") + ": $videoId")
                     }
                     if (parseKickTimestampMs(createdAt) == null) {
                         // Kick list endpoints use a non-ISO "yyyy-MM-dd HH:mm:ss" format:
@@ -1626,6 +1629,7 @@ class ExoPlayerService : BasePlaybackService() {
             durationSeconds = video.durationSeconds
             videoType = video.type
             videoAnimatedPreviewURL = video.animatedPreviewURL
+            kickLegacyThumbnail = video.kickLegacyThumbnail
             updateMetadata()
             updateNotification()
             serviceListener?.updateVideoInfo()

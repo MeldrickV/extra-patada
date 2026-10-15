@@ -24,6 +24,12 @@ class Video(
     val animatedPreviewURL: String? = null,
     val playlistUrl: String? = null,
     val platform: String? = null,
+    /**
+     * Pre-enrichment v2 thumbnail (`images.kick.com/video_thumbnails/...`).
+     * Display thumbs may be replaced by signed v1 URLs without a session path;
+     * this one is kept so IVS probing can unlock unmintable/sub-only VODs.
+     */
+    val kickLegacyThumbnail: String? = null,
 ) : Parcelable {
 
     val isKick: Boolean

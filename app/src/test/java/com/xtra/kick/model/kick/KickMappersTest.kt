@@ -10,6 +10,36 @@ import org.junit.Test
 class KickMappersTest {
 
     @Test
+    fun `toVideo keeps legacy thumbnail for probing`() {
+        val item = KickChannelVideo(
+            id = 131471718,
+            startTime = "2026-10-09 21:41:34",
+            thumbnail = KickVideoThumbnail("https://images.kick.com/video_thumbnails/nUENxjSFZPaB/vXSzyhcFphZZ/720.webp"),
+            video = KickVideoReference(uuid = "ede931d6-0000-4000-8000-000000000000"),
+        )
+        val ui = item.toVideo(
+            channelLogin = "itspennygg",
+            legacyThumbnail = item.thumbnail.src,
+        )
+
+        assertEquals("ede931d6-0000-4000-8000-000000000000", ui.id)
+        assertEquals("https://images.kick.com/video_thumbnails/nUENxjSFZPaB/vXSzyhcFphZZ/720.webp", ui.kickLegacyThumbnail)
+    }
+
+    @Test
+    fun `findByStart matches sub-only v1 entry by epoch`() {
+        val entries = listOf(
+            KickChannelVideoV1(id = "01a13dc3-b718-71a7-b2d6-07ae27bd25e8", startTime = "2026-10-15T04:13:19Z", status = "public"),
+            KickChannelVideoV1(id = "01a1229d-42b0-7d40-9a3f-e15fcb040042", startTime = "2026-10-09T21:41:34Z", status = "sub_only"),
+        )
+        val match = entries.findByStart("2026-10-09 21:41:34")
+
+        assertEquals("01a1229d-42b0-7d40-9a3f-e15fcb040042", match?.id)
+        assertTrue(match?.status.equals("sub_only", ignoreCase = true))
+    }
+
+
+    @Test
     fun `livestream maps to ui Stream`() {
         val stream = KickLivestream(
             id = "42",
