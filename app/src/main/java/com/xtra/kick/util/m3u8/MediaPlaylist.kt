@@ -5,5 +5,7 @@ data class MediaPlaylist(
     val dateRanges: List<DateRange>,
     val initSegmentUri: String?,
     val segments: List<Segment>,
-    val end: Boolean
+    val end: Boolean,
+    val keyMethod: String? = null,
+    val mapByteRange: ByteRange? = null,
 )

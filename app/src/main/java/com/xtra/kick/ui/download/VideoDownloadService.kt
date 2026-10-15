@@ -32,11 +32,15 @@ import com.xtra.kick.model.chat.TwitchBadge
 import com.xtra.kick.model.chat.TwitchEmote
 import com.xtra.kick.model.ui.DownloadProgress
 import com.xtra.kick.model.ui.OfflineVideo
+import com.xtra.kick.repository.KickDownloadResolver
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickSegmentUrls
+import com.xtra.kick.util.SegmentHttpException
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
 import com.xtra.kick.util.TwitchApiHelper
+import com.xtra.kick.util.m3u8.MasterPlaylist.parseMasterVariants
 import com.xtra.kick.util.m3u8.MediaPlaylist
 import com.xtra.kick.util.m3u8.PlaylistUtils
 import com.xtra.kick.util.m3u8.Segment
@@ -218,6 +222,53 @@ class VideoDownloadService : LifecycleService() {
     }
 
     private suspend fun downloadVideo(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, sourceUrl: String) = withContext(Dispatchers.IO) {
+        // Signed Kick URLs expire mid-download. On auth failures, resolve a
+        // fresh source once and resume from the persisted progress.
+        var currentSource = sourceUrl
+        var reminted = false
+        while (true) {
+            try {
+                downloadVideoAttempt(offlineVideo, downloadProgress, currentSource)
+                break
+            } catch (e: SegmentHttpException) {
+                val isKick = KickSegmentUrls.isKickUrl(currentSource)
+                if (!reminted && isKick && (e.code == 401 || e.code == 403)) {
+                    reminted = true
+                    val fresh = refreshKickSource(offlineVideo)
+                    if (!fresh.isNullOrBlank() && fresh != currentSource) {
+                        Log.i("VideoDownloadService", "kick source expired, resuming with fresh url")
+                        currentSource = fresh
+                        continue
+                    }
+                }
+                throw e
+            }
+        }
+    }
+
+    /** Re-resolves the download source, descending into masters when needed. */
+    private suspend fun refreshKickSource(offlineVideo: OfflineVideo): String? {
+        val resolved = runCatching {
+            KickDownloadResolver(xtraModule.kickRepository).resolveVideo(offlineVideo.videoId, offlineVideo.channelLogin)?.source
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: return null
+        val text = runCatching {
+            okHttpClient.value.newCall(Request.Builder().url(resolved).apply {
+                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+            }.build()).executeAsync().use { response ->
+                if (!response.isSuccessful) throw SegmentHttpException(response.code)
+                response.body.string()
+            }
+        }.getOrNull() ?: return null
+        if (!text.contains("#EXT-X-STREAM-INF")) return resolved
+        val variants = parseMasterVariants(text).filter { !it.url.isNullOrBlank() }
+        if (variants.isEmpty()) return null
+        val wanted = offlineVideo.quality
+        val picked = variants.firstOrNull { it.name == wanted }
+            ?: variants.maxByOrNull { it.bitrate ?: 0 }
+        return picked?.url?.let { KickSegmentUrls.resolveUrl(resolved, it) }
+    }
+
+    private suspend fun downloadVideoAttempt(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, sourceUrl: String) = withContext(Dispatchers.IO) {
         val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP)
         val path = offlineVideo.downloadPath!!
         val from = offlineVideo.fromTime!!
@@ -262,13 +313,20 @@ class VideoDownloadService : LifecycleService() {
                 }
             }
             else -> {
-                okHttpClient.value.newCall(Request.Builder().url(sourceUrl).build()).executeAsync().use { response ->
+                okHttpClient.value.newCall(Request.Builder().url(sourceUrl).apply {
+                    KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                }.build()).executeAsync().use { response ->
+                    if (!response.isSuccessful) throw SegmentHttpException(response.code)
                     response.body.byteStream().use {
                         PlaylistUtils.parseMediaPlaylist(it)
                     }
                 }
             }
         }
+        if (playlist.keyMethod != null && !playlist.keyMethod.equals("NONE", true)) {
+            throw IllegalStateException("Encrypted playlist (${playlist.keyMethod}), not supported")
+        }
+        val isKick = KickSegmentUrls.isKickUrl(sourceUrl)
         val segments = mutableListOf<Segment>()
         var totalDuration = 0L
         var downloadDuration = 0L
@@ -281,7 +339,8 @@ class VideoDownloadService : LifecycleService() {
                 totalDuration = endTime
             } else {
                 if (startTime < to) {
-                    segments.add(segment.copy(uri = segment.uri.replace("-unmuted", "-muted")))
+                    val uri = if (isKick) segment.uri else segment.uri.replace("-unmuted", "-muted")
+                    segments.add(segment.copy(uri = uri))
                     totalDuration = endTime
                     downloadDuration += duration
                     if (startPosition == -1L) {
@@ -300,15 +359,14 @@ class VideoDownloadService : LifecycleService() {
             })
             downloadProgress.maxProgress = offlineVideo.maxProgress
         }
-        val urlPath = sourceUrl.substringBeforeLast('/') + "/"
         if (offlineVideo.playlistToFile) {
-            downloadPlaylistToFile(offlineVideo, downloadProgress, networkLibrary, urlPath, path, playlist, segments)
+            downloadPlaylistToFile(offlineVideo, downloadProgress, networkLibrary, sourceUrl, path, playlist, segments)
         } else {
-            downloadPlaylist(offlineVideo, downloadProgress, networkLibrary, urlPath, path, playlist, segments)
+            downloadPlaylist(offlineVideo, downloadProgress, networkLibrary, sourceUrl, path, playlist, segments)
         }
     }
 
-    private suspend fun downloadPlaylistToFile(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, urlPath: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
+    private suspend fun downloadPlaylistToFile(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, playlistUrl: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
         val isShared = path.toUri().scheme == ContentResolver.SCHEME_CONTENT
         val videoFileUri = if (!offlineVideo.url.isNullOrBlank()) {
             val fileUri = offlineVideo.url!!
@@ -325,7 +383,10 @@ class VideoDownloadService : LifecycleService() {
             }
             fileUri
         } else {
-            val fileName = "${offlineVideo.videoId ?: ""}${offlineVideo.quality ?: ""}${offlineVideo.downloadDate}.${segments.first().uri.substringAfterLast(".")}"
+            val firstBase = segments.first().uri.substringBefore('?').substringAfterLast('/')
+            val ext = firstBase.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.length <= 4 }
+                ?: if (playlist.initSegmentUri != null) "mp4" else "ts"
+            val fileName = "${offlineVideo.videoId ?: ""}${offlineVideo.quality ?: ""}${offlineVideo.downloadDate}.$ext"
             val fileUri = if (isShared) {
                 val documentId = DocumentsContract.getTreeDocumentId(path.toUri())
                 val directoryUri = DocumentsContract.buildDocumentUriUsingTree(path.toUri(), documentId)
@@ -340,7 +401,7 @@ class VideoDownloadService : LifecycleService() {
                 "$path${File.separator}$fileName"
             }
             val initSegmentBytes = if (playlist.initSegmentUri != null) {
-                val url = urlPath + playlist.initSegmentUri
+                val url = KickSegmentUrls.resolveUrl(playlistUrl, playlist.initSegmentUri)
                 when {
                     networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
                         val response = suspendCancellableCoroutine { continuation ->
@@ -391,11 +452,17 @@ class VideoDownloadService : LifecycleService() {
                         response.body.size.toLong()
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                            playlist.mapByteRange?.let { range ->
+                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
+                            }
+                        }.build()).executeAsync().use { response ->
+                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
                             if (isShared) {
                                 contentResolver.openOutputStream(fileUri.toUri(), "wa")!!
                             } else {
-                                FileOutputStream(fileUri)
+                                FileOutputStream(fileUri, true)
                             }.use { outputStream ->
                                 response.body.byteStream().use { inputStream ->
                                     inputStream.copyTo(outputStream)
@@ -425,7 +492,7 @@ class VideoDownloadService : LifecycleService() {
         val jobs = segments.drop(downloadProgress.progress).mapIndexed { index, segment ->
             requestSemaphore.acquire()
             launch(Dispatchers.IO) {
-                val url = urlPath + segment.uri
+                val url = KickSegmentUrls.resolveUrl(playlistUrl, segment.uri)
                 when {
                     networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
                         val response = suspendCancellableCoroutine { continuation ->
@@ -496,7 +563,13 @@ class VideoDownloadService : LifecycleService() {
                         }
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                            segment.byteRange?.let { range ->
+                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
+                            }
+                        }.build()).executeAsync().use { response ->
+                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
                             val mutex = Mutex()
                             if (count.value != index) {
                                 mutex.lock()
@@ -506,7 +579,7 @@ class VideoDownloadService : LifecycleService() {
                                 if (isShared) {
                                     contentResolver.openOutputStream(videoFileUri.toUri(), "wa")!!
                                 } else {
-                                    FileOutputStream(videoFileUri)
+                                    FileOutputStream(videoFileUri, true)
                                 }.use { outputStream ->
                                     response.body.byteStream().use { inputStream ->
                                         inputStream.copyTo(outputStream)
@@ -545,7 +618,19 @@ class VideoDownloadService : LifecycleService() {
         chatJob.join()
     }
 
-    private suspend fun downloadPlaylist(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, urlPath: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
+    private suspend fun downloadPlaylist(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, playlistUrl: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
+        // Ranged segments share one URI: give each a unique local file name and
+        // strip ranges for the local playlist (slices are whole files on disk).
+        // Requests keep using the original uri + range further below.
+        val fileSegments = if (segments.any { it.byteRange != null }) {
+            segments.mapIndexed { index, segment ->
+                val base = segment.uri.substringBefore('?').substringAfterLast('/')
+                val ext = base.substringAfterLast('.', "").takeIf { it.isNotEmpty() && it.length <= 4 } ?: "m4s"
+                segment.copy(uri = "seg-$index.$ext", byteRange = null)
+            }
+        } else {
+            segments
+        }
         val isShared = path.toUri().scheme == ContentResolver.SCHEME_CONTENT
         val videoDirectoryName = if (!offlineVideo.videoId.isNullOrBlank()) {
             "${offlineVideo.videoId}${offlineVideo.quality ?: ""}"
@@ -583,14 +668,14 @@ class VideoDownloadService : LifecycleService() {
                 }.use {
                     PlaylistUtils.writeMediaPlaylist(playlist.copy(
                         initSegmentUri = playlist.initSegmentUri?.let { uri -> "$videoDirectoryUri%2F$uri" },
-                        segments = segments.map { segment -> segment.copy(uri = videoDirectoryUri + "%2F" + segment.uri) }
+                        segments = fileSegments.map { segment -> segment.copy(uri = videoDirectoryUri + "%2F" + segment.uri) }
                     ), it)
                 }
                 playlistFileUri
             } else {
                 val playlistFileUri = "$videoDirectoryUri${offlineVideo.downloadDate}.m3u8"
                 FileOutputStream(playlistFileUri).use {
-                    PlaylistUtils.writeMediaPlaylist(playlist.copy(segments = segments), it)
+                    PlaylistUtils.writeMediaPlaylist(playlist.copy(segments = fileSegments), it)
                 }
                 playlistFileUri
             }
@@ -600,7 +685,7 @@ class VideoDownloadService : LifecycleService() {
                 } else {
                     videoDirectoryUri + playlist.initSegmentUri
                 }
-                val url = urlPath + playlist.initSegmentUri
+                val url = KickSegmentUrls.resolveUrl(playlistUrl, playlist.initSegmentUri)
                 when {
                     networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
                         val response = suspendCancellableCoroutine { continuation ->
@@ -659,7 +744,13 @@ class VideoDownloadService : LifecycleService() {
                         }
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                            playlist.mapByteRange?.let { range ->
+                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
+                            }
+                        }.build()).executeAsync().use { response ->
+                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
                             if (isShared) {
                                 try {
                                     contentResolver.openOutputStream(initSegmentFileUri.toUri())!!
@@ -716,13 +807,15 @@ class VideoDownloadService : LifecycleService() {
         val chatJob = launch(Dispatchers.IO) {
             startChatJob(offlineVideo, downloadProgress, path)
         }
-        val jobs = segments.drop(downloadProgress.progress).mapIndexed { index, segment ->
+        val jobs = fileSegments.drop(downloadProgress.progress).mapIndexed { index, fileSegment ->
+            // Position in the full list: requests use the original uri + range.
+            val segment = segments[downloadProgress.progress + index]
             requestSemaphore.acquire()
             launch(Dispatchers.IO) {
                 val fileUri = if (isShared) {
-                    videoDirectoryUri + "%2F" + segment.uri
+                    videoDirectoryUri + "%2F" + fileSegment.uri
                 } else {
-                    videoDirectoryUri + segment.uri
+                    videoDirectoryUri + fileSegment.uri
                 }
                 val exists = if (isShared) {
                     try {
@@ -734,8 +827,8 @@ class VideoDownloadService : LifecycleService() {
                 } else {
                     File(fileUri).exists()
                 }
-                if (!exists || !downloadedSegments.contains(segment.uri)) {
-                    val url = urlPath + segment.uri
+                if (!exists || !downloadedSegments.contains(fileSegment.uri)) {
+                    val url = KickSegmentUrls.resolveUrl(playlistUrl, segment.uri)
                     when {
                         networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
                             val response = suspendCancellableCoroutine { continuation ->
@@ -756,7 +849,7 @@ class VideoDownloadService : LifecycleService() {
                                 try {
                                     contentResolver.openOutputStream(fileUri.toUri())!!
                                 } catch (e: IllegalArgumentException) {
-                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", segment.uri)
+                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
                                     contentResolver.openOutputStream(fileUri.toUri())!!
                                 }
                             } else {
@@ -784,7 +877,7 @@ class VideoDownloadService : LifecycleService() {
                                 try {
                                     contentResolver.openOutputStream(fileUri.toUri())!!
                                 } catch (e: IllegalArgumentException) {
-                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", segment.uri)
+                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
                                     contentResolver.openOutputStream(fileUri.toUri())!!
                                 }
                             } else {
@@ -794,12 +887,18 @@ class VideoDownloadService : LifecycleService() {
                             }
                         }
                         else -> {
-                            okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                            okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                                segment.byteRange?.let { range ->
+                                    range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
+                                }
+                            }.build()).executeAsync().use { response ->
+                                if (!response.isSuccessful) throw SegmentHttpException(response.code)
                                 if (isShared) {
                                     try {
                                         contentResolver.openOutputStream(fileUri.toUri())!!
                                     } catch (e: IllegalArgumentException) {
-                                        DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", segment.uri)
+                                        DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
                                         contentResolver.openOutputStream(fileUri.toUri())!!
                                     }
                                 } else {

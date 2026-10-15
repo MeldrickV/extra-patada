@@ -11,6 +11,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoQuality
+import com.xtra.kick.util.KickSegmentUrls
 import com.xtra.kick.repository.KickDownloadResolver
 import com.xtra.kick.repository.KickRepository
 import com.xtra.kick.repository.PlayerRepository
@@ -227,7 +228,16 @@ class DownloadViewModel(
                         val source = kickDownloads.resolveVideo(videoId, kickChannelLogin)?.source
                         if (!source.isNullOrBlank()) {
                             val master = fetchPlaylistText(source, networkLibrary)
-                            val parsed = master?.let { parseMasterVariants(it) }
+                            val parsed = master?.let { parseMasterVariants(it) }?.map { variant ->
+                                VideoQuality(
+                                    variant.name,
+                                    variant.resolution,
+                                    variant.frameRate,
+                                    variant.bitrate,
+                                    variant.codecs,
+                                    variant.url?.let { KickSegmentUrls.resolveUrl(source, it) },
+                                )
+                            }
                             _qualities.value = if (!parsed.isNullOrEmpty()) {
                                 sortedQualities(parsed)
                             } else {

@@ -10,8 +10,12 @@ object PlaylistUtils {
         val dateRanges = mutableListOf<DateRange>()
         var programDateTime: String? = null
         var initSegmentUri: String? = null
+        var mapByteRange: ByteRange? = null
+        var keyMethod: String? = null
         val segments = mutableListOf<Segment>()
         var segmentInfo: Pair<Float, String?>? = null
+        var pendingRange: ByteRange? = null
+        val rangeEnds = mutableMapOf<String, Long>()
         var end = false
         input.bufferedReader().forEachLine { line ->
             if (line.isNotBlank()) {
@@ -46,6 +50,28 @@ object PlaylistUtils {
                             if (matcher.find()) {
                                 matcher.group(1)?.let { initSegmentUri = it }
                             }
+                            val rangeMatcher = Pattern.compile("BYTERANGE=\"(\\d+)(?:@(\\d+))?\"").matcher(line)
+                            if (rangeMatcher.find()) {
+                                mapByteRange = ByteRange(
+                                    start = rangeMatcher.group(2)?.toLongOrNull(),
+                                    length = rangeMatcher.group(1)?.toLongOrNull() ?: 0L,
+                                )
+                            }
+                        }
+                        line.startsWith("#EXT-X-BYTERANGE") -> {
+                            val matcher = Pattern.compile("#EXT-X-BYTERANGE:(\\d+)(?:@(\\d+))?").matcher(line)
+                            if (matcher.find()) {
+                                pendingRange = ByteRange(
+                                    start = matcher.group(2)?.toLongOrNull(),
+                                    length = matcher.group(1)?.toLongOrNull() ?: 0L,
+                                )
+                            }
+                        }
+                        line.startsWith("#EXT-X-KEY") -> {
+                            val matcher = Pattern.compile("METHOD=([^,]+)").matcher(line)
+                            if (matcher.find()) {
+                                keyMethod = matcher.group(1)?.trim()
+                            }
                         }
                         line.startsWith("#EXTINF") -> {
                             val durationMatcher = Pattern.compile("#EXTINF:([\\d.]+)\\b").matcher(line)
@@ -65,13 +91,19 @@ object PlaylistUtils {
                     }
                 } else {
                     segmentInfo?.let {
-                        segments.add(Segment(line, it.first, it.second, programDateTime))
+                        val range = pendingRange?.let { pending ->
+                            val resolved = pending.start ?: rangeEnds[line] ?: 0L
+                            rangeEnds[line] = resolved + pending.length
+                            ByteRange(resolved, pending.length)
+                        }
+                        pendingRange = null
+                        segments.add(Segment(line, it.first, it.second, programDateTime, range))
                         segmentInfo = null
                     }
                 }
             }
         }
-        return MediaPlaylist(targetDuration, dateRanges, initSegmentUri, segments, end)
+        return MediaPlaylist(targetDuration, dateRanges, initSegmentUri, segments, end, keyMethod, mapByteRange)
     }
 
     fun writeMediaPlaylist(playlist: MediaPlaylist, output: OutputStream) {
@@ -87,9 +119,24 @@ object PlaylistUtils {
             writer.write("#EXT-X-MEDIA-SEQUENCE:0")
             if (playlist.initSegmentUri != null) {
                 writer.newLine()
-                writer.write("#EXT-X-MAP:URI=\"${playlist.initSegmentUri}\"")
+                val mapLine = buildString {
+                    append("#EXT-X-MAP:URI=\"${playlist.initSegmentUri}\"")
+                    playlist.mapByteRange?.let { range ->
+                        append(",BYTERANGE=\"${range.length}")
+                        range.start?.let { append("@$it") }
+                        append("\"")
+                    }
+                }
+                writer.write(mapLine)
             }
             playlist.segments.forEach {
+                it.byteRange?.let { range ->
+                    writer.newLine()
+                    writer.write(buildString {
+                        append("#EXT-X-BYTERANGE:${range.length}")
+                        range.start?.let { append("@$it") }
+                    })
+                }
                 writer.newLine()
                 writer.write("#EXTINF:${it.duration}")
                 writer.newLine()

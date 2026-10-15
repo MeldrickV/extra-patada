@@ -31,15 +31,16 @@ object MasterPlaylist {
                 val inf = pendingInf
                 pendingInf = null
                 if (line.isNotEmpty() && !line.startsWith("#") && line.contains(".m3u8") && inf != null) {
-                    val url = line.takeIf { it.startsWith("https://") } ?: return@forEach
+                    val url = line
+                    val videoName = Regex("VIDEO=\"(.+?)\"").find(inf)?.groups?.get(1)?.value
                     val resolution = Regex("RESOLUTION=(\\d+x\\d+)").find(inf)?.groups?.get(1)?.value
                     val height = resolution?.substringAfter('x')?.toIntOrNull()
                     val frameRate = Regex("FRAME-RATE=([\\d.]+)").find(inf)?.groups?.get(1)?.value?.toFloatOrNull()
                     val bitrate = Regex("BANDWIDTH=(\\d+)").find(inf)?.groups?.get(1)?.value?.toIntOrNull()
                     val codecs = Regex("CODECS=\"(.+?)\"").find(inf)?.groups?.get(1)?.value
                     val base = height?.let { "${it}p" } ?: "source"
-                    val name = if (frameRate != null && frameRate > 30) "$base${frameRate.toInt()}" else base
-                    result.add(VideoQuality(name, height, frameRate, bitrate, codecs, url))
+                    val derived = if (frameRate != null && frameRate > 30) "$base${frameRate.toInt()}" else base
+                    result.add(VideoQuality(videoName ?: derived, height, frameRate, bitrate, codecs, url))
                 }
             }
         }
