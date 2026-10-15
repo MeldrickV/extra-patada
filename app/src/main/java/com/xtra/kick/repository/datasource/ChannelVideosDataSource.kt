@@ -245,6 +245,9 @@ class ChannelVideosDataSource(
                     channelLogin = channelLogin,
                     channelName = channelName,
                     channelImageURL = channelImageURL,
+                    // Keep the pre-enrichment v2 thumbnail: v1 signed URLs carry
+                    // no session path and would blind IVS probing.
+                    legacyThumbnail = item.thumbnail.src,
                 )
             }
         } ?: emptyList()

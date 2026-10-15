@@ -21,6 +21,7 @@ import com.xtra.kick.model.kick.KickSearchChannel
 import com.xtra.kick.model.kick.KickSelfUserResponse
 import com.xtra.kick.model.kick.KickSingleClipResponse
 import com.xtra.kick.model.kick.KickVideoResponse
+import com.xtra.kick.model.kick.findByStart
 import com.xtra.kick.util.C
 import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.KickIvsProbe
@@ -575,6 +576,20 @@ class KickRepository(
         }
         Log.w("KickRepository", "probeIvsMaster missed ${candidates.size} candidates")
         null
+    }
+
+    /**
+     * Reads the v1 `status` flag (`public`/`sub_only`) for a VOD matched by
+     * start time. Used to tell "subscriber-only" apart from generic failures.
+     */
+    suspend fun isSubOnlyVod(channelId: String?, channelLogin: String?, startTime: String?): Boolean = withContext(Dispatchers.IO) {
+        val numericId = channelId?.removePrefix(C.KICK_USER_PREFIX)?.toLongOrNull()?.takeIf { it > 0 }
+            ?: channelLogin?.takeIf { it.isNotBlank() }?.let {
+                runCatching { getChannel(it) }.getOrNull()?.id?.takeIf { id -> id > 0 }
+            }
+            ?: return@withContext false
+        runCatching { getChannelVideosV1(numericId) }.getOrNull()
+            ?.findByStart(startTime)?.status.equals("sub_only", ignoreCase = true)
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {

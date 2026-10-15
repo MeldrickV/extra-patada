@@ -47,6 +47,7 @@ abstract class BasePlaybackService : LifecycleService() {
     var videoOffsetSeconds: Int? = null
     var videoCreatedAt: String? = null
     var videoAnimatedPreviewURL: String? = null
+    var kickLegacyThumbnail: String? = null
     var savedPosition: Long? = null
     var paused = false
     var qualities: List<VideoQuality>? = null
