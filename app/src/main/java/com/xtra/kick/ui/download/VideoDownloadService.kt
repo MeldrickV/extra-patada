@@ -847,9 +847,12 @@ class VideoDownloadService : LifecycleService() {
         val chatJob = launch(Dispatchers.IO) {
             startChatJob(offlineVideo, downloadProgress, path)
         }
-        val jobs = fileSegments.drop(downloadProgress.progress).mapIndexed { index, fileSegment ->
+        // Snapshot the resume offset: progress mutates as jobs complete, so the
+        // post-drop index must anchor to a fixed base (live reads overrun).
+        val baseProgress = downloadProgress.progress
+        val jobs = fileSegments.drop(baseProgress).mapIndexedNotNull { index, fileSegment ->
             // Position in the full list: requests use the original uri + range.
-            val segment = segments[downloadProgress.progress + index]
+            val segment = segments.getOrNull(baseProgress + index) ?: return@mapIndexedNotNull null
             requestSemaphore.acquire()
             launch(Dispatchers.IO) {
                 val fileUri = if (isShared) {
