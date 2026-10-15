@@ -35,6 +35,7 @@ import com.xtra.kick.model.ui.OfflineVideo
 import com.xtra.kick.repository.KickDownloadResolver
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.DownloadUtils
 import com.xtra.kick.util.KickSegmentUrls
 import com.xtra.kick.util.SegmentHttpException
 import com.xtra.kick.util.NetworkUtils
@@ -81,6 +82,36 @@ class VideoDownloadService : LifecycleService() {
     private var notificationManager: NotificationManager? = null
     private lateinit var downloadSemaphore: Semaphore
     private val downloadJobs = mutableMapOf<Int, Job>()
+
+    private var lastProgressNotifyMs = 0L
+    private var speedEmaSegmentsPerSec = 0.0
+    private var lastEmitProgress = -1
+    private var lastEmitTimeMs = 0L
+
+    /**
+     * Forwards progress to the UI immediately but notifies at most once per
+     * second, with an ETA from the smoothed download rate.
+     */
+    private fun emitDownloadProgress(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress) {
+        val now = System.currentTimeMillis()
+        if (lastEmitProgress >= 0 && now > lastEmitTimeMs) {
+            val rate = (downloadProgress.progress - lastEmitProgress) * 1000.0 / (now - lastEmitTimeMs)
+            speedEmaSegmentsPerSec = if (speedEmaSegmentsPerSec <= 0) {
+                rate
+            } else {
+                DownloadUtils.updateEma(speedEmaSegmentsPerSec, rate)
+            }
+        }
+        lastEmitProgress = downloadProgress.progress
+        lastEmitTimeMs = now
+        listener?.update(downloadProgress)
+        if (now - lastProgressNotifyMs >= 1000L) {
+            lastProgressNotifyMs = now
+            val remaining = (downloadProgress.maxProgress - downloadProgress.progress).coerceAtLeast(0)
+            val eta = DownloadUtils.formatEta(remaining, speedEmaSegmentsPerSec)
+            sendNotification(offlineVideo, downloadProgress, eta = eta)
+        }
+    }
     private val offlineVideos = mutableListOf<OfflineVideo>()
     val activeDownloads = mutableListOf<DownloadProgress>()
     var listener: Listener? = null
@@ -452,24 +483,25 @@ class VideoDownloadService : LifecycleService() {
                         response.body.size.toLong()
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
-                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
-                            playlist.mapByteRange?.let { range ->
-                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
-                            }
-                        }.build()).executeAsync().use { response ->
-                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
-                            if (isShared) {
-                                contentResolver.openOutputStream(fileUri.toUri(), "wa")!!
-                            } else {
-                                FileOutputStream(fileUri, true)
-                            }.use { outputStream ->
-                                response.body.byteStream().use { inputStream ->
-                                    inputStream.copyTo(outputStream)
+                        val initBytes = DownloadUtils.retryWithBackoff {
+                            okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                                playlist.mapByteRange?.let { range ->
+                                    range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
                                 }
+                            }.build()).executeAsync().use { response ->
+                                if (!response.isSuccessful) throw SegmentHttpException(response.code)
+                                response.body.bytes()
                             }
-                            response.body.contentLength()
                         }
+                        if (isShared) {
+                            contentResolver.openOutputStream(fileUri.toUri(), "wa")!!
+                        } else {
+                            FileOutputStream(fileUri, true)
+                        }.use {
+                            it.write(initBytes)
+                        }
+                        initBytes.size.toLong()
                     }
                 }
             } else null
@@ -495,18 +527,20 @@ class VideoDownloadService : LifecycleService() {
                 val url = KickSegmentUrls.resolveUrl(playlistUrl, segment.uri)
                 when {
                     networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
-                        val response = suspendCancellableCoroutine { continuation ->
-                            val timeout = NetworkUtils.HttpEngineTimeout(CRONET_TIMEOUT)
-                            val request = xtraModule.httpEngine.value!!.newUrlRequestBuilder(
-                                url,
-                                xtraModule.cronetExecutor.value,
-                                NetworkUtils.ByteArrayUrlCallback(continuation, timeout)
-                            ).build()
-                            timeout.start(request, continuation)
-                            request.start()
-                            continuation.invokeOnCancellation {
-                                request.cancel()
-                                timeout.stop()
+                        val response = DownloadUtils.retryWithBackoff {
+                            suspendCancellableCoroutine { continuation ->
+                                val timeout = NetworkUtils.HttpEngineTimeout(CRONET_TIMEOUT)
+                                val request = xtraModule.httpEngine.value!!.newUrlRequestBuilder(
+                                    url,
+                                    xtraModule.cronetExecutor.value,
+                                    NetworkUtils.ByteArrayUrlCallback(continuation, timeout)
+                                ).build()
+                                timeout.start(request, continuation)
+                                request.start()
+                                continuation.invokeOnCancellation {
+                                    request.cancel()
+                                    timeout.stop()
+                                }
                             }
                         }
                         val mutex = Mutex()
@@ -529,18 +563,20 @@ class VideoDownloadService : LifecycleService() {
                         }
                     }
                     networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
-                        val response = suspendCancellableCoroutine { continuation ->
-                            val timeout = NetworkUtils.CronetTimeout(CRONET_TIMEOUT)
-                            val request = xtraModule.cronetEngine.value!!.newUrlRequestBuilder(
-                                url,
-                                NetworkUtils.ByteArrayCronetCallback(continuation, timeout),
-                                xtraModule.cronetExecutor.value
-                            ).build()
-                            timeout.start(request, continuation)
-                            request.start()
-                            continuation.invokeOnCancellation {
-                                request.cancel()
-                                timeout.stop()
+                        val response = DownloadUtils.retryWithBackoff {
+                            suspendCancellableCoroutine { continuation ->
+                                val timeout = NetworkUtils.CronetTimeout(CRONET_TIMEOUT)
+                                val request = xtraModule.cronetEngine.value!!.newUrlRequestBuilder(
+                                    url,
+                                    NetworkUtils.ByteArrayCronetCallback(continuation, timeout),
+                                    xtraModule.cronetExecutor.value
+                                ).build()
+                                timeout.start(request, continuation)
+                                request.start()
+                                continuation.invokeOnCancellation {
+                                    request.cancel()
+                                    timeout.stop()
+                                }
                             }
                         }
                         val mutex = Mutex()
@@ -563,33 +599,35 @@ class VideoDownloadService : LifecycleService() {
                         }
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
-                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
-                            segment.byteRange?.let { range ->
-                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
-                            }
-                        }.build()).executeAsync().use { response ->
-                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
-                            val mutex = Mutex()
-                            if (count.value != index) {
-                                mutex.lock()
-                                mutexMap[index] = mutex
-                            }
-                            mutex.withLock {
-                                if (isShared) {
-                                    contentResolver.openOutputStream(videoFileUri.toUri(), "wa")!!
-                                } else {
-                                    FileOutputStream(videoFileUri, true)
-                                }.use { outputStream ->
-                                    response.body.byteStream().use { inputStream ->
-                                        inputStream.copyTo(outputStream)
-                                    }
-                                    downloadProgress.bytes += response.body.contentLength()
-                                    downloadProgress.progress += 1
-                                    listener?.update(downloadProgress)
-                                    sendNotification(offlineVideo, downloadProgress)
+                        // Fetch into memory first so a failed attempt can be
+                        // retried without duplicating bytes in the output file.
+                        val body = DownloadUtils.retryWithBackoff {
+                            okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                                segment.byteRange?.let { range ->
+                                    range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
                                 }
+                            }.build()).executeAsync().use { response ->
+                                if (!response.isSuccessful) throw SegmentHttpException(response.code)
+                                response.body.bytes()
                             }
+                        }
+                        val mutex = Mutex()
+                        if (count.value != index) {
+                            mutex.lock()
+                            mutexMap[index] = mutex
+                        }
+                        mutex.withLock {
+                            if (isShared) {
+                                contentResolver.openOutputStream(videoFileUri.toUri(), "wa")!!
+                            } else {
+                                FileOutputStream(videoFileUri, true)
+                            }.use {
+                                it.write(body)
+                            }
+                            downloadProgress.bytes += body.size
+                            downloadProgress.progress += 1
+                            emitDownloadProgress(offlineVideo, downloadProgress)
                         }
                     }
                 }
@@ -744,27 +782,28 @@ class VideoDownloadService : LifecycleService() {
                         }
                     }
                     else -> {
-                        okHttpClient.value.newCall(Request.Builder().url(url).apply {
-                            KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
-                            playlist.mapByteRange?.let { range ->
-                                range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
-                            }
-                        }.build()).executeAsync().use { response ->
-                            if (!response.isSuccessful) throw SegmentHttpException(response.code)
-                            if (isShared) {
-                                try {
-                                    contentResolver.openOutputStream(initSegmentFileUri.toUri())!!
-                                } catch (e: IllegalArgumentException) {
-                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", playlist.initSegmentUri)
-                                    contentResolver.openOutputStream(initSegmentFileUri.toUri())!!
+                        val initBytes = DownloadUtils.retryWithBackoff {
+                            okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                                playlist.mapByteRange?.let { range ->
+                                    range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
                                 }
-                            } else {
-                                FileOutputStream(initSegmentFileUri)
-                            }.use { outputStream ->
-                                response.body.byteStream().use { inputStream ->
-                                    inputStream.copyTo(outputStream)
-                                }
+                            }.build()).executeAsync().use { response ->
+                                if (!response.isSuccessful) throw SegmentHttpException(response.code)
+                                response.body.bytes()
                             }
+                        }
+                        if (isShared) {
+                            try {
+                                contentResolver.openOutputStream(initSegmentFileUri.toUri())!!
+                            } catch (e: IllegalArgumentException) {
+                                DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", playlist.initSegmentUri)
+                                contentResolver.openOutputStream(initSegmentFileUri.toUri())!!
+                            }
+                        } else {
+                            FileOutputStream(initSegmentFileUri)
+                        }.use {
+                            it.write(initBytes)
                         }
                     }
                 }
@@ -831,18 +870,20 @@ class VideoDownloadService : LifecycleService() {
                     val url = KickSegmentUrls.resolveUrl(playlistUrl, segment.uri)
                     when {
                         networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
-                            val response = suspendCancellableCoroutine { continuation ->
-                                val timeout = NetworkUtils.HttpEngineTimeout(CRONET_TIMEOUT)
-                                val request = xtraModule.httpEngine.value!!.newUrlRequestBuilder(
-                                    url,
-                                    xtraModule.cronetExecutor.value,
-                                    NetworkUtils.ByteArrayUrlCallback(continuation, timeout)
-                                ).build()
-                                timeout.start(request, continuation)
-                                request.start()
-                                continuation.invokeOnCancellation {
-                                    request.cancel()
-                                    timeout.stop()
+                            val response = DownloadUtils.retryWithBackoff {
+                                suspendCancellableCoroutine { continuation ->
+                                    val timeout = NetworkUtils.HttpEngineTimeout(CRONET_TIMEOUT)
+                                    val request = xtraModule.httpEngine.value!!.newUrlRequestBuilder(
+                                        url,
+                                        xtraModule.cronetExecutor.value,
+                                        NetworkUtils.ByteArrayUrlCallback(continuation, timeout)
+                                    ).build()
+                                    timeout.start(request, continuation)
+                                    request.start()
+                                    continuation.invokeOnCancellation {
+                                        request.cancel()
+                                        timeout.stop()
+                                    }
                                 }
                             }
                             if (isShared) {
@@ -858,8 +899,9 @@ class VideoDownloadService : LifecycleService() {
                                 it.write(response.body)
                             }
                         }
-                        networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
-                            val response = suspendCancellableCoroutine { continuation ->
+                    networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
+                        val response = DownloadUtils.retryWithBackoff {
+                            suspendCancellableCoroutine { continuation ->
                                 val timeout = NetworkUtils.CronetTimeout(CRONET_TIMEOUT)
                                 val request = xtraModule.cronetEngine.value!!.newUrlRequestBuilder(
                                     url,
@@ -873,6 +915,7 @@ class VideoDownloadService : LifecycleService() {
                                     timeout.stop()
                                 }
                             }
+                        }
                             if (isShared) {
                                 try {
                                     contentResolver.openOutputStream(fileUri.toUri())!!
@@ -887,25 +930,29 @@ class VideoDownloadService : LifecycleService() {
                             }
                         }
                         else -> {
-                            okHttpClient.value.newCall(Request.Builder().url(url).apply {
-                                KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
-                                segment.byteRange?.let { range ->
-                                    range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
-                                }
-                            }.build()).executeAsync().use { response ->
-                                if (!response.isSuccessful) throw SegmentHttpException(response.code)
-                                if (isShared) {
-                                    try {
-                                        contentResolver.openOutputStream(fileUri.toUri())!!
-                                    } catch (e: IllegalArgumentException) {
-                                        DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
-                                        contentResolver.openOutputStream(fileUri.toUri())!!
+                            // Local files truncate on open, so the whole
+                            // fetch-and-write is safe to retry.
+                            DownloadUtils.retryWithBackoff {
+                                okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                                    KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
+                                    segment.byteRange?.let { range ->
+                                        range.start?.let { header("Range", KickSegmentUrls.rangeHeader(it, range.length)) }
                                     }
-                                } else {
-                                    FileOutputStream(fileUri)
-                                }.use { outputStream ->
-                                    response.body.byteStream().use { inputStream ->
-                                        inputStream.copyTo(outputStream)
+                                }.build()).executeAsync().use { response ->
+                                    if (!response.isSuccessful) throw SegmentHttpException(response.code)
+                                    if (isShared) {
+                                        try {
+                                            contentResolver.openOutputStream(fileUri.toUri())!!
+                                        } catch (e: IllegalArgumentException) {
+                                            DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
+                                            contentResolver.openOutputStream(fileUri.toUri())!!
+                                        }
+                                    } else {
+                                        FileOutputStream(fileUri)
+                                    }.use { outputStream ->
+                                        response.body.byteStream().use { inputStream ->
+                                            inputStream.copyTo(outputStream)
+                                        }
                                     }
                                 }
                             }
@@ -919,8 +966,7 @@ class VideoDownloadService : LifecycleService() {
                 }
                 mutex.withLock {
                     downloadProgress.progress += 1
-                    listener?.update(downloadProgress)
-                    sendNotification(offlineVideo, downloadProgress)
+                    emitDownloadProgress(offlineVideo, downloadProgress)
                     val currentTime = System.currentTimeMillis()
                     if (currentTime - downloadProgress.lastSaved >= 5000L) {
                         downloadProgress.lastSaved = currentTime
@@ -1898,7 +1944,7 @@ class VideoDownloadService : LifecycleService() {
         }
     }
 
-    private fun sendNotification(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, paused: Boolean = false) {
+    private fun sendNotification(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, paused: Boolean = false, eta: String? = null) {
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, getString(R.string.notification_downloads_channel_id))
         } else {
@@ -1906,7 +1952,7 @@ class VideoDownloadService : LifecycleService() {
             Notification.Builder(this)
         }.apply {
             setContentTitle(ContextCompat.getString(this@VideoDownloadService, R.string.downloading))
-            setContentText(offlineVideo.name)
+            setContentText(if (eta != null) "${offlineVideo.name} · ETA $eta" else offlineVideo.name)
             setSmallIcon(android.R.drawable.stat_sys_download)
             setGroup(GROUP_KEY)
             setOngoing(true)
