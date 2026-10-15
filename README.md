@@ -93,6 +93,14 @@ toolchain locally.
 - Kick-compatible downloader: absolute-URL resolution, browser headers, `VIDEO=` names, relative variants, `BYTERANGE` ranges, AES rejection, re-mint resume on 401/403, per-segment retry with backoff, throttled progress with ETA.
 - Download UX: estimated sizes per quality, 720p default for Kick, subscriber-only notice, copy-URL handoff for external players.
 
+## Sub-only + download hardening (2026-10, PRs #66–#75)
+
+- Sub-only VODs play: legacy thumbnail kept for IVS probing (v1 signed thumbs blind it), mint retried with v1 ids (old uuids 404), listing fallback probe, `sub_only` status detection.
+- Kick share URLs in video/clip lists (canonical v1 ids), clip downloads no longer crash on null ranges, resume offset snapshotted.
+- Direct mp4 fast path in the download dialog (no full-file probe), Kick qualities with browser headers, live fetched-bytes progress.
+- Watch while downloading: sibling `partial.m3u8` (no ENDLIST) opened for incomplete per-file downloads.
+- Resume reconciles stored progress with files on disk (rewinds stale counters, verified partials); stale-file purge per download plus one-time orphan sweep of unreferenced dirs.
+
 ## License
 
 Xtra for Kick is licensed under the [GNU Affero General Public License v3.0](LICENSE).
