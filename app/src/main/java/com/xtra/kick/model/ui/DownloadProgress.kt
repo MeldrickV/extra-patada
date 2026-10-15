@@ -13,4 +13,6 @@ class DownloadProgress(
     var liveCommentsArrayStarted: Boolean = false,
     var isLive: Boolean = false,
     var lastSaved: Long = 0,
+    /** Bytes fetched in any order (moves with every segment); [bytes] only counts ordered writes. */
+    var fetchedBytes: Long = 0,
 )
