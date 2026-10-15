@@ -658,6 +658,40 @@ class VideoDownloadService : LifecycleService() {
         chatJob.join()
     }
 
+    /**
+     * Rewrites the sibling partial playlist with the contiguously completed
+     * prefix so an in-progress download can already be watched. No ENDLIST:
+     * players treat it as still growing.
+     */
+    private fun writePartialPlaylist(videoDirectoryUri: String, isShared: Boolean, playlist: MediaPlaylist, fileSegments: List<Segment>, completed: Int) {
+        val slice = fileSegments.take(completed.coerceIn(0, fileSegments.size))
+        val mapped = if (isShared) {
+            playlist.copy(
+                initSegmentUri = playlist.initSegmentUri?.let { uri -> "$videoDirectoryUri%2F$uri" },
+                segments = slice.map { segment -> segment.copy(uri = "$videoDirectoryUri%2F${segment.uri}") },
+            )
+        } else {
+            playlist.copy(segments = slice)
+        }
+        runCatching {
+            if (isShared) {
+                val partialUri = "$videoDirectoryUri%2Fpartial.m3u8"
+                try {
+                    contentResolver.openOutputStream(partialUri.toUri())!!
+                } catch (e: IllegalArgumentException) {
+                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", "partial.m3u8")
+                    contentResolver.openOutputStream(partialUri.toUri())!!
+                }.use {
+                    PlaylistUtils.writeMediaPlaylist(mapped, it, endList = false)
+                }
+            } else {
+                FileOutputStream(videoDirectoryUri + "partial.m3u8").use {
+                    PlaylistUtils.writeMediaPlaylist(mapped, it, endList = false)
+                }
+            }
+        }
+    }
+
     private suspend fun downloadPlaylist(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, playlistUrl: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
         // Ranged segments share one URI: give each a unique local file name and
         // strip ranges for the local playlist (slices are whole files on disk).
@@ -822,6 +856,7 @@ class VideoDownloadService : LifecycleService() {
                     it.toUri().scheme == ContentResolver.SCHEME_CONTENT
                             && it.substringBeforeLast("%2F") == videoDirectoryUri
                             && it != playlistFileUri
+                            && !it.endsWith("%2Fpartial.m3u8")
                 }
             }
             playlists.forEach { uri ->
@@ -835,7 +870,7 @@ class VideoDownloadService : LifecycleService() {
                 }
             }
         } else {
-            val playlists = File(videoDirectoryUri).listFiles { it.extension == "m3u8" && it.path != playlistFileUri }
+            val playlists = File(videoDirectoryUri).listFiles { it.extension == "m3u8" && it.path != playlistFileUri && it.name != "partial.m3u8" }
             playlists?.forEach { file ->
                 val p = PlaylistUtils.parseMediaPlaylist(file.inputStream())
                 p.segments.forEach { downloadedSegments.add(it.uri.substringAfterLast("%2F").substringAfterLast("/")) }
@@ -986,6 +1021,7 @@ class VideoDownloadService : LifecycleService() {
                             chatBytes = downloadProgress.chatBytes
                             chatOffsetSeconds = downloadProgress.chatOffsetSeconds
                         })
+                        writePartialPlaylist(videoDirectoryUri, isShared, playlist, fileSegments, downloadProgress.progress)
                     }
                 }
                 count.update { it + 1 }

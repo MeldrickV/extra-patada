@@ -106,7 +106,7 @@ object PlaylistUtils {
         return MediaPlaylist(targetDuration, dateRanges, initSegmentUri, segments, end, keyMethod, mapByteRange)
     }
 
-    fun writeMediaPlaylist(playlist: MediaPlaylist, output: OutputStream) {
+    fun writeMediaPlaylist(playlist: MediaPlaylist, output: OutputStream, endList: Boolean = true) {
         output.bufferedWriter().use { writer ->
             writer.write("#EXTM3U")
             writer.newLine()
@@ -142,8 +142,26 @@ object PlaylistUtils {
                 writer.newLine()
                 writer.write(it.uri)
             }
-            writer.newLine()
-            writer.write("#EXT-X-ENDLIST")
+            if (endList) {
+                writer.newLine()
+                writer.write("#EXT-X-ENDLIST")
+            }
+        }
+    }
+
+    /**
+     * Sibling partial playlist for in-progress per-file downloads: players
+     * open it to watch what's contiguously available while the rest arrives.
+     * Returns null when [playlistUrl] is not a local m3u8.
+     */
+    fun partialPlaylistUriFor(playlistUrl: String): String? {
+        if (playlistUrl.startsWith("http://") || playlistUrl.startsWith("https://")) return null
+        val base = playlistUrl.substringBefore('?')
+        if (!base.endsWith(".m3u8")) return null
+        return if (base.contains("%2F")) {
+            base.substringBeforeLast("%2F") + "%2Fpartial.m3u8"
+        } else {
+            base.substringBeforeLast('/') + "/partial.m3u8"
         }
     }
 }
