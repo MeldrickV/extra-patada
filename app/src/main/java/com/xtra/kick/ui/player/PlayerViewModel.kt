@@ -23,6 +23,7 @@ import com.xtra.kick.repository.LocalChannelFollowsRepository
 import com.xtra.kick.repository.NotificationsRepository
 import com.xtra.kick.repository.PlayerRepository
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickShareUrls
 import com.xtra.kick.util.KickSession
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
@@ -567,11 +568,7 @@ class PlayerViewModel(
     }
 
     suspend fun resolveKickVodWebId(channelId: String?, createdAt: String?): String? {
-        val numericId = channelId?.removePrefix(C.KICK_USER_PREFIX)?.toLongOrNull() ?: return null
-        val epoch = parseKickTimestampMs(createdAt) ?: return null
-        return runCatching { kickSession.repository.getChannelVideosV1(numericId) }.getOrNull()
-            ?.firstOrNull { parseKickTimestampMs(it.startTime) == epoch }
-            ?.id?.takeIf { it.isNotBlank() }
+        return KickShareUrls.resolveVodWebId(kickSession.repository, channelId, createdAt)
     }
 
     fun isFollowingChannel(userId: String?, channelId: String?, channelLogin: String?, setting: Int, networkLibrary: String?, gqlHeaders: Map<String, String>, helixHeaders: Map<String, String>) {        if (_isFollowing.value == null) {
