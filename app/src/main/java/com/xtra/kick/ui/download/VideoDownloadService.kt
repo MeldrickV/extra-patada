@@ -125,6 +125,9 @@ class VideoDownloadService : LifecycleService() {
         super.onCreate()
         xtraModule = (application as XtraApp).xtraModule
         downloadSemaphore = Semaphore(prefs().getInt(C.DOWNLOAD_LIMIT, 2))
+        lifecycleScope.launch(Dispatchers.IO) {
+            sweepOrphanedDownloadDirs()
+        }
     }
 
     private fun start(videoId: Int) {
@@ -741,6 +744,85 @@ class VideoDownloadService : LifecycleService() {
         return count
     }
 
+    private val segmentExtensions = setOf("ts", "m4s", "mp4", "m3u8")
+
+    /**
+     * Deletes dead files inside a per-file download directory: anything
+     * segment-like that the current scheme does not expect (stale full
+     * playlists from duplicate rows, segments under older naming). Shared
+     * storage is skipped.
+     */
+    private fun purgeUnexpectedFiles(videoDirectoryUri: String, isShared: Boolean, expectedNames: Set<String>): Int {
+        if (isShared) return 0
+        var removed = 0
+        runCatching {
+            File(videoDirectoryUri).listFiles()?.forEach { file ->
+                if (!file.isFile) return@forEach
+                val ext = file.extension.lowercase()
+                if (ext in segmentExtensions && file.name !in expectedNames) {
+                    if (file.delete()) removed++
+                }
+            }
+        }
+        return removed
+    }
+
+    /**
+     * One-time per process sweep: deletes download files/directories on plain
+     * storage that no database row references anymore (killed attempts from
+     * older naming schemes, duplicate rows). Chat files, thumbnails and
+     * shared-storage documents are never touched.
+     */
+    private suspend fun sweepOrphanedDownloadDirs() {
+        if (orphanSweepDone) return
+        orphanSweepDone = true
+        runCatching {
+            val rows = xtraModule.offlineVideosRepository.getAllList()
+            val referencedDirs = mutableSetOf<String>()
+            val referencedFiles = mutableSetOf<String>()
+            rows.forEach { row ->
+                row.url?.takeIf { it.isNotBlank() }?.let { url ->
+                    if (!url.startsWith(ContentResolver.SCHEME_CONTENT)) {
+                        val clean = url.substringBefore('?')
+                        if (clean.endsWith(".m3u8")) {
+                            File(clean).parent?.let { referencedDirs.add(it) }
+                        } else {
+                            referencedFiles.add(clean)
+                        }
+                    }
+                }
+                row.chatUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                    if (!url.startsWith(ContentResolver.SCHEME_CONTENT)) {
+                        referencedFiles.add(url.substringBefore('?'))
+                    }
+                }
+            }
+            val roots = (getExternalFilesDirs(".downloads").mapNotNull { it?.absolutePath } +
+                File(filesDir, ".downloads").absolutePath).distinct()
+            var removed = 0
+            var freed = 0L
+            roots.forEach { root ->
+                File(root).listFiles()?.forEach { child ->
+                    val path = child.absolutePath
+                    if (child.isDirectory) {
+                        if (path !in referencedDirs) {
+                            freed += child.walkTopDown().filter { it.isFile }.sumOf { it.length() }
+                            if (child.deleteRecursively()) removed++
+                        }
+                    } else if (path !in referencedFiles && child.extension.lowercase() in segmentExtensions) {
+                        freed += child.length()
+                        if (child.delete()) removed++
+                    }
+                }
+            }
+            if (removed > 0) {
+                Log.i("VideoDownloadService", "orphan sweep: removed $removed entries, freed ${freed / 1024 / 1024} MB")
+            }
+        }.onFailure {
+            Log.w("VideoDownloadService", "orphan sweep failed: ${it.message}")
+        }
+    }
+
     private suspend fun downloadPlaylist(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, networkLibrary: String?, playlistUrl: String, path: String, playlist: MediaPlaylist, segments: List<Segment>) = withContext(Dispatchers.IO) {
         // Ranged segments share one URI: give each a unique local file name and
         // strip ranges for the local playlist (slices are whole files on disk).
@@ -931,6 +1013,18 @@ class VideoDownloadService : LifecycleService() {
         downloadProgress.lastSaved = System.currentTimeMillis()
         val chatJob = launch(Dispatchers.IO) {
             startChatJob(offlineVideo, downloadProgress, path)
+        }
+        // Drop files from dead attempts (older naming, duplicate full
+        // playlists) before reconciling: only the current scheme stays.
+        if (!isShared) {
+            val expectedNames = fileSegments.map { it.uri }.toMutableSet()
+            playlist.initSegmentUri?.let { expectedNames.add(it.substringAfterLast('/')) }
+            expectedNames.add(playlistFileUri.substringAfterLast('/'))
+            expectedNames.add("partial.m3u8")
+            val purged = purgeUnexpectedFiles(videoDirectoryUri, isShared, expectedNames)
+            if (purged > 0) {
+                Log.i("VideoDownloadService", "purged $purged stale files")
+            }
         }
         // Reconcile stored progress with files on disk: stale progress (from
         // crashes or older naming schemes) would otherwise skip segments that
@@ -2224,6 +2318,7 @@ class VideoDownloadService : LifecycleService() {
     companion object {
         private const val CRONET_TIMEOUT = 300_000L
         private const val GROUP_KEY = "com.xtra.kick.DOWNLOADS"
+        private var orphanSweepDone = false
 
         private const val REQUEST_CODE_PAUSE = 0
         private const val REQUEST_CODE_RESUME = 1

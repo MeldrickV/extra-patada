@@ -14,6 +14,9 @@ interface OfflineVideosDao {
     @Query("SELECT * FROM videos ORDER BY id DESC")
     fun getAll(): PagingSource<Int, OfflineVideo>
 
+    @Query("SELECT * FROM videos ORDER BY id DESC")
+    fun getAllList(): List<OfflineVideo>
+
     @Query("SELECT * FROM videos WHERE id = :id")
     fun getById(id: Int): OfflineVideo?
 

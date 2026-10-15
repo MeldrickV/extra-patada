@@ -14,6 +14,10 @@ class OfflineVideosRepository(
 
     fun getAll() = offlineVideosDao.getAll()
 
+    suspend fun getAllList() = withContext(Dispatchers.IO) {
+        offlineVideosDao.getAllList()
+    }
+
     suspend fun getById(id: Int) = withContext(Dispatchers.IO) {
         offlineVideosDao.getById(id)
     }
