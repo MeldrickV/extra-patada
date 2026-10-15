@@ -63,10 +63,22 @@ object DownloadUtils {
     }
 
     fun formatSize(bytes: Long): String {
-        val gb = bytes / 1024.0 / 1024.0 / 1024.0
-        if (gb >= 1) return "${kotlin.math.round(gb * 10) / 10.0} GB"
-        val mb = bytes / 1024.0 / 1024.0
-        if (mb >= 1) return "${kotlin.math.round(mb)} MB"
-        return "${bytes / 1024L} KB"
+        var value = bytes.toDouble() / 1024.0
+        var unit = 0 // 0 = KB, 1 = MB, 2 = GB
+        while (value >= 1024 && unit < 2) {
+            value /= 1024
+            unit++
+        }
+        val number = when (unit) {
+            2 -> String.format(java.util.Locale.US, "%.1f", value)
+            1 -> String.format(java.util.Locale.US, "%.0f", value)
+            else -> value.toLong().toString()
+        }
+        val suffix = when (unit) {
+            2 -> "GB"
+            1 -> "MB"
+            else -> "KB"
+        }
+        return "$number $suffix"
     }
 }
