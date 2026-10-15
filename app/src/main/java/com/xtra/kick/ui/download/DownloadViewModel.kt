@@ -227,21 +227,27 @@ class DownloadViewModel(
                     try {
                         val source = kickDownloads.resolveVideo(videoId, kickChannelLogin)?.source
                         if (!source.isNullOrBlank()) {
-                            val master = fetchPlaylistText(source, networkLibrary)
-                            val parsed = master?.let { parseMasterVariants(it) }?.map { variant ->
-                                VideoQuality(
-                                    variant.name,
-                                    variant.resolution,
-                                    variant.frameRate,
-                                    variant.bitrate,
-                                    variant.codecs,
-                                    variant.url?.let { KickSegmentUrls.resolveUrl(source, it) },
-                                )
-                            }
-                            _qualities.value = if (!parsed.isNullOrEmpty()) {
-                                sortedQualities(parsed)
+                            // Direct files (mp4 clips) are not playlists: opening the
+                            // dialog must not download the whole file as text.
+                            if (!source.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
+                                _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
                             } else {
-                                listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                                val master = fetchPlaylistText(source, networkLibrary)
+                                val parsed = master?.let { parseMasterVariants(it) }?.map { variant ->
+                                    VideoQuality(
+                                        variant.name,
+                                        variant.resolution,
+                                        variant.frameRate,
+                                        variant.bitrate,
+                                        variant.codecs,
+                                        variant.url?.let { KickSegmentUrls.resolveUrl(source, it) },
+                                    )
+                                }
+                                _qualities.value = if (!parsed.isNullOrEmpty()) {
+                                    sortedQualities(parsed)
+                                } else {
+                                    listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
+                                }
                             }
                         } else {
                             if (qualities.isNullOrEmpty()) {
@@ -483,12 +489,16 @@ class DownloadViewModel(
                     try {
                         val url = kickDownloads.resolveClip(clipId)?.url
                         if (!url.isNullOrBlank()) {
-                            val master = fetchPlaylistText(url, networkLibrary)
-                            val parsed = master?.let { parseMasterVariants(it) }
-                            _qualities.value = if (!parsed.isNullOrEmpty()) {
-                                sortedQualities(parsed)
+                            if (!url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
+                                _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
                             } else {
-                                listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
+                                val master = fetchPlaylistText(url, networkLibrary)
+                                val parsed = master?.let { parseMasterVariants(it) }
+                                _qualities.value = if (!parsed.isNullOrEmpty()) {
+                                    sortedQualities(parsed)
+                                } else {
+                                    listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
+                                }
                             }
                         } else {
                             _qualities.value = qualities
