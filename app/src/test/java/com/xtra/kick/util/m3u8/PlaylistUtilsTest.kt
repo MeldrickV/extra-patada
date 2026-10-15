@@ -113,6 +113,77 @@ class PlaylistUtilsTest {
     }
 
     @Test
+    fun `parses byte ranges with explicit and continued offsets`() {
+        val playlist = parse(
+            """
+            #EXTM3U
+            #EXT-X-TARGETDURATION:6
+            #EXT-X-MAP:URI="init.mp4"
+            #EXTINF:6.0,
+            #EXT-X-BYTERANGE:1000@0
+            /video.mp4
+            #EXTINF:6.0,
+            #EXT-X-BYTERANGE:1000
+            /video.mp4
+            #EXTINF:6.0,
+            #EXT-X-BYTERANGE:500@5000
+            /other.mp4
+            """.trimIndent()
+        )
+
+        assertEquals(3, playlist.segments.size)
+        assertEquals(ByteRange(0, 1000), playlist.segments[0].byteRange)
+        assertEquals(ByteRange(1000, 1000), playlist.segments[1].byteRange)
+        assertEquals(ByteRange(5000, 500), playlist.segments[2].byteRange)
+    }
+
+    @Test
+    fun `parses encryption method`() {
+        val encrypted = parse(
+            """
+            #EXTM3U
+            #EXT-X-TARGETDURATION:10
+            #EXT-X-KEY:METHOD=AES-128,URI="https://host/key"
+            #EXTINF:10.0,
+            /seg.ts
+            """.trimIndent()
+        )
+        assertEquals("AES-128", encrypted.keyMethod)
+
+        val plain = parse(
+            """
+            #EXTM3U
+            #EXT-X-TARGETDURATION:10
+            #EXTINF:10.0,
+            /seg.ts
+            """.trimIndent()
+        )
+        assertNull(plain.keyMethod)
+    }
+
+    @Test
+    fun `write then parse round-trips byte ranges`() {
+        val original = MediaPlaylist(
+            targetDuration = 6,
+            dateRanges = emptyList(),
+            initSegmentUri = "init.mp4",
+            segments = listOf(
+                Segment("/video.mp4", 6.0f, null, null, ByteRange(0, 1000)),
+                Segment("/video.mp4", 6.0f, null, null, ByteRange(1000, 1000)),
+            ),
+            end = true,
+        )
+
+        val output = ByteArrayOutputStream()
+        PlaylistUtils.writeMediaPlaylist(original, output)
+        val replayed = parse(output.toString("UTF-8"))
+
+        assertEquals(2, replayed.segments.size)
+        assertEquals(ByteRange(0, 1000), replayed.segments[0].byteRange)
+        assertEquals(ByteRange(1000, 1000), replayed.segments[1].byteRange)
+    }
+
+    @Test
     fun `write then parse round-trips content`() {
         val original = MediaPlaylist(
             targetDuration = 10,

@@ -50,6 +50,25 @@ class MasterPlaylistTest {
     }
 
     @Test
+    fun `prefers video attribute names and keeps relative urls`() {
+        val master = """
+            #EXTM3U
+            #EXT-X-STREAM-INF:BANDWIDTH=8454752,RESOLUTION=1920x1080,FRAME-RATE=60,CODECS="avc1.640028,mp4a.40.2",VIDEO="1080p60"
+            1080p60/master.m3u8
+            #EXT-X-STREAM-INF:BANDWIDTH=2500000,RESOLUTION=1280x720,FRAME-RATE=30,CODECS="avc1.4d401f,mp4a.40.2",VIDEO="720p"
+            720p/master.m3u8
+        """.trimIndent()
+        val variants = MasterPlaylist.parseMasterVariants(master)
+
+        assertEquals(2, variants.size)
+        assertEquals(VideoQuality.SOURCE_QUALITY, variants[0].name)
+        assertEquals("1080p60/master.m3u8", variants[0].url)
+        assertEquals(1080, variants[0].resolution)
+        assertEquals("720p", variants[1].name)
+        assertEquals("720p/master.m3u8", variants[1].url)
+    }
+
+    @Test
     fun `returns empty when no variants`() {
         assertTrue(MasterPlaylist.parseMasterVariants("#EXTM3U\n#EXT-X-ENDLIST").isEmpty())
         assertTrue(MasterPlaylist.parseMasterVariants("").isEmpty())
