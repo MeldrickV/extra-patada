@@ -85,6 +85,14 @@ toolchain locally.
 - Kick-correct sharing: `kick.com` channel/video/clip links with canonical web video ids.
 - Android TV detection (leanback + ui mode) with larger chat text; realtime calls carry the proper platform headers and JSON content type.
 
+## VOD push (2026-10, PRs #60–#64)
+
+- Forward chat replay: first page anchored with `?start_time=` at the playhead, cursor forward, tick emission (75 max) and full invalidation on seek.
+- Signed playback: full player payload mints `playback_url.vod` (cached per VOD), used by both players and downloads with cache-busting.
+- IVS probing fallback for unmintable and subscriber-only VODs (3 bases x minute offsets, HEAD-validated).
+- Kick-compatible downloader: absolute-URL resolution, browser headers, `VIDEO=` names, relative variants, `BYTERANGE` ranges, AES rejection, re-mint resume on 401/403, per-segment retry with backoff, throttled progress with ETA.
+- Download UX: estimated sizes per quality, 720p default for Kick, subscriber-only notice, copy-URL handoff for external players.
+
 ## License
 
 Xtra for Kick is licensed under the [GNU Affero General Public License v3.0](LICENSE).
