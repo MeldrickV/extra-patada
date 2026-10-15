@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -42,6 +43,7 @@ import com.xtra.kick.R
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoQuality
 import com.xtra.kick.model.ui.CustomProxy
+import com.xtra.kick.model.ui.OfflineVideo
 import com.xtra.kick.model.ui.StreamProxy
 import com.xtra.kick.model.ui.Video
 import com.xtra.kick.ui.main.MainActivity
@@ -53,6 +55,7 @@ import com.xtra.kick.util.parseKickTimestampMs
 import com.xtra.kick.util.MediaButtonReceiver
 import com.xtra.kick.util.NetworkUtils
 import com.xtra.kick.util.NetworkUtils.executeAsync
+import com.xtra.kick.util.m3u8.PlaylistUtils
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +71,7 @@ import org.chromium.net.CronetProvider
 import org.chromium.net.QuicOptions
 import org.json.JSONArray
 import org.json.JSONException
+import java.io.File
 import java.io.FileInputStream
 import java.net.InetSocketAddress
 import java.net.Proxy
@@ -504,7 +508,15 @@ class MediaPlayerService : BasePlaybackService() {
                                 setDefaultQuality()
                             }
                             serviceListener?.changePlayerMode()
-                            val url = quality?.url ?: qualities?.firstOrNull()?.url
+                            val url = (quality?.url ?: qualities?.firstOrNull()?.url)?.let { raw ->
+                                // Incomplete per-file downloads open the partial
+                                // playlist: only contiguously available segments.
+                                if (video.status != OfflineVideo.STATUS_DOWNLOADED) {
+                                    PlaylistUtils.partialPlaylistUriFor(raw)?.takeIf { existsLocalUri(it) } ?: raw
+                                } else {
+                                    raw
+                                }
+                            }
                             if (url != null) {
                                 player?.let { player ->
                                     serviceListener?.changeSurfaceVisibility(quality?.name != VideoQuality.AUDIO_ONLY_QUALITY)

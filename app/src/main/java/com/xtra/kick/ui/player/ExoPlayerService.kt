@@ -7,6 +7,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -67,6 +68,7 @@ import com.xtra.kick.BuildConfig
 import com.xtra.kick.R
 import com.xtra.kick.XtraApp
 import com.xtra.kick.model.VideoQuality
+import com.xtra.kick.model.ui.OfflineVideo
 import com.xtra.kick.model.ui.CustomProxy
 import com.xtra.kick.model.ui.StreamProxy
 import com.xtra.kick.model.ui.Video
@@ -98,6 +100,7 @@ import okhttp3.Request
 import org.chromium.net.CronetEngine
 import org.chromium.net.CronetProvider
 import org.chromium.net.QuicOptions
+import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -975,7 +978,15 @@ class ExoPlayerService : BasePlaybackService() {
                                 setDefaultQuality()
                             }
                             serviceListener?.changePlayerMode()
-                            val url = quality?.url ?: qualities?.firstOrNull()?.url
+                            val url = (quality?.url ?: qualities?.firstOrNull()?.url)?.let { raw ->
+                                // Incomplete per-file downloads open the partial
+                                // playlist: only contiguously available segments.
+                                if (video.status != OfflineVideo.STATUS_DOWNLOADED) {
+                                    PlaylistUtils.partialPlaylistUriFor(raw)?.takeIf { existsLocalUri(it) } ?: raw
+                                } else {
+                                    raw
+                                }
+                            }
                             if (url != null) {
                                 player?.let { player ->
                                     if (quality?.name == VideoQuality.AUDIO_ONLY_QUALITY) {

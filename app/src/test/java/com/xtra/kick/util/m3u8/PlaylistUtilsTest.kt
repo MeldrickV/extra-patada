@@ -219,4 +219,42 @@ class PlaylistUtilsTest {
         assertTrue(content.contains("#EXT-X-ENDLIST"))
         assertTrue(content.contains("#EXT-X-PLAYLIST-TYPE:EVENT"))
     }
+
+    @Test
+    fun `write without endlist parses as growing playlist`() {
+        val output = ByteArrayOutputStream()
+        PlaylistUtils.writeMediaPlaylist(
+            MediaPlaylist(
+                10,
+                emptyList(),
+                "init.mp4",
+                listOf(
+                    Segment("/seg1.m4s", 6.0f, null, null),
+                    Segment("/seg2.m4s", 6.0f, null, null),
+                ),
+                end = false,
+            ),
+            output,
+            endList = false,
+        )
+        val content = output.toString("UTF-8")
+        assertFalse(content.contains("#EXT-X-ENDLIST"))
+        val replayed = parse(content)
+        assertEquals(2, replayed.segments.size)
+        assertFalse(replayed.end)
+    }
+
+    @Test
+    fun `partial playlist uri points at sibling partial`() {
+        assertEquals(
+            "/sdcard/x/partial.m3u8",
+            PlaylistUtils.partialPlaylistUriFor("/sdcard/x/12-34.m3u8"),
+        )
+        assertEquals(
+            "content://tree%2Fdir%2Fpartial.m3u8",
+            PlaylistUtils.partialPlaylistUriFor("content://tree%2Fdir%2F12-34.m3u8"),
+        )
+        assertNull(PlaylistUtils.partialPlaylistUriFor("/sdcard/x/clip.mp4"))
+        assertNull(PlaylistUtils.partialPlaylistUriFor("https://host/master.m3u8?token=1"))
+    }
 }

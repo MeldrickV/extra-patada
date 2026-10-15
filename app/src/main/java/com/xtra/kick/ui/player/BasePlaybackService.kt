@@ -1,7 +1,9 @@
 package com.xtra.kick.ui.player
 
+import android.content.ContentResolver
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.xtra.kick.XtraModule
@@ -19,6 +21,7 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlin.math.floor
+import java.io.File
 
 abstract class BasePlaybackService : LifecycleService() {
 
@@ -61,6 +64,20 @@ abstract class BasePlaybackService : LifecycleService() {
     var useStreamProxy = false
     var currentStreamProxy = 0
     var skipAccessToken = false
+
+    /** True when a local playlist/file URI actually exists on disk. */
+    protected fun existsLocalUri(uri: String): Boolean {
+        return try {
+            if (uri.startsWith(ContentResolver.SCHEME_CONTENT)) {
+                contentResolver.openInputStream(uri.toUri())?.close()
+                true
+            } else {
+                File(uri).exists()
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     var chatUrl: String? = null
     var started = false
