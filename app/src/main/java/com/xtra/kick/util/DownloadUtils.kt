@@ -1,0 +1,58 @@
+package com.xtra.kick.util
+
+import kotlinx.coroutines.delay
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * Retry and progress math shared by the download worker.
+ */
+object DownloadUtils {
+
+    /**
+     * Retries transient failures with exponential backoff. Auth failures
+     * (401/403, handled by re-minting outside) and cancellation bypass retry.
+     */
+    suspend fun <T> retryWithBackoff(
+        attempts: Int = 3,
+        initialDelayMs: Long = 1_000,
+        block: suspend (attempt: Int) -> T,
+    ): T {
+        var lastError: Throwable? = null
+        repeat(attempts) { attempt ->
+            try {
+                return block(attempt)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SegmentHttpException) {
+                if (e.code == 401 || e.code == 403) throw e
+                lastError = e
+            } catch (e: Exception) {
+                lastError = e
+            }
+            if (attempt < attempts - 1) {
+                delay(initialDelayMs shl attempt)
+            }
+        }
+        throw lastError ?: IllegalStateException("retry exhausted")
+    }
+
+    fun updateEma(previous: Double, sample: Double, alpha: Double = 0.25): Double {
+        return previous + alpha * (sample - previous)
+    }
+
+    /** Formats an ETA for [remaining] units at [perSecond] units/second. */
+    fun formatEta(remaining: Int, perSecond: Double): String {
+        if (remaining <= 0) return "0:00"
+        if (perSecond <= 0 || !perSecond.isFinite()) return "--:--"
+        var seconds = (remaining / perSecond).toLong()
+        val hours = seconds / 3600
+        seconds %= 3600
+        val minutes = seconds / 60
+        seconds %= 60
+        return if (hours > 0) {
+            "$hours:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
+        } else {
+            "$minutes:${seconds.toString().padStart(2, '0')}"
+        }
+    }
+}
