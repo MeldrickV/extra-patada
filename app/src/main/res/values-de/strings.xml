@@ -592,4 +592,5 @@
     <string name="kick_gifts_week">Woche</string>
     <string name="kick_gifts_month">Monat</string>
     <string name="kick_gifts_empty">Noch keine Geschenke</string>
+    <string name="copy_url_unavailable">Stream-URL ist noch nicht verfügbar.</string>
 </resources>

@@ -592,4 +592,5 @@
     <string name="kick_gifts_week">Неделя</string>
     <string name="kick_gifts_month">Месяц</string>
     <string name="kick_gifts_empty">Пока нет подарков</string>
+    <string name="copy_url_unavailable">URL трансляции пока недоступен.</string>
 </resources>

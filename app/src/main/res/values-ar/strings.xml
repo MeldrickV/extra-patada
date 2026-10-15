@@ -592,4 +592,5 @@
     <string name="kick_gifts_week">أسبوع</string>
     <string name="kick_gifts_month">شهر</string>
     <string name="kick_gifts_empty">لا توجد إسهامات هدايا بعد</string>
+    <string name="copy_url_unavailable">رابط البث غير متوفر بعد.</string>
 </resources>

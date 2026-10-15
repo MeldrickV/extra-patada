@@ -592,4 +592,5 @@
     <string name="kick_gifts_week">週</string>
     <string name="kick_gifts_month">月</string>
     <string name="kick_gifts_empty">まだギフトがありません</string>
+    <string name="copy_url_unavailable">ストリームのURLはまだ利用できません。</string>
 </resources>
