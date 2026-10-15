@@ -169,7 +169,7 @@ class VideoDownloadService : LifecycleService() {
                         sendNotification(offlineVideo, downloadProgress)
                         try {
                             val sourceUrl = offlineVideo.sourceUrl!!
-                            if (sourceUrl.endsWith(".m3u8")) {
+                            if (sourceUrl.substringBefore('?').endsWith(".m3u8")) {
                                 downloadVideo(offlineVideo, downloadProgress, sourceUrl)
                             } else {
                                 downloadClip(offlineVideo, downloadProgress, sourceUrl)
@@ -302,8 +302,9 @@ class VideoDownloadService : LifecycleService() {
     private suspend fun downloadVideoAttempt(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, sourceUrl: String) = withContext(Dispatchers.IO) {
         val networkLibrary = prefs().getString(C.NETWORK_LIBRARY, C.OKHTTP)
         val path = offlineVideo.downloadPath!!
-        val from = offlineVideo.fromTime!!
-        val to = offlineVideo.toTime!!
+        // Clips carry no from/to range: download the whole playlist.
+        val from = offlineVideo.fromTime ?: 0L
+        val to = offlineVideo.toTime ?: Long.MAX_VALUE
         val playlist = when {
             networkLibrary == C.HTTP_ENGINE && xtraModule.httpEngine.value != null -> @SuppressLint("NewApi") {
                 val response = suspendCancellableCoroutine { continuation ->
