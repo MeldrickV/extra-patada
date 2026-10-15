@@ -25,6 +25,7 @@ import com.xtra.kick.ui.channel.ChannelPagerFragmentDirections
 import com.xtra.kick.ui.game.GameMediaFragmentDirections
 import com.xtra.kick.ui.game.GamePagerFragmentDirections
 import com.xtra.kick.ui.main.MainActivity
+import com.xtra.kick.util.KickShareUrls
 import com.xtra.kick.util.C
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
@@ -194,9 +195,14 @@ GamePagerFragmentDirections.actionGlobalGamePagerFragment(
                                 when (it.itemId) {
                                     R.id.download -> showDownloadDialog(item)
                                     R.id.share -> {
+                                        val url = if (item.isKick && !item.channelLogin.isNullOrBlank() && !item.id.isNullOrBlank()) {
+                                            KickShareUrls.clipShareUrl(item.channelLogin!!, item.id!!)
+                                        } else {
+                                            "https://twitch.tv/${item.channelLogin}/clip/${item.id}"
+                                        }
                                         context.startActivity(Intent.createChooser(Intent().apply {
                                             action = Intent.ACTION_SEND
-                                            putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/${item.channelLogin}/clip/${item.id}")
+                                            putExtra(Intent.EXTRA_TEXT, url)
                                             item.title?.let {
                                                 putExtra(Intent.EXTRA_TITLE, it)
                                             }

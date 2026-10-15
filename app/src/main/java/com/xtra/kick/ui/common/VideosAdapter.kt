@@ -7,6 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.widget.PopupMenu
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
@@ -19,6 +20,7 @@ import coil3.request.target
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
 import com.xtra.kick.R
+import com.xtra.kick.XtraApp
 import com.xtra.kick.databinding.FragmentVideosListItemBinding
 import com.xtra.kick.model.VideoPosition
 import com.xtra.kick.model.ui.Bookmark
@@ -28,8 +30,10 @@ import com.xtra.kick.ui.game.GameMediaFragmentDirections
 import com.xtra.kick.ui.game.GamePagerFragmentDirections
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.KickShareUrls
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.prefs
+import kotlinx.coroutines.launch
 import kotlin.time.Instant
 
 class VideosAdapter(
@@ -80,6 +84,18 @@ class VideosAdapter(
         private val showGame: Boolean,
         private val showChannel: Boolean,
     ) : RecyclerView.ViewHolder(binding.root) {
+        private fun shareText(url: String, title: String?) {
+            val context = fragment.requireContext()
+            context.startActivity(Intent.createChooser(Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, url)
+                title?.let {
+                    putExtra(Intent.EXTRA_TITLE, it)
+                }
+                type = "text/plain"
+            }, null))
+        }
+
         fun bind(item: Video?) {
             with(binding) {
                 if (item != null) {
@@ -250,14 +266,15 @@ GamePagerFragmentDirections.actionGlobalGamePagerFragment(
                                     R.id.download -> showDownloadDialog(item)
                                     R.id.bookmark -> saveBookmark(item)
                                     R.id.share -> {
-                                        context.startActivity(Intent.createChooser(Intent().apply {
-                                            action = Intent.ACTION_SEND
-                                            putExtra(Intent.EXTRA_TEXT, "https://twitch.tv/videos/${item.id}")
-                                            item.title?.let {
-                                                putExtra(Intent.EXTRA_TITLE, it)
+                                        if (item.isKick && !item.channelLogin.isNullOrBlank()) {
+                                            fragment.lifecycleScope.launch {
+                                                val repository = (fragment.requireActivity().application as XtraApp).xtraModule.kickRepository
+                                                val webId = KickShareUrls.resolveVodWebId(repository, item.channelId, item.createdAt) ?: item.id
+                                                shareText(KickShareUrls.videoShareUrl(item.channelLogin!!, webId ?: item.id.orEmpty()), item.title)
                                             }
-                                            type = "text/plain"
-                                        }, null))
+                                        } else {
+                                            shareText("https://twitch.tv/videos/${item.id}", item.title)
+                                        }
                                     }
                                     else -> menu.close()
                                 }
