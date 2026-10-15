@@ -55,4 +55,18 @@ object DownloadUtils {
             "$minutes:${seconds.toString().padStart(2, '0')}"
         }
     }
+
+    /** Rough download size for [bitrateBps] over [durationMs], or null when unknown. */
+    fun estimateSizeBytes(bitrateBps: Int?, durationMs: Long): Long? {
+        if (bitrateBps == null || bitrateBps <= 0 || durationMs <= 0) return null
+        return bitrateBps / 8L * (durationMs / 1000L)
+    }
+
+    fun formatSize(bytes: Long): String {
+        val gb = bytes / 1024.0 / 1024.0 / 1024.0
+        if (gb >= 1) return "${kotlin.math.round(gb * 10) / 10.0} GB"
+        val mb = bytes / 1024.0 / 1024.0
+        if (mb >= 1) return "${kotlin.math.round(mb)} MB"
+        return "${bytes / 1024L} KB"
+    }
 }

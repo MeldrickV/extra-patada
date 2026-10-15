@@ -244,10 +244,20 @@ class DownloadViewModel(
                                 listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
                             }
                         } else {
-                            _qualities.value = qualities
+                            if (qualities.isNullOrEmpty()) {
+                                // Unresolvable source (e.g. subscriber-only VOD
+                                // without access): surface the notice via dismiss.
+                                dismiss.value = true
+                            } else {
+                                _qualities.value = qualities
+                            }
                         }
                     } catch (e: Exception) {
-                        _qualities.value = qualities
+                        if (qualities.isNullOrEmpty()) {
+                            dismiss.value = true
+                        } else {
+                            _qualities.value = qualities
+                        }
                     }
                 }
                 return
