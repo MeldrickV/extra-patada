@@ -108,8 +108,8 @@ class VideoDownloadService : LifecycleService() {
         if (now - lastProgressNotifyMs >= 1000L) {
             lastProgressNotifyMs = now
             val remaining = (downloadProgress.maxProgress - downloadProgress.progress).coerceAtLeast(0)
-            val eta = DownloadUtils.formatEta(remaining, speedEmaSegmentsPerSec)
-            sendNotification(offlineVideo, downloadProgress, eta = eta)
+            val detail = "${DownloadUtils.formatSize(downloadProgress.fetchedBytes)} · ETA ${DownloadUtils.formatEta(remaining, speedEmaSegmentsPerSec)}"
+            sendNotification(offlineVideo, downloadProgress, detail = detail)
         }
     }
     private val offlineVideos = mutableListOf<OfflineVideo>()
@@ -544,6 +544,7 @@ class VideoDownloadService : LifecycleService() {
                                 }
                             }
                         }
+                        downloadProgress.fetchedBytes += response.body.size
                         val mutex = Mutex()
                         if (count.value != index) {
                             mutex.lock()
@@ -559,8 +560,7 @@ class VideoDownloadService : LifecycleService() {
                             }
                             downloadProgress.bytes += response.body.size
                             downloadProgress.progress += 1
-                            listener?.update(downloadProgress)
-                            sendNotification(offlineVideo, downloadProgress)
+                            emitDownloadProgress(offlineVideo, downloadProgress)
                         }
                     }
                     networkLibrary == C.CRONET && xtraModule.cronetEngine.value != null -> {
@@ -580,6 +580,7 @@ class VideoDownloadService : LifecycleService() {
                                 }
                             }
                         }
+                        downloadProgress.fetchedBytes += response.body.size
                         val mutex = Mutex()
                         if (count.value != index) {
                             mutex.lock()
@@ -595,8 +596,7 @@ class VideoDownloadService : LifecycleService() {
                             }
                             downloadProgress.bytes += response.body.size
                             downloadProgress.progress += 1
-                            listener?.update(downloadProgress)
-                            sendNotification(offlineVideo, downloadProgress)
+                            emitDownloadProgress(offlineVideo, downloadProgress)
                         }
                     }
                     else -> {
@@ -613,6 +613,7 @@ class VideoDownloadService : LifecycleService() {
                                 response.body.bytes()
                             }
                         }
+                        downloadProgress.fetchedBytes += body.size
                         val mutex = Mutex()
                         if (count.value != index) {
                             mutex.lock()
@@ -890,6 +891,7 @@ class VideoDownloadService : LifecycleService() {
                                     }
                                 }
                             }
+                            downloadProgress.fetchedBytes += response.body.size
                             if (isShared) {
                                 try {
                                     contentResolver.openOutputStream(fileUri.toUri())!!
@@ -920,7 +922,8 @@ class VideoDownloadService : LifecycleService() {
                                 }
                             }
                         }
-                            if (isShared) {
+                        downloadProgress.fetchedBytes += response.body.size
+                        if (isShared) {
                                 try {
                                     contentResolver.openOutputStream(fileUri.toUri())!!
                                 } catch (e: IllegalArgumentException) {
@@ -934,9 +937,9 @@ class VideoDownloadService : LifecycleService() {
                             }
                         }
                         else -> {
-                            // Local files truncate on open, so the whole
-                            // fetch-and-write is safe to retry.
-                            DownloadUtils.retryWithBackoff {
+                            // Fetch into memory first: exact byte count for live
+                            // progress, and retries never duplicate bytes on disk.
+                            val body = DownloadUtils.retryWithBackoff {
                                 okHttpClient.value.newCall(Request.Builder().url(url).apply {
                                     KickSegmentUrls.segmentHeaders().forEach { (key, value) -> header(key, value) }
                                     segment.byteRange?.let { range ->
@@ -944,21 +947,21 @@ class VideoDownloadService : LifecycleService() {
                                     }
                                 }.build()).executeAsync().use { response ->
                                     if (!response.isSuccessful) throw SegmentHttpException(response.code)
-                                    if (isShared) {
-                                        try {
-                                            contentResolver.openOutputStream(fileUri.toUri())!!
-                                        } catch (e: IllegalArgumentException) {
-                                            DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
-                                            contentResolver.openOutputStream(fileUri.toUri())!!
-                                        }
-                                    } else {
-                                        FileOutputStream(fileUri)
-                                    }.use { outputStream ->
-                                        response.body.byteStream().use { inputStream ->
-                                            inputStream.copyTo(outputStream)
-                                        }
-                                    }
+                                    response.body.bytes()
                                 }
+                            }
+                            downloadProgress.fetchedBytes += body.size
+                            if (isShared) {
+                                try {
+                                    contentResolver.openOutputStream(fileUri.toUri())!!
+                                } catch (e: IllegalArgumentException) {
+                                    DocumentsContract.createDocument(contentResolver, videoDirectoryUri.toUri(), "", fileSegment.uri)
+                                    contentResolver.openOutputStream(fileUri.toUri())!!
+                                }
+                            } else {
+                                FileOutputStream(fileUri)
+                            }.use {
+                                it.write(body)
                             }
                         }
                     }
@@ -1948,7 +1951,7 @@ class VideoDownloadService : LifecycleService() {
         }
     }
 
-    private fun sendNotification(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, paused: Boolean = false, eta: String? = null) {
+    private fun sendNotification(offlineVideo: OfflineVideo, downloadProgress: DownloadProgress, paused: Boolean = false, detail: String? = null) {
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, getString(R.string.notification_downloads_channel_id))
         } else {
@@ -1956,7 +1959,7 @@ class VideoDownloadService : LifecycleService() {
             Notification.Builder(this)
         }.apply {
             setContentTitle(ContextCompat.getString(this@VideoDownloadService, R.string.downloading))
-            setContentText(if (eta != null) "${offlineVideo.name} · ETA $eta" else offlineVideo.name)
+            setContentText(if (detail != null) "${offlineVideo.name} · $detail" else offlineVideo.name)
             setSmallIcon(android.R.drawable.stat_sys_download)
             setGroup(GROUP_KEY)
             setOngoing(true)

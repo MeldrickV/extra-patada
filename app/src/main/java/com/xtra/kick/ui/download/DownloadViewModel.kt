@@ -57,7 +57,7 @@ class DownloadViewModel(
     private val kickDownloads = KickDownloadResolver(kickRepository)
 
     @SuppressLint("NewApi")
-    private suspend fun fetchPlaylistText(url: String, networkLibrary: String?): String? = withContext(Dispatchers.IO) {
+    private suspend fun fetchPlaylistText(url: String, networkLibrary: String?, headers: Map<String, String> = emptyMap()): String? = withContext(Dispatchers.IO) {
         when {
             networkLibrary == C.HTTP_ENGINE && httpEngine.value != null -> {
                 val response = suspendCancellableCoroutine { continuation ->
@@ -98,7 +98,9 @@ class DownloadViewModel(
                 } else null
             }
             else -> {
-                okHttpClient.value.newCall(Request.Builder().url(url).build()).executeAsync().use { response ->
+                okHttpClient.value.newCall(Request.Builder().url(url).apply {
+                    headers.forEach { (key, value) -> header(key, value) }
+                }.build()).executeAsync().use { response ->
                     if (response.isSuccessful) {
                         response.body.string()
                     } else null
@@ -232,7 +234,7 @@ class DownloadViewModel(
                             if (!source.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
                                 _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = source))
                             } else {
-                                val master = fetchPlaylistText(source, networkLibrary)
+                                val master = fetchPlaylistText(source, networkLibrary, KickSegmentUrls.segmentHeaders())
                                 val parsed = master?.let { parseMasterVariants(it) }?.map { variant ->
                                     VideoQuality(
                                         variant.name,
@@ -492,7 +494,7 @@ class DownloadViewModel(
                             if (!url.substringBefore('?').endsWith(".m3u8", ignoreCase = true)) {
                                 _qualities.value = listOf(VideoQuality(VideoQuality.SOURCE_QUALITY, url = url))
                             } else {
-                                val master = fetchPlaylistText(url, networkLibrary)
+                                val master = fetchPlaylistText(url, networkLibrary, KickSegmentUrls.segmentHeaders())
                                 val parsed = master?.let { parseMasterVariants(it) }
                                 _qualities.value = if (!parsed.isNullOrEmpty()) {
                                     sortedQualities(parsed)
