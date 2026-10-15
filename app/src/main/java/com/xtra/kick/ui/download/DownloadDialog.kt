@@ -3,6 +3,9 @@ package com.xtra.kick.ui.download
 import android.Manifest
 import android.app.Activity
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -36,6 +39,7 @@ import com.xtra.kick.ui.common.IntegrityDialog
 import com.xtra.kick.ui.download.DownloadViewModel.Companion.DownloadViewModelFactory
 import com.xtra.kick.ui.main.MainActivity
 import com.xtra.kick.util.C
+import com.xtra.kick.util.DownloadUtils
 import com.xtra.kick.util.TwitchApiHelper
 import com.xtra.kick.util.getAlertDialogBuilder
 import com.xtra.kick.util.prefs
@@ -169,11 +173,13 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
     private val viewModel: DownloadViewModel by viewModels { DownloadViewModelFactory }
     private var sharedPath: String? = null
     private var directoryResultLauncher: ActivityResultLauncher<Intent>? = null
+    private var qualityOptions: List<Pair<String?, VideoQuality>> = emptyList()
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogVideoDownloadBinding.inflate(layoutInflater)
         val builder = requireContext().getAlertDialogBuilder()
             .setView(binding.root)
+            .setNeutralButton(R.string.copy_clip) { _, _ -> copySelectedQualityUrl() }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.integrity.collect {
@@ -328,6 +334,18 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
         return requireArguments().getString(KEY_CHANNEL_ID)?.startsWith("user_") == true
     }
 
+    /** Copies the selected quality's stream URL for external players. */
+    private fun copySelectedQualityUrl() {
+        val url = qualityOptions.find { it.first == binding.spinner.editText?.text.toString() }?.second?.url
+        if (url.isNullOrBlank()) {
+            Toast.makeText(requireContext(), R.string.copy_url_unavailable, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("stream_url", url))
+        Toast.makeText(requireContext(), R.string.copy_clip, Toast.LENGTH_SHORT).show()
+    }
+
     private fun init(qualities: List<VideoQuality>, totalDuration: Long = 0, currentPosition: Long = 0) {
         val type = requireArguments().getString(KEY_TYPE)
         binding.layout.children.forEach {
@@ -358,7 +376,7 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
             }
             val qualityMap = mutableListOf<Pair<String?, VideoQuality>>()
             qualities.forEach { quality ->
-                val name = when (quality.name) {
+                val qualityName = when (quality.name) {
                     VideoQuality.SOURCE_QUALITY -> getString(R.string.source)
                     VideoQuality.AUDIO_ONLY_QUALITY -> getString(R.string.audio_only)
                     else -> {
@@ -382,16 +400,27 @@ class DownloadDialog : DialogFragment(), IntegrityDialog.Listener {
                         }
                     }
                 }
+                val sizeSuffix = if (totalDuration > 0) {
+                    DownloadUtils.estimateSizeBytes(quality.bitrate, totalDuration)?.let { " ~${DownloadUtils.formatSize(it)}" }.orEmpty()
+                } else {
+                    ""
+                }
+                val displayName = "$qualityName$sizeSuffix"
                 qualityMap.add(
-                    if (qualityMap.find { it.first == name } != null) {
-                        "$name ${quality.bitrate?.div(1000)} Kbps"
+                    if (qualityMap.find { it.first == displayName } != null) {
+                        "$displayName ${quality.bitrate?.div(1000)} Kbps"
                     } else {
-                        name
+                        displayName
                     } to quality
                 )
             }
+            qualityOptions = qualityMap
             (spinner.editText as? MaterialAutoCompleteTextView)?.apply {
                 val array = qualityMap.map { it.first }.toTypedArray()
+                if (isKickDownload() && viewModel.selectedQuality == null) {
+                    viewModel.selectedQuality = qualityMap.firstOrNull { it.second.resolution == 720 }?.first
+                        ?: qualityMap.firstOrNull { it.first?.startsWith("720") == true }?.first
+                }
                 val selectedQuality = viewModel.selectedQuality ?: array.first()
                 setSimpleItems(array)
                 setText(selectedQuality, false)

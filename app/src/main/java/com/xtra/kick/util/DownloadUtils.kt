@@ -55,4 +55,30 @@ object DownloadUtils {
             "$minutes:${seconds.toString().padStart(2, '0')}"
         }
     }
+
+    /** Rough download size for [bitrateBps] over [durationMs], or null when unknown. */
+    fun estimateSizeBytes(bitrateBps: Int?, durationMs: Long): Long? {
+        if (bitrateBps == null || bitrateBps <= 0 || durationMs <= 0) return null
+        return bitrateBps / 8L * (durationMs / 1000L)
+    }
+
+    fun formatSize(bytes: Long): String {
+        var value = bytes.toDouble() / 1024.0
+        var unit = 0 // 0 = KB, 1 = MB, 2 = GB
+        while (value >= 1024 && unit < 2) {
+            value /= 1024
+            unit++
+        }
+        val number = when (unit) {
+            2 -> String.format(java.util.Locale.US, "%.1f", value)
+            1 -> String.format(java.util.Locale.US, "%.0f", value)
+            else -> value.toLong().toString()
+        }
+        val suffix = when (unit) {
+            2 -> "GB"
+            1 -> "MB"
+            else -> "KB"
+        }
+        return "$number $suffix"
+    }
 }

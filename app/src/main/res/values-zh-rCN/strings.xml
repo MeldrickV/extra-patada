@@ -592,4 +592,5 @@
     <string name="kick_gifts_week">周</string>
     <string name="kick_gifts_month">月</string>
     <string name="kick_gifts_empty">暂无礼物</string>
+    <string name="copy_url_unavailable">串流网址尚未可用。</string>
 </resources>

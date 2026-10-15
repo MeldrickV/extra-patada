@@ -87,4 +87,20 @@ class DownloadUtilsTest {
     fun `eta handles fractional rates`() {
         assertTrue(DownloadUtils.formatEta(7, 2.0) == "0:03")
     }
+
+    @Test
+    fun `estimates size from bitrate and duration`() {
+        // 8 Mbps for 3h.
+        assertEquals(10_800_000_000L, DownloadUtils.estimateSizeBytes(8_000_000, 3 * 3_600_000L))
+        assertEquals(null, DownloadUtils.estimateSizeBytes(null, 1000L))
+        assertEquals(null, DownloadUtils.estimateSizeBytes(0, 1000L))
+        assertEquals(null, DownloadUtils.estimateSizeBytes(1000, 0L))
+    }
+
+    @Test
+    fun `formats sizes`() {
+        assertEquals("11.3 GB", DownloadUtils.formatSize(12_100_000_000L))
+        assertEquals("720p estimate", "690 MB", DownloadUtils.formatSize(723_517_440L))
+        assertEquals("12 KB", DownloadUtils.formatSize(12_288L))
+    }
 }
