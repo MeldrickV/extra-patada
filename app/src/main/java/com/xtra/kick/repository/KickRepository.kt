@@ -27,6 +27,7 @@ import com.xtra.kick.util.KickApiHelper
 import com.xtra.kick.util.KickIvsProbe
 import com.xtra.kick.util.KickPlaybackMint
 import com.xtra.kick.util.NetworkUtils.executeAsync
+import com.xtra.kick.util.parseKickTimestampMs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -590,6 +591,41 @@ class KickRepository(
             ?: return@withContext false
         runCatching { getChannelVideosV1(numericId) }.getOrNull()
             ?.findByStart(startTime)?.status.equals("sub_only", ignoreCase = true)
+    }
+
+    /**
+     * Maps a v2 uuid to the current v1 video id via start-time matching.
+     * The mint endpoint only knows new-format ids (old uuids answer 404).
+     */
+    suspend fun resolveV1VideoId(videoUuid: String, channelLogin: String?): String? = withContext(Dispatchers.IO) {
+        val login = channelLogin?.takeIf { it.isNotBlank() } ?: return@withContext null
+        val match = runCatching { getChannelVideos(login) }.getOrNull()
+            ?.firstOrNull { it.video?.uuid == videoUuid } ?: return@withContext null
+        getV1IdForMatch(match.channelId, login, match.startTime)
+    }
+
+    /** v1 id for a listing entry, matched by recording start time. */
+    suspend fun getV1IdForMatch(channelNumericId: Long, channelLogin: String?, startTime: String?): String? = withContext(Dispatchers.IO) {
+        val numericId = channelNumericId.takeIf { it > 0 }
+            ?: channelLogin?.takeIf { it.isNotBlank() }?.let {
+                runCatching { getChannel(it) }.getOrNull()?.id?.takeIf { id -> id > 0 }
+            }
+            ?: return@withContext null
+        runCatching { getChannelVideosV1(numericId) }.getOrNull()
+            ?.findByStart(startTime)?.id?.takeIf { it.isNotBlank() }
+    }
+
+    /**
+     * Probes IVS using the listing's legacy thumbnail. Covers entry points
+     * whose display thumbs are signed v1 URLs without a session path
+     * (search, history, shares).
+     */
+    suspend fun probeIvsFromListing(videoUuid: String, channelLogin: String?): String? = withContext(Dispatchers.IO) {
+        val login = channelLogin?.takeIf { it.isNotBlank() } ?: return@withContext null
+        val match = runCatching { getChannelVideos(login) }.getOrNull()
+            ?.firstOrNull { it.video?.uuid == videoUuid } ?: return@withContext null
+        val startMs = match.startTime?.let { parseKickTimestampMs(it) }
+        probeIvsMaster(match.thumbnail.src, startMs)
     }
 
     private suspend fun postOAuthForm(path: String, form: FormBody): KickOAuthTokenResponse = withContext(Dispatchers.IO) {
